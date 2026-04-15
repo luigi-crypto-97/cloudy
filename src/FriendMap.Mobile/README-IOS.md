@@ -26,13 +26,36 @@ La pagina mappa usa `Microsoft.Maui.Controls.Maps` con:
 
 ## Build
 
-Richiede workload iOS MAUI:
+Richiede Xcode completo e workload iOS MAUI. Le sole Command Line Tools non
+bastano.
+
+Verifica:
+
+```bash
+xcode-select -p
+```
+
+Deve puntare a:
+
+```text
+/Applications/Xcode.app/Contents/Developer
+```
+
+Se punta a `/Library/Developer/CommandLineTools`, correggi con:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+sudo xcodebuild -runFirstLaunch
+```
+
+Poi ripristina il workload:
 
 ```bash
 dotnet workload restore src/FriendMap.Mobile/FriendMap.Mobile.csproj
 ```
 
-Poi:
+Build:
 
 ```bash
 dotnet build src/FriendMap.Mobile/FriendMap.Mobile.csproj -f net8.0-ios
