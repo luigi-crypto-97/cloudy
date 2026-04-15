@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: friendmap-postgres
+    environment:
+      POSTGRES_DB: friendmap
+      POSTGRES_USER: friendmap
+      POSTGRES_PASSWORD: friendmap_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
+
+  redis:
+    image: redis:7
+    container_name: friendmap-redis
+    ports:
+      - "6379:6379"
+
+  api:
+    image: mcr.microsoft.com/dotnet/aspnet:8.0
+    container_name: friendmap-api
+    working_dir: /app
+    volumes:
+      - ../src/FriendMap.Api:/app
+    command: ["dotnet", "run", "--urls", "http://0.0.0.0:8080"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=friendmap;Username=friendmap;Password=friendmap_dev
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
