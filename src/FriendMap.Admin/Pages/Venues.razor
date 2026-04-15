@@ -1,4 +1,179 @@
 @page "/venues"
+@inject IHttpClientFactory HttpClientFactory
 
 <h1>Venue</h1>
-<p>TODO: claim, feature flag, density override manuale, QA venue card.</p>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+<section class="toolbar">
+    <input placeholder="Cerca venue" @bind="_query" @bind:event="oninput" />
+    <button @onclick="LoadAsync">Cerca</button>
+    <button @onclick="NewVenue">Nuova venue</button>
+</section>
+
+<section class="split">
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Categoria</th>
+                <th>Citta</th>
+                <th>Stato</th>
+                <th>Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var venue in _venues)
+            {
+                <tr>
+                    <td>@venue.Name</td>
+                    <td>@venue.Category</td>
+                    <td>@venue.City</td>
+                    <td>@venue.VisibilityStatus</td>
+                    <td>
+                        <button @onclick="() => EditVenue(venue)">Modifica</button>
+                        <button class="danger" @onclick="() => DeleteAsync(venue.Id)">Elimina</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="panel">
+        <h2>@(_edit.Id is null ? "Nuova venue" : "Modifica venue")</h2>
+
+        <label>External provider ID</label>
+        <input @bind="_edit.ExternalProviderId" />
+
+        <label>Nome</label>
+        <input @bind="_edit.Name" />
+
+        <label>Categoria</label>
+        <input @bind="_edit.Category" />
+
+        <label>Indirizzo</label>
+        <input @bind="_edit.AddressLine" />
+
+        <label>Citta</label>
+        <input @bind="_edit.City" />
+
+        <label>Paese</label>
+        <input @bind="_edit.CountryCode" />
+
+        <label>Latitudine</label>
+        <input type="number" step="0.000001" @bind="_edit.Latitude" />
+
+        <label>Longitudine</label>
+        <input type="number" step="0.000001" @bind="_edit.Longitude" />
+
+        <label class="check">
+            <input type="checkbox" @bind="_edit.IsClaimed" />
+            Claimed
+        </label>
+
+        <label>Visibilita</label>
+        <select @bind="_edit.VisibilityStatus">
+            <option value="public">public</option>
+            <option value="hidden">hidden</option>
+            <option value="review">review</option>
+        </select>
+
+        <button disabled="@_isSaving" @onclick="SaveAsync">Salva</button>
+    </div>
+</section>
+
+@code {
+    private readonly List<AdminVenueDto> _venues = new();
+    private VenueEditModel _edit = new();
+    private string? _query;
+    private string? _error;
+    private bool _isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var path = string.IsNullOrWhiteSpace(_query)
+                ? "api/admin/venues"
+                : $"api/admin/venues?q={Uri.EscapeDataString(_query)}";
+            var venues = await client.GetFromJsonAsync<List<AdminVenueDto>>(path);
+            _venues.Clear();
+            _venues.AddRange(venues ?? new List<AdminVenueDto>());
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile caricare le venue: {ex.Message}";
+        }
+    }
+
+    private void NewVenue()
+    {
+        _edit = new VenueEditModel
+        {
+            ExternalProviderId = $"manual-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}"
+        };
+    }
+
+    private void EditVenue(AdminVenueDto venue)
+    {
+        _edit = VenueEditModel.FromDto(venue);
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        _error = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            HttpResponseMessage response;
+            if (_edit.Id is Guid id)
+            {
+                response = await client.PutAsJsonAsync($"api/admin/venues/{id}", _edit);
+            }
+            else
+            {
+                response = await client.PostAsJsonAsync("api/admin/venues", _edit);
+            }
+
+            response.EnsureSuccessStatusCode();
+            await LoadAsync();
+            NewVenue();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile salvare la venue: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.DeleteAsync($"api/admin/venues/{id}");
+            response.EnsureSuccessStatusCode();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile eliminare la venue: {ex.Message}";
+        }
+    }
+}

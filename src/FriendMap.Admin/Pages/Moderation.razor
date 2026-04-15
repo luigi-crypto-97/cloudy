@@ -1,22 +1,111 @@
 @page "/moderation"
+@inject IHttpClientFactory HttpClientFactory
 
 <h1>Moderazione</h1>
 
+@if (_isLoading)
+{
+    <p class="muted">Caricamento coda...</p>
+}
+else if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+else if (_queue.Count == 0)
+{
+    <p class="muted">Nessun report aperto.</p>
+}
+else
+{
 <table class="grid">
     <thead>
         <tr>
             <th>Report</th>
             <th>Motivo</th>
             <th>Stato</th>
+            <th>Creato</th>
+            <th>Target</th>
             <th>Azioni</th>
         </tr>
     </thead>
     <tbody>
-        <tr>
-            <td>demo-report-1</td>
-            <td>harassment</td>
-            <td>open</td>
-            <td><button>Risolvi</button></td>
-        </tr>
+        @foreach (var item in _queue)
+        {
+            <tr>
+                <td><code>@item.ReportId</code></td>
+                <td>@item.ReasonCode</td>
+                <td>@item.Status</td>
+                <td>@item.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                <td>@ResolveTarget(item)</td>
+                <td>
+                    <button disabled="@_isResolving" @onclick="() => ResolveAsync(item.ReportId)">Risolvi</button>
+                </td>
+            </tr>
+        }
     </tbody>
 </table>
+}
+
+@code {
+    private readonly List<ModerationQueueItemDto> _queue = new();
+    private bool _isLoading = true;
+    private bool _isResolving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var queue = await client.GetFromJsonAsync<List<ModerationQueueItemDto>>("api/admin/moderation/queue");
+            _queue.Clear();
+            _queue.AddRange(queue ?? new List<ModerationQueueItemDto>());
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile caricare la coda moderazione: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ResolveAsync(Guid reportId)
+    {
+        _isResolving = true;
+        _error = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.PostAsync($"api/admin/moderation/{reportId}/resolve", null);
+            response.EnsureSuccessStatusCode();
+            _queue.RemoveAll(x => x.ReportId == reportId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile risolvere il report: {ex.Message}";
+        }
+        finally
+        {
+            _isResolving = false;
+        }
+    }
+
+    private static string ResolveTarget(ModerationQueueItemDto item)
+    {
+        if (item.ReportedUserId is not null) return $"Utente {item.ReportedUserId}";
+        if (item.ReportedVenueId is not null) return $"Venue {item.ReportedVenueId}";
+        if (item.ReportedSocialTableId is not null) return $"Tavolo {item.ReportedSocialTableId}";
+        return "N/D";
+    }
+}

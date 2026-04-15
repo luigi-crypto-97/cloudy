@@ -20,8 +20,20 @@ public class AffluenceAggregationService
 
     public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(double minLat, double minLng, double maxLat, double maxLng, CancellationToken ct)
     {
-        // TODO: applicare filtro spaziale vero con PostGIS/ST_Intersects.
+        var south = Math.Min(minLat, maxLat);
+        var north = Math.Max(minLat, maxLat);
+        var west = Math.Min(minLng, maxLng);
+        var east = Math.Max(minLng, maxLng);
+
         var venues = await _db.Venues
+            .FromSqlInterpolated($"""
+                SELECT *
+                FROM venues
+                WHERE visibility_status = 'public'
+                  AND location IS NOT NULL
+                  AND ST_Intersects(location, ST_MakeEnvelope({west}, {south}, {east}, {north}, 4326)::geography)
+                ORDER BY name
+                """)
             .Take(200)
             .ToListAsync(ct);
 

@@ -11,9 +11,12 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder
-            .UseMauiApp<App>();
+            .UseMauiApp<App>()
+            .UseMauiMaps();
 
         builder.Services.AddSingleton<ApiClient>();
+        builder.Services.AddSingleton<LoginViewModel>();
+        builder.Services.AddSingleton<LoginPage>();
         builder.Services.AddSingleton<MainMapViewModel>();
         builder.Services.AddSingleton<MainMapPage>();
 

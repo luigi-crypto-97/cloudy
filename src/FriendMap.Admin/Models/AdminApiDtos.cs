@@ -1,0 +1,63 @@
+namespace FriendMap.Admin.Models;
+
+public record DashboardOverviewDto(
+    int ActiveUsers24h,
+    int CheckInsActive,
+    int IntentionsActive,
+    int OpenReports,
+    int ActiveTables);
+
+public record ModerationQueueItemDto(
+    Guid ReportId,
+    DateTimeOffset CreatedAtUtc,
+    string ReasonCode,
+    string Status,
+    Guid? ReportedUserId,
+    Guid? ReportedVenueId,
+    Guid? ReportedSocialTableId);
+
+public record AdminVenueDto(
+    Guid Id,
+    string ExternalProviderId,
+    string Name,
+    string Category,
+    string AddressLine,
+    string City,
+    string CountryCode,
+    double? Latitude,
+    double? Longitude,
+    bool IsClaimed,
+    string VisibilityStatus);
+
+public class VenueEditModel
+{
+    public Guid? Id { get; set; }
+    public string ExternalProviderId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Category { get; set; } = "bar";
+    public string AddressLine { get; set; } = string.Empty;
+    public string City { get; set; } = "Milano";
+    public string CountryCode { get; set; } = "IT";
+    public double Latitude { get; set; } = 45.4642;
+    public double Longitude { get; set; } = 9.1900;
+    public bool IsClaimed { get; set; }
+    public string VisibilityStatus { get; set; } = "public";
+
+    public static VenueEditModel FromDto(AdminVenueDto dto)
+    {
+        return new VenueEditModel
+        {
+            Id = dto.Id,
+            ExternalProviderId = dto.ExternalProviderId,
+            Name = dto.Name,
+            Category = dto.Category,
+            AddressLine = dto.AddressLine,
+            City = dto.City,
+            CountryCode = dto.CountryCode,
+            Latitude = dto.Latitude ?? 45.4642,
+            Longitude = dto.Longitude ?? 9.1900,
+            IsClaimed = dto.IsClaimed,
+            VisibilityStatus = dto.VisibilityStatus
+        };
+    }
+}

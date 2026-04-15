@@ -25,6 +25,31 @@ public record VenueDetailsDto(
     IEnumerable<SocialTableDto> UpcomingTables,
     IEnumerable<IntentionCountDto> IntentionWindows);
 
+public record AdminVenueDto(
+    Guid Id,
+    string ExternalProviderId,
+    string Name,
+    string Category,
+    string AddressLine,
+    string City,
+    string CountryCode,
+    double? Latitude,
+    double? Longitude,
+    bool IsClaimed,
+    string VisibilityStatus);
+
+public record UpsertVenueRequest(
+    string ExternalProviderId,
+    string Name,
+    string Category,
+    string AddressLine,
+    string City,
+    string CountryCode,
+    double Latitude,
+    double Longitude,
+    bool IsClaimed,
+    string VisibilityStatus);
+
 public record SocialTableDto(
     Guid Id,
     string Title,

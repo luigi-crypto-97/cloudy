@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Login">
+
+    <Grid Padding="24" RowDefinitions="*,Auto,*">
+        <VerticalStackLayout Grid.Row="1" Spacing="14">
+            <Label Text="FriendMap" FontSize="32" FontAttributes="Bold" />
+            <Label Text="Dev login" FontSize="15" TextColor="#64748B" />
+            <Entry Placeholder="Nickname" Text="{Binding Nickname}" />
+            <Button Text="Accedi" Command="{Binding LoginCommand}" />
+            <Label Text="{Binding Error}" TextColor="#B91C1C" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

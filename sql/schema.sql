@@ -130,3 +130,34 @@ CREATE TABLE venue_affluence_snapshots (
     updated_at_utc TIMESTAMPTZ NULL,
     UNIQUE(venue_id, bucket_start_utc)
 );
+
+INSERT INTO app_users (id, nickname, display_name, birth_year, gender)
+VALUES
+    ('10000000-0000-0000-0000-000000000001', 'giulia', 'Giulia Dev', 1997, 'female'),
+    ('10000000-0000-0000-0000-000000000002', 'marco', 'Marco Dev', 1994, 'male'),
+    ('10000000-0000-0000-0000-000000000003', 'sofia', 'Sofia Dev', 1999, 'female');
+
+INSERT INTO venues (id, external_provider_id, name, category, address_line, city, country_code, location)
+VALUES
+    ('20000000-0000-0000-0000-000000000001', 'dev-milano-001', 'Bar Brera Demo', 'bar', 'Via Brera 12', 'Milano', 'IT', ST_SetSRID(ST_MakePoint(9.1876, 45.4720), 4326)::geography),
+    ('20000000-0000-0000-0000-000000000002', 'dev-milano-002', 'Navigli Social Club', 'club', 'Ripa di Porta Ticinese 21', 'Milano', 'IT', ST_SetSRID(ST_MakePoint(9.1744, 45.4522), 4326)::geography),
+    ('20000000-0000-0000-0000-000000000003', 'dev-milano-003', 'Porta Romana Cafe', 'cafe', 'Corso di Porta Romana 88', 'Milano', 'IT', ST_SetSRID(ST_MakePoint(9.2024, 45.4527), 4326)::geography);
+
+INSERT INTO venue_checkins (user_id, venue_id, expires_at_utc)
+VALUES
+    ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', NOW() + INTERVAL '2 hours'),
+    ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001', NOW() + INTERVAL '90 minutes'),
+    ('10000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002', NOW() + INTERVAL '3 hours');
+
+INSERT INTO venue_intentions (user_id, venue_id, starts_at_utc, ends_at_utc, note)
+VALUES
+    ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '4 hours', 'Aperitivo'),
+    ('10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000003', NOW() + INTERVAL '2 hours', NOW() + INTERVAL '5 hours', 'Dopo cena');
+
+INSERT INTO social_tables (id, venue_id, host_user_id, title, description, starts_at_utc, capacity, join_policy)
+VALUES
+    ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Tavolo demo Brera', 'Seed locale per sviluppo', NOW() + INTERVAL '2 hours', 6, 'auto');
+
+INSERT INTO moderation_reports (id, reporter_user_id, reported_venue_id, reason_code, details)
+VALUES
+    ('40000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'inappropriate_content', 'Report demo per sviluppo admin');

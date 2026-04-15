@@ -3,6 +3,7 @@
     x:Class="FriendMap.Mobile.Pages.MainMapPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     Title="Mappa">
 
     <Grid RowDefinitions="Auto,*">
@@ -12,59 +13,16 @@
                     <Label Text="FriendMap" FontSize="24" FontAttributes="Bold" />
                     <Label Text="Mappa sociale della città" FontSize="13" TextColor="#64748B" />
                 </VerticalStackLayout>
-                <Button Grid.Column="1" Text="Aggiorna" Command="{Binding RefreshCommand}" />
+                <Button Grid.Column="1" Text="Aggiorna" Clicked="OnRefreshClicked" />
             </Grid>
         </Grid>
 
         <Grid Grid.Row="1" BackgroundColor="#E8F1FB">
-            <!-- Placeholder map surface. Integrare MapLibre / native map renderer -->
-            <AbsoluteLayout x:Name="MapSurface">
-                <Frame AbsoluteLayout.LayoutBounds="0.5,0.5,1,1"
-                       AbsoluteLayout.LayoutFlags="All"
-                       BackgroundColor="#DCEAFB"
-                       CornerRadius="0"
-                       HasShadow="False"
-                       Padding="0" />
-
-                <CollectionView ItemsSource="{Binding Markers}">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate>
-                            <Frame Margin="16,8"
-                                   BackgroundColor="#FFFFFF"
-                                   CornerRadius="18"
-                                   Padding="14"
-                                   HasShadow="True">
-                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                    <VerticalStackLayout>
-                                        <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="16" />
-                                        <Label Text="{Binding Category}" FontSize="12" TextColor="#64748B" />
-                                        <Label Text="{Binding DensityLevel}" FontSize="12" TextColor="#1D4ED8" />
-                                    </VerticalStackLayout>
-                                    <Frame Grid.Column="1"
-                                           WidthRequest="54"
-                                           HeightRequest="54"
-                                           Padding="0"
-                                           CornerRadius="27"
-                                           BackgroundColor="#60A5FA"
-                                           HasShadow="False"
-                                           VerticalOptions="Center">
-                                        <Label Text="{Binding PeopleEstimate}"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"
-                                               HorizontalTextAlignment="Center"
-                                               VerticalTextAlignment="Center"
-                                               TextColor="White"
-                                               FontAttributes="Bold" />
-                                    </Frame>
-                                </Grid>
-                            </Frame>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </AbsoluteLayout>
+            <maps:Map x:Name="NativeMap"
+                      IsShowingUser="True"
+                      MapType="Street" />
+            <AbsoluteLayout x:Name="BubbleLayer"
+                            InputTransparent="False" />
         </Grid>
     </Grid>
 </ContentPage>

@@ -17,10 +17,45 @@ public class AppDbContext : DbContext
     public DbSet<SocialTableParticipant> SocialTableParticipants => Set<SocialTableParticipant>();
     public DbSet<ModerationReport> ModerationReports => Set<ModerationReport>();
     public DbSet<VenueAffluenceSnapshot> VenueAffluenceSnapshots => Set<VenueAffluenceSnapshot>();
+    public DbSet<NotificationDeviceToken> NotificationDeviceTokens => Set<NotificationDeviceToken>();
+    public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AppUser>().ToTable("app_users");
+        modelBuilder.Entity<UserInterest>().ToTable("user_interests");
+        modelBuilder.Entity<Venue>().ToTable("venues");
+        modelBuilder.Entity<FriendRelation>().ToTable("friend_relations");
+        modelBuilder.Entity<VenueIntention>().ToTable("venue_intentions");
+        modelBuilder.Entity<VenueCheckIn>().ToTable("venue_checkins");
+        modelBuilder.Entity<SocialTable>().ToTable("social_tables");
+        modelBuilder.Entity<SocialTableParticipant>().ToTable("social_table_participants");
+        modelBuilder.Entity<ModerationReport>().ToTable("moderation_reports");
+        modelBuilder.Entity<VenueAffluenceSnapshot>().ToTable("venue_affluence_snapshots");
+        modelBuilder.Entity<NotificationDeviceToken>().ToTable("notification_device_tokens");
+        modelBuilder.Entity<NotificationOutboxItem>().ToTable("notification_outbox");
+
+        modelBuilder.Entity<Venue>()
+            .Property(x => x.Location)
+            .HasColumnType("geography (point, 4326)");
+
+        modelBuilder.Entity<Venue>()
+            .HasIndex(x => x.Location)
+            .HasMethod("GIST");
+
+        modelBuilder.Entity<FriendRelation>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.RequesterId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FriendRelation>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.AddresseeId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<FriendRelation>()
             .HasIndex(x => new { x.RequesterId, x.AddresseeId })
@@ -29,6 +64,107 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserInterest>()
             .HasIndex(x => new { x.UserId, x.Tag })
             .IsUnique();
+
+        modelBuilder.Entity<VenueIntention>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VenueIntention>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VenueCheckIn>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VenueCheckIn>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTable>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.HostUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTable>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTableParticipant>()
+            .HasOne<SocialTable>()
+            .WithMany()
+            .HasForeignKey(x => x.SocialTableId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTableParticipant>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTableParticipant>()
+            .HasIndex(x => new { x.SocialTableId, x.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<ModerationReport>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.ReporterUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ModerationReport>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.ReportedUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ModerationReport>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.ReportedVenueId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ModerationReport>()
+            .HasOne<SocialTable>()
+            .WithMany()
+            .HasForeignKey(x => x.ReportedSocialTableId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<VenueAffluenceSnapshot>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationDeviceToken>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationDeviceToken>()
+            .HasIndex(x => new { x.UserId, x.Platform, x.DeviceToken })
+            .IsUnique();
+
+        modelBuilder.Entity<NotificationOutboxItem>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationOutboxItem>()
+            .HasIndex(x => new { x.Status, x.NextAttemptAtUtc });
 
         modelBuilder.Entity<Venue>()
             .HasIndex(x => x.ExternalProviderId);

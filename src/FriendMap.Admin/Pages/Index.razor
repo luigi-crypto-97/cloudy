@@ -1,31 +1,59 @@
 @page "/"
+@inject IHttpClientFactory HttpClientFactory
 
 <h1>Dashboard</h1>
+
+@if (_isLoading)
+{
+    <p class="muted">Caricamento metriche...</p>
+}
+else if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
 
 <div class="cards">
     <div class="card">
         <h3>Utenti attivi 24h</h3>
-        <p>@_activeUsers</p>
+        <p>@(_overview?.ActiveUsers24h ?? 0)</p>
     </div>
     <div class="card">
         <h3>Check-in attivi</h3>
-        <p>@_checkIns</p>
+        <p>@(_overview?.CheckInsActive ?? 0)</p>
     </div>
     <div class="card">
         <h3>Intentions attive</h3>
-        <p>@_intentions</p>
+        <p>@(_overview?.IntentionsActive ?? 0)</p>
     </div>
     <div class="card">
         <h3>Report aperti</h3>
-        <p>@_openReports</p>
+        <p>@(_overview?.OpenReports ?? 0)</p>
+    </div>
+    <div class="card">
+        <h3>Tavoli attivi</h3>
+        <p>@(_overview?.ActiveTables ?? 0)</p>
     </div>
 </div>
 
-<p>TODO: agganciare API reali, grafici e audit trail.</p>
-
 @code {
-    private int _activeUsers = 0;
-    private int _checkIns = 0;
-    private int _intentions = 0;
-    private int _openReports = 0;
+    private DashboardOverviewDto? _overview;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            _overview = await client.GetFromJsonAsync<DashboardOverviewDto>("api/admin/dashboard");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile caricare la dashboard: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 }

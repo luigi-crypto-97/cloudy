@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pages="clr-namespace:FriendMap.Mobile.Pages">
     <TabBar>
-        <ShellContent Title="Mappa" ContentTemplate="{DataTemplate pages:MainMapPage}" />
+        <ShellContent Route="login" Title="Login" ContentTemplate="{DataTemplate pages:LoginPage}" />
+        <ShellContent Route="map" Title="Mappa" ContentTemplate="{DataTemplate pages:MainMapPage}" />
     </TabBar>
 </Shell>
