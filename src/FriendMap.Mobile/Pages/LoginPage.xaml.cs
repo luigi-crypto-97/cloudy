@@ -16,9 +16,16 @@ public partial class LoginPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (await _viewModel.TryRestoreAsync())
+        try
         {
-            await Shell.Current.GoToAsync("//map");
+            if (await _viewModel.TryRestoreAsync())
+            {
+                await Shell.Current.GoToAsync(nameof(MainMapPage));
+            }
+        }
+        catch (Exception ex)
+        {
+            _viewModel.Error = ex.Message;
         }
     }
 }

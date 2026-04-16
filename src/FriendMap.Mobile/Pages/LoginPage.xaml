@@ -3,30 +3,205 @@
     x:Class="FriendMap.Mobile.Pages.LoginPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
     Title="Login">
 
-    <Grid Padding="24" RowDefinitions="*,Auto,*">
-        <VerticalStackLayout Grid.Row="1" Spacing="14">
-            <Label Text="FriendMap" FontSize="32" FontAttributes="Bold" />
-            <Label Text="Dev login" FontSize="15" TextColor="#64748B" />
-            <Border Padding="12"
-                    BackgroundColor="#EFF6FF"
+    <ScrollView>
+        <Grid Padding="18,14,18,36"
+              RowDefinitions="Auto,Auto,Auto,Auto">
+            <Border HorizontalOptions="Center"
+                    Padding="14,6"
+                    BackgroundColor="#243CFF"
                     StrokeThickness="0">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="10" />
+                    <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
-                <Label Text="{Binding PushModeLabel}"
+                <Border.Shadow>
+                    <Shadow Brush="#220F172A" Offset="0,8" Radius="20" Opacity="0.22" />
+                </Border.Shadow>
+                <Label Text="FriendMap"
                        FontSize="12"
-                       TextColor="#1D4ED8" />
+                       FontAttributes="Bold"
+                       TextColor="White" />
             </Border>
-            <Entry Placeholder="Backend URL"
-                   Text="{Binding ApiBaseUrl}"
-                   Keyboard="Url"
-                   ClearButtonVisibility="WhileEditing" />
-            <Label Text="{Binding ConnectionHint}" FontSize="12" TextColor="#64748B" />
-            <Entry Placeholder="Nickname" Text="{Binding Nickname}" />
-            <Button Text="Accedi" Command="{Binding LoginCommand}" />
-            <Label Text="{Binding Error}" TextColor="#B91C1C" />
-        </VerticalStackLayout>
-    </Grid>
+
+            <VerticalStackLayout Grid.Row="1"
+                                 Margin="0,22,0,0"
+                                 Spacing="6">
+                <Label Text="Entra nella mappa live"
+                       FontSize="32"
+                       FontAttributes="Bold"
+                       LineBreakMode="WordWrap"
+                       TextColor="{StaticResource TextColor}" />
+                <Label Text="Setup rapido per simulatore e iPhone fisico, con backend modificabile al volo."
+                       FontSize="14"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
+
+            <Grid Grid.Row="2"
+                  Margin="0,22,0,0">
+                <Border Margin="10,18,10,0"
+                        BackgroundColor="#F4F8FF"
+                        Stroke="#E2EAF4"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                </Border>
+
+                <Border Margin="4,8,4,0"
+                        BackgroundColor="#FAFCFF"
+                        Stroke="#E2EAF4"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="30" />
+                    </Border.StrokeShape>
+                </Border>
+
+                <Border Padding="20"
+                        BackgroundColor="#FDFEFF"
+                        Stroke="#DDE7F5"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="32" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#180F172A" Offset="0,18" Radius="34" Opacity="0.16" />
+                    </Border.Shadow>
+
+                    <VerticalStackLayout Spacing="18">
+                        <HorizontalStackLayout Spacing="8">
+                            <Border Padding="10,7"
+                                    BackgroundColor="#EDF4FF"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding PushModeLabel}"
+                                       FontSize="11"
+                                       TextColor="{StaticResource PrimaryColorDark}" />
+                            </Border>
+
+                            <Border Padding="10,7"
+                                    BackgroundColor="#F3F7FB"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <Label Text="Dev login"
+                                       FontSize="11"
+                                       TextColor="{StaticResource MutedTextColor}" />
+                            </Border>
+                        </HorizontalStackLayout>
+
+                        <VerticalStackLayout Spacing="7">
+                            <Label Text="Backend URL"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Border Padding="14,6"
+                                    BackgroundColor="White"
+                                    Stroke="#DDE7F5"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="18" />
+                                </Border.StrokeShape>
+                                <Entry Placeholder="http://127.0.0.1:8080/"
+                                       Text="{Binding ApiBaseUrl}"
+                                       Keyboard="Url"
+                                       IsEnabled="{Binding CanEditSettings}"
+                                       BackgroundColor="Transparent"
+                                       TextColor="{StaticResource TextColor}"
+                                       PlaceholderColor="{StaticResource MutedTextColor}" />
+                            </Border>
+                            <Label Text="{Binding ConnectionHint}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="7">
+                            <Label Text="Nickname"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Border Padding="14,6"
+                                    BackgroundColor="White"
+                                    Stroke="#DDE7F5"
+                                    StrokeThickness="1">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="18" />
+                                </Border.StrokeShape>
+                                <Entry Placeholder="giulia"
+                                       Text="{Binding Nickname}"
+                                       IsEnabled="{Binding CanEditSettings}"
+                                       BackgroundColor="Transparent"
+                                       TextColor="{StaticResource TextColor}"
+                                       PlaceholderColor="{StaticResource MutedTextColor}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource PrimaryColor}" />
+
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <Button Text="Verifica"
+                                    Command="{Binding VerifyBackendCommand}"
+                                    IsEnabled="{Binding CanEditSettings}"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button Grid.Column="1"
+                                    Text="Accedi"
+                                    Command="{Binding LoginCommand}"
+                                    IsEnabled="{Binding CanEditSettings}"
+                                    Style="{StaticResource PrimaryButtonStyle}" />
+                        </Grid>
+
+                        <Border Padding="12"
+                                BackgroundColor="#F7FBFF"
+                                Stroke="#E3EBF5"
+                                StrokeThickness="1"
+                                IsVisible="{Binding HasBackendStatusMessage}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding BackendStatusMessage}"
+                                   FontSize="12"
+                                   TextColor="{Binding BackendStatusColor}" />
+                        </Border>
+
+                        <Border Padding="12"
+                                BackgroundColor="#FEF2F2"
+                                Stroke="#FECACA"
+                                StrokeThickness="1"
+                                IsVisible="{Binding HasError}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding Error}"
+                                   FontSize="12"
+                                   TextColor="#B91C1C" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="3"
+                    Margin="0,18,0,0"
+                    Padding="14,12"
+                    BackgroundColor="#F7FBFF"
+                    Stroke="#E3EBF5"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="20" />
+                </Border.StrokeShape>
+                <Label Text="Prima di accedere: su simulatore usa localhost, su iPhone usa l'IP del Mac visibile negli script dev."
+                       FontSize="12"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </Border>
+        </Grid>
+    </ScrollView>
 </ContentPage>

@@ -9,7 +9,17 @@ public record VenueMapMarkerDto(
     int PeopleEstimate,
     string DensityLevel,
     int BubbleIntensity,
-    bool DemographicDataAvailable);
+    bool DemographicDataAvailable,
+    int ActiveCheckIns,
+    int ActiveIntentions,
+    int OpenTables,
+    IEnumerable<PresencePreviewDto> PresencePreview);
+
+public record PresencePreviewDto(
+    Guid UserId,
+    string DisplayName,
+    string Nickname,
+    string? AvatarUrl);
 
 public record VenueDetailsDto(
     Guid VenueId,

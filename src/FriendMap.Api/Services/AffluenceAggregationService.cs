@@ -18,12 +18,13 @@ public class AffluenceAggregationService
         _privacy = privacy.Value;
     }
 
-    public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(double minLat, double minLng, double maxLat, double maxLng, CancellationToken ct)
+    public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(double minLat, double minLng, double maxLat, double maxLng, Guid viewerUserId, CancellationToken ct)
     {
         var south = Math.Min(minLat, maxLat);
         var north = Math.Max(minLat, maxLat);
         var west = Math.Min(minLng, maxLng);
         var east = Math.Max(minLng, maxLng);
+        var now = DateTimeOffset.UtcNow;
 
         var venues = await _db.Venues
             .FromSqlInterpolated($"""
@@ -37,6 +38,8 @@ public class AffluenceAggregationService
             .Take(200)
             .ToListAsync(ct);
 
+        var venueIds = venues.Select(x => x.Id).ToList();
+
         var latestSnapshots = await _db.VenueAffluenceSnapshots
             .GroupBy(x => x.VenueId)
             .Select(g => g.OrderByDescending(x => x.BucketStartUtc).First())
@@ -44,11 +47,90 @@ public class AffluenceAggregationService
 
         var snapshotMap = latestSnapshots.ToDictionary(x => x.VenueId);
 
+        var activeCheckIns = await _db.VenueCheckIns
+            .Where(x => venueIds.Contains(x.VenueId) && x.ExpiresAtUtc >= now)
+            .ToListAsync(ct);
+
+        var activeIntentions = await _db.VenueIntentions
+            .Where(x => venueIds.Contains(x.VenueId) && x.EndsAtUtc >= now && x.StartsAtUtc <= now.AddHours(3))
+            .ToListAsync(ct);
+
+        var openTables = await _db.SocialTables
+            .Where(x => venueIds.Contains(x.VenueId) && x.Status == "open" && x.StartsAtUtc >= now)
+            .ToListAsync(ct);
+
+        var openTableIds = openTables.Select(x => x.Id).ToList();
+        var tableParticipants = openTableIds.Count == 0
+            ? new List<SocialTableParticipant>()
+            : await _db.SocialTableParticipants
+                .Where(x => openTableIds.Contains(x.SocialTableId) && x.Status == "accepted")
+                .ToListAsync(ct);
+
+        var friendIds = new HashSet<Guid>();
+        if (viewerUserId != Guid.Empty)
+        {
+            var relations = await _db.FriendRelations
+                .Where(x => x.Status == "accepted" && (x.RequesterId == viewerUserId || x.AddresseeId == viewerUserId))
+                .ToListAsync(ct);
+
+            foreach (var relation in relations)
+            {
+                friendIds.Add(relation.RequesterId == viewerUserId ? relation.AddresseeId : relation.RequesterId);
+            }
+        }
+
+        var presenceByVenue = venueIds.ToDictionary(x => x, _ => new HashSet<Guid>());
+        foreach (var checkIn in activeCheckIns)
+        {
+            presenceByVenue[checkIn.VenueId].Add(checkIn.UserId);
+        }
+
+        foreach (var intention in activeIntentions)
+        {
+            presenceByVenue[intention.VenueId].Add(intention.UserId);
+        }
+
+        var tableVenueMap = openTables.ToDictionary(x => x.Id, x => x.VenueId);
+        foreach (var table in openTables)
+        {
+            presenceByVenue[table.VenueId].Add(table.HostUserId);
+        }
+
+        foreach (var participant in tableParticipants)
+        {
+            if (tableVenueMap.TryGetValue(participant.SocialTableId, out var venueId))
+            {
+                presenceByVenue[venueId].Add(participant.UserId);
+            }
+        }
+
+        var socialUserIds = presenceByVenue.Values
+            .SelectMany(x => x)
+            .Distinct()
+            .ToList();
+
+        var socialUsers = socialUserIds.Count == 0
+            ? new Dictionary<Guid, AppUser>()
+            : await _db.Users
+                .Where(x => socialUserIds.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id, ct);
+
         return venues.Select(venue =>
         {
             snapshotMap.TryGetValue(venue.Id, out var snap);
             var peopleEstimate = snap?.ActiveUsersEstimated ?? 0;
             var density = snap?.DensityLevel ?? "unknown";
+            var venueCheckIns = activeCheckIns.Count(x => x.VenueId == venue.Id);
+            var venueIntentions = activeIntentions.Count(x => x.VenueId == venue.Id);
+            var venueTables = openTables.Count(x => x.VenueId == venue.Id);
+
+            var previewUserIds = presenceByVenue.TryGetValue(venue.Id, out var presentIds)
+                ? presentIds
+                    .OrderByDescending(id => friendIds.Contains(id))
+                    .ThenBy(id => socialUsers.TryGetValue(id, out var user) ? user.DisplayName ?? user.Nickname : id.ToString())
+                    .Take(3)
+                    .ToList()
+                : new List<Guid>();
 
             return new VenueMapMarkerDto(
                 venue.Id,
@@ -59,7 +141,22 @@ public class AffluenceAggregationService
                 peopleEstimate,
                 density,
                 ComputeBubbleIntensity(peopleEstimate),
-                snap is not null && !snap.IsSuppressedForPrivacy);
+                snap is not null && !snap.IsSuppressedForPrivacy,
+                venueCheckIns,
+                venueIntentions,
+                venueTables,
+                previewUserIds
+                    .Where(id => socialUsers.ContainsKey(id))
+                    .Select(id =>
+                    {
+                        var user = socialUsers[id];
+                        return new PresencePreviewDto(
+                            user.Id,
+                            string.IsNullOrWhiteSpace(user.DisplayName) ? user.Nickname : user.DisplayName!,
+                            user.Nickname,
+                            user.AvatarUrl);
+                    })
+                    .ToList());
         }).ToList();
     }
 

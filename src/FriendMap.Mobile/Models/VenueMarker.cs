@@ -11,4 +11,16 @@ public class VenueMarker
     public string DensityLevel { get; set; } = "unknown";
     public int BubbleIntensity { get; set; }
     public bool DemographicDataAvailable { get; set; }
+    public int ActiveCheckIns { get; set; }
+    public int ActiveIntentions { get; set; }
+    public int OpenTables { get; set; }
+    public List<PresencePreview> PresencePreview { get; set; } = new();
+}
+
+public class PresencePreview
+{
+    public Guid UserId { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public string Nickname { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
 }

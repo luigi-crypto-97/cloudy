@@ -4,70 +4,402 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
     Title="Mappa">
 
-    <Grid RowDefinitions="Auto,*">
-        <Grid Padding="16,12" BackgroundColor="#FFFFFF">
-            <Grid ColumnDefinitions="*,Auto">
-                <VerticalStackLayout>
-                    <Label Text="FriendMap" FontSize="24" FontAttributes="Bold" />
-                    <Label Text="Mappa sociale della città" FontSize="13" TextColor="#64748B" />
-                </VerticalStackLayout>
-                <Button Grid.Column="1" Text="Aggiorna" Clicked="OnRefreshClicked" />
-            </Grid>
-        </Grid>
+    <Grid>
+        <maps:Map x:Name="NativeMap"
+                  MapClicked="OnMapClicked"
+                  IsShowingUser="True"
+                  MapType="Street" />
 
-        <Grid Grid.Row="1" BackgroundColor="#E8F1FB">
-            <maps:Map x:Name="NativeMap"
-                      IsShowingUser="True"
-                      MapType="Street" />
-            <AbsoluteLayout x:Name="BubbleLayer"
-                            CascadeInputTransparent="False"
-                            InputTransparent="True" />
-            <Border Margin="16"
-                    Padding="16"
-                    VerticalOptions="End"
-                    BackgroundColor="#FFFFFF"
-                    Stroke="#E2E8F0"
-                    StrokeThickness="1"
-                    IsVisible="{Binding HasSelectedMarker}">
+        <BoxView BackgroundColor="#33EEF4FF" InputTransparent="True" />
+
+        <AbsoluteLayout x:Name="BubbleLayer"
+                        CascadeInputTransparent="False"
+                        InputTransparent="True" />
+
+        <VerticalStackLayout Margin="16,10,16,0"
+                             Spacing="12"
+                             VerticalOptions="Start">
+            <Border HorizontalOptions="Center"
+                    Padding="14,6"
+                    BackgroundColor="#243CFF"
+                    StrokeThickness="0">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="12" />
+                    <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
-                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding SelectedMarker.Name}" FontSize="18" FontAttributes="Bold" />
-                            <Label Text="{Binding SelectedMarker.Category}" FontSize="13" TextColor="#64748B" />
-                        </VerticalStackLayout>
-                        <Border Grid.Column="1"
-                                WidthRequest="56"
-                                HeightRequest="56"
-                                BackgroundColor="#2563EB"
-                                StrokeThickness="0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="28" />
-                            </Border.StrokeShape>
-                            <Label Text="{Binding SelectedMarker.PeopleEstimate}"
-                                   TextColor="White"
-                                   FontAttributes="Bold"
-                                   HorizontalTextAlignment="Center"
-                                   VerticalTextAlignment="Center" />
-                        </Border>
-                    </Grid>
-
-                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                        <Button Text="Check-in" Command="{Binding CheckInCommand}" />
-                        <Button Grid.Column="1" Text="Ci vado" Command="{Binding PlanIntentionCommand}" />
-                        <Button Grid.Column="2" Text="Tavolo" Command="{Binding CreateTableCommand}" />
-                    </Grid>
-
-                    <Label Grid.Row="2"
-                           Text="{Binding LastActionMessage}"
-                           FontSize="12"
-                           TextColor="#1D4ED8" />
-                </Grid>
+                <Border.Shadow>
+                    <Shadow Brush="#220F172A" Offset="0,8" Radius="20" Opacity="0.22" />
+                </Border.Shadow>
+                <Label Text="FriendMap"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       TextColor="White" />
             </Border>
-        </Grid>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Border Padding="16,13"
+                        BackgroundColor="#EAF7FFFF"
+                        Stroke="#DDE7F5"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="22" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#180F172A" Offset="0,10" Radius="26" Opacity="0.18" />
+                    </Border.Shadow>
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="Live ora"
+                               FontSize="11"
+                               TextColor="{StaticResource MutedTextColor}" />
+                        <Label Text="{Binding MapSummaryLabel}"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextColor}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     Spacing="10">
+                    <ImageButton Source="icon-sliders-blue.svg"
+                                 WidthRequest="54"
+                                 HeightRequest="54"
+                                 MinimumHeightRequest="54"
+                                 Padding="15"
+                                 Clicked="OnServerClicked"
+                                 BackgroundColor="#F8FBFF"
+                                 BorderWidth="0"
+                                 CornerRadius="27">
+                        <ImageButton.Shadow>
+                            <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
+                        </ImageButton.Shadow>
+                    </ImageButton>
+                    <ImageButton Source="icon-refresh-white.svg"
+                                 WidthRequest="54"
+                                 HeightRequest="54"
+                                 MinimumHeightRequest="54"
+                                 Padding="15"
+                                 Clicked="OnRefreshClicked"
+                                 BackgroundColor="{StaticResource PrimaryColor}"
+                                 BorderWidth="0"
+                                 CornerRadius="27">
+                        <ImageButton.Shadow>
+                            <Shadow Brush="#222563EB" Offset="0,10" Radius="22" Opacity="0.24" />
+                        </ImageButton.Shadow>
+                    </ImageButton>
+                </VerticalStackLayout>
+            </Grid>
+
+            <Border Padding="12,9"
+                    BackgroundColor="#FDFEFF"
+                    Stroke="#E3EBF5"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasStatusMessage}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="18" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#120F172A" Offset="0,8" Radius="18" Opacity="0.14" />
+                </Border.Shadow>
+                <Label Text="{Binding StatusMessage}"
+                       FontSize="12"
+                       TextColor="{Binding StatusColor}" />
+            </Border>
+        </VerticalStackLayout>
+
+        <ImageButton Source="icon-focus-blue.svg"
+                     WidthRequest="52"
+                     HeightRequest="52"
+                     MinimumHeightRequest="52"
+                     Padding="14"
+                     Clicked="OnFocusMarkersClicked"
+                     HorizontalOptions="Start"
+                     VerticalOptions="End"
+                     Margin="18,0,0,126"
+                     BackgroundColor="#F8FBFF"
+                     BorderWidth="0"
+                     CornerRadius="26">
+            <ImageButton.Shadow>
+                <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
+            </ImageButton.Shadow>
+        </ImageButton>
+
+        <Border Padding="18"
+                Margin="28"
+                BackgroundColor="#FDFEFF"
+                Stroke="#D7E3F1"
+                StrokeThickness="1"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                IsVisible="{Binding ShowEmptyState}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="24" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#160F172A" Offset="0,12" Radius="26" Opacity="0.16" />
+            </Border.Shadow>
+            <VerticalStackLayout Spacing="8">
+                <Label Text="La mappa è pronta"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource TextColor}" />
+                <Label Text="Inserisci un backend raggiungibile oppure aggiorna quando l'API è online."
+                       FontSize="13"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           Color="{StaticResource PrimaryColor}"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+
+        <Border x:Name="VenueSheet"
+                Margin="14,0,14,112"
+                Padding="14"
+                VerticalOptions="End"
+                BackgroundColor="#FDFEFF"
+                Stroke="#D7E3F1"
+                StrokeThickness="1"
+                IsVisible="False"
+                TranslationY="360">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="28" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#1A0F172A" Offset="0,16" Radius="30" Opacity="0.18" />
+            </Border.Shadow>
+            <Border.GestureRecognizers>
+                <PanGestureRecognizer PanUpdated="OnVenueSheetPanUpdated" />
+            </Border.GestureRecognizers>
+            <VerticalStackLayout Spacing="12">
+                <Border WidthRequest="42"
+                        HeightRequest="4"
+                        HorizontalOptions="Center"
+                        BackgroundColor="#D4DEEB"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="2" />
+                    </Border.StrokeShape>
+                </Border>
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding SelectedMarker.Name}"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               LineBreakMode="TailTruncation"
+                               TextColor="{StaticResource TextColor}" />
+                        <Label Text="{Binding SelectedMarker.Category}"
+                               FontSize="12"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+
+                    <Border Grid.Column="1"
+                            WidthRequest="48"
+                            HeightRequest="48"
+                            BackgroundColor="{StaticResource PrimaryColor}"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="24" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedMarker.PeopleEstimate}"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalTextAlignment="Center"
+                               VerticalTextAlignment="Center" />
+                    </Border>
+
+                    <ImageButton Grid.Column="2"
+                                 Source="icon-close-blue.svg"
+                                 WidthRequest="34"
+                                 HeightRequest="34"
+                                 MinimumHeightRequest="34"
+                                 Padding="9"
+                                 Command="{Binding DismissSelectionCommand}"
+                                 BackgroundColor="#EEF2F7"
+                                 BorderWidth="0"
+                                 CornerRadius="17" />
+                </Grid>
+
+                <HorizontalStackLayout Spacing="8">
+                    <Border Padding="10,7"
+                            BackgroundColor="#EDF4FF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedPeopleLabel}"
+                               FontSize="12"
+                               TextColor="{StaticResource PrimaryColorDark}" />
+                    </Border>
+
+                    <Border Padding="10,7"
+                            BackgroundColor="#F3F7FB"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedDensityLabel}"
+                               FontSize="12"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </Border>
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Spacing="8">
+                    <Border Padding="10,7"
+                            BackgroundColor="#EEF8FF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedCheckInLabel}"
+                               FontSize="11"
+                               TextColor="{StaticResource PrimaryColorDark}" />
+                    </Border>
+                    <Border Padding="10,7"
+                            BackgroundColor="#F6F9FD"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedIntentionLabel}"
+                               FontSize="11"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </Border>
+                    <Border Padding="10,7"
+                            BackgroundColor="#F6F9FD"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedTableLabel}"
+                               FontSize="11"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </Border>
+                </HorizontalStackLayout>
+
+                <VerticalStackLayout Spacing="6"
+                                     IsVisible="{Binding HasSelectedPresencePreview}">
+                    <Label Text="Presenze con te"
+                           FontSize="11"
+                           TextColor="{StaticResource MutedTextColor}" />
+                    <HorizontalStackLayout x:Name="SheetPresenceStack"
+                                           Spacing="-8" />
+                </VerticalStackLayout>
+
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                    <Button Text="Check-in"
+                            Command="{Binding CheckInCommand}"
+                            IsEnabled="{Binding AreVenueActionsEnabled}"
+                            MinimumHeightRequest="42"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                    <Button Grid.Column="1"
+                            Text="Ci vado"
+                            Command="{Binding PlanIntentionCommand}"
+                            IsEnabled="{Binding AreVenueActionsEnabled}"
+                            MinimumHeightRequest="42"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                    <Button Grid.Column="2"
+                            Text="Tavolo"
+                            Command="{Binding CreateTableCommand}"
+                            IsEnabled="{Binding AreVenueActionsEnabled}"
+                            MinimumHeightRequest="42"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                </Grid>
+
+                <Label Text="{Binding ActionMessage}"
+                       FontSize="12"
+                       TextColor="{StaticResource PrimaryColorDark}"
+                       IsVisible="{Binding HasActionMessage}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Border Margin="16,0,16,18"
+                Padding="14,12,14,8"
+                VerticalOptions="End"
+                BackgroundColor="#F7FBFF"
+                Stroke="#DDE7F5"
+                StrokeThickness="1">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="30" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#1A0F172A" Offset="0,14" Radius="28" Opacity="0.18" />
+            </Border.Shadow>
+            <Grid ColumnDefinitions="*,*,*"
+                  ColumnSpacing="8">
+                <VerticalStackLayout Spacing="6"
+                                     HorizontalOptions="Center">
+                        <Border WidthRequest="54"
+                            HeightRequest="54"
+                            BackgroundColor="{StaticResource PrimaryColor}"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="27" />
+                        </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="#222563EB" Offset="0,10" Radius="22" Opacity="0.24" />
+                        </Border.Shadow>
+                        <Image Source="icon-map-white.svg"
+                               WidthRequest="22"
+                               HeightRequest="22"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="Mappa"
+                           FontSize="11"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     Spacing="6"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-refresh-blue.svg"
+                                 WidthRequest="54"
+                                 HeightRequest="54"
+                                 MinimumHeightRequest="54"
+                                 Padding="15"
+                                 Clicked="OnRefreshClicked"
+                                 BackgroundColor="#ECF2FF"
+                                 BorderWidth="0"
+                                 CornerRadius="27" />
+                    <Label Text="Aggiorna"
+                           FontSize="11"
+                           TextColor="{StaticResource MutedTextColor}" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Grid.Column="2"
+                                     Spacing="6"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-sliders-blue.svg"
+                                 WidthRequest="54"
+                                 HeightRequest="54"
+                                 MinimumHeightRequest="54"
+                                 Padding="15"
+                                 Clicked="OnServerClicked"
+                                 BackgroundColor="#ECF2FF"
+                                 BorderWidth="0"
+                                 CornerRadius="27" />
+                    <Label Text="Server"
+                           FontSize="11"
+                           TextColor="{StaticResource MutedTextColor}" />
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
     </Grid>
 </ContentPage>

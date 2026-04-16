@@ -1,5 +1,6 @@
 using FriendMap.Api.Contracts;
 using FriendMap.Api.Services;
+using System.Security.Claims;
 
 namespace FriendMap.Api.Endpoints;
 
@@ -14,10 +15,12 @@ public static class VenueEndpoints
             double minLng,
             double maxLat,
             double maxLng,
+            ClaimsPrincipal user,
             AffluenceAggregationService service,
             CancellationToken ct) =>
         {
-            var markers = await service.GetVenueMarkersAsync(minLat, minLng, maxLat, maxLng, ct);
+            var viewerUserId = CurrentUser.GetUserId(user);
+            var markers = await service.GetVenueMarkersAsync(minLat, minLng, maxLat, maxLng, viewerUserId, ct);
             return Results.Ok(markers);
         });
 

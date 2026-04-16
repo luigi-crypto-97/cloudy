@@ -3,9 +3,7 @@
     x:Class="FriendMap.Mobile.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:pages="clr-namespace:FriendMap.Mobile.Pages">
-    <TabBar>
-        <ShellContent Route="login" Title="Login" ContentTemplate="{DataTemplate pages:LoginPage}" />
-        <ShellContent Route="map" Title="Mappa" ContentTemplate="{DataTemplate pages:MainMapPage}" />
-    </TabBar>
+    xmlns:pages="clr-namespace:FriendMap.Mobile.Pages"
+    FlyoutBehavior="Disabled">
+    <ShellContent Route="login" ContentTemplate="{DataTemplate pages:LoginPage}" />
 </Shell>

@@ -30,9 +30,14 @@ public static class DevelopmentDataSeeder
         var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
 
         db.Users.AddRange(
-            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Dev", BirthYear = 1997, Gender = "female" },
-            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Dev", BirthYear = 1994, Gender = "male" },
-            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Dev", BirthYear = 1999, Gender = "female" });
+            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", BirthYear = 1997, Gender = "female" },
+            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", BirthYear = 1994, Gender = "male" },
+            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", BirthYear = 1999, Gender = "female" });
+
+        db.FriendRelations.AddRange(
+            new FriendRelation { RequesterId = GiuliaUserId, AddresseeId = MarcoUserId, Status = "accepted" },
+            new FriendRelation { RequesterId = GiuliaUserId, AddresseeId = SofiaUserId, Status = "accepted" },
+            new FriendRelation { RequesterId = MarcoUserId, AddresseeId = SofiaUserId, Status = "accepted" });
 
         db.Venues.AddRange(
             new Venue

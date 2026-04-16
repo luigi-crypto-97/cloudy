@@ -11,7 +11,9 @@ public class MainMapViewModel : BindableObject
     private bool _isBusy;
     private bool _isActionBusy;
     private VenueMarker? _selectedMarker;
-    private string? _lastActionMessage;
+    private string? _statusMessage;
+    private string? _actionMessage;
+    private Color _statusColor = Color.FromArgb("#B91C1C");
 
     public ObservableCollection<VenueMarker> Markers { get; } = new();
 
@@ -34,6 +36,7 @@ public class MainMapViewModel : BindableObject
         {
             _isActionBusy = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(AreVenueActionsEnabled));
         }
     }
 
@@ -45,39 +48,123 @@ public class MainMapViewModel : BindableObject
             _selectedMarker = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelectedMarker));
+            OnPropertyChanged(nameof(AreVenueActionsEnabled));
+            OnPropertyChanged(nameof(SelectedVenueMeta));
+            OnPropertyChanged(nameof(SelectedPeopleLabel));
+            OnPropertyChanged(nameof(SelectedDensityLabel));
+            OnPropertyChanged(nameof(SelectedCheckInLabel));
+            OnPropertyChanged(nameof(SelectedIntentionLabel));
+            OnPropertyChanged(nameof(SelectedTableLabel));
+            OnPropertyChanged(nameof(HasSelectedPresencePreview));
         }
     }
 
     public bool HasSelectedMarker => SelectedMarker is not null;
 
-    public string? LastActionMessage
+    public string? StatusMessage
     {
-        get => _lastActionMessage;
+        get => _statusMessage;
         set
         {
-            _lastActionMessage = value;
+            _statusMessage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasStatusMessage));
+            OnPropertyChanged(nameof(ShowEmptyState));
+            OnPropertyChanged(nameof(MapSummaryLabel));
+        }
+    }
+
+    public Color StatusColor
+    {
+        get => _statusColor;
+        set
+        {
+            _statusColor = value;
             OnPropertyChanged();
         }
     }
+
+    public string? ActionMessage
+    {
+        get => _actionMessage;
+        set
+        {
+            _actionMessage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasActionMessage));
+        }
+    }
+
+    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
+    public bool HasActionMessage => !string.IsNullOrWhiteSpace(ActionMessage);
+
+    public bool HasMarkers => Markers.Count > 0;
+
+    public bool ShowEmptyState => !IsBusy && !HasMarkers && !HasStatusMessage;
+
+    public bool AreVenueActionsEnabled => SelectedMarker is not null && !IsActionBusy;
+
+    public string MapSummaryLabel => Markers.Count switch
+    {
+        0 => "Nessun luogo attivo",
+        1 => "1 luogo attivo ora",
+        _ => $"{Markers.Count} luoghi attivi ora"
+    };
+
+    public string SelectedVenueMeta => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.PeopleEstimate} persone • {FormatDensityLabel(SelectedMarker.DensityLevel)}";
+
+    public string SelectedPeopleLabel => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.PeopleEstimate} persone";
+
+    public string SelectedDensityLabel => SelectedMarker is null
+        ? string.Empty
+        : FormatDensityLabel(SelectedMarker.DensityLevel);
+
+    public string SelectedCheckInLabel => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.ActiveCheckIns} check-in";
+
+    public string SelectedIntentionLabel => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.ActiveIntentions} piani";
+
+    public string SelectedTableLabel => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.OpenTables} tavoli";
+
+    public bool HasSelectedPresencePreview => SelectedMarker?.PresencePreview?.Count > 0;
 
     public ICommand RefreshCommand { get; }
     public ICommand CheckInCommand { get; }
     public ICommand PlanIntentionCommand { get; }
     public ICommand CreateTableCommand { get; }
+    public ICommand DismissSelectionCommand { get; }
 
     public MainMapViewModel(ApiClient apiClient)
     {
         _apiClient = apiClient;
+        Markers.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasMarkers));
+            OnPropertyChanged(nameof(ShowEmptyState));
+            OnPropertyChanged(nameof(MapSummaryLabel));
+        };
         RefreshCommand = new Command(async () => await RefreshAsync());
         CheckInCommand = new Command(async () => await CheckInAsync());
         PlanIntentionCommand = new Command(async () => await PlanIntentionAsync());
         CreateTableCommand = new Command(async () => await CreateTableAsync());
+        DismissSelectionCommand = new Command(ClearSelection);
     }
 
     public async Task RefreshAsync()
     {
         if (IsBusy) return;
         IsBusy = true;
+        OnPropertyChanged(nameof(ShowEmptyState));
 
         try
         {
@@ -86,6 +173,11 @@ public class MainMapViewModel : BindableObject
             foreach (var marker in markers)
             {
                 Markers.Add(marker);
+            }
+
+            if (markers.Count > 0 || SelectedMarker is not null)
+            {
+                StatusMessage = null;
             }
 
             if (SelectedMarker is not null)
@@ -98,18 +190,50 @@ public class MainMapViewModel : BindableObject
                 SelectedMarker = Markers.FirstOrDefault();
             }
 
+            OnPropertyChanged(nameof(HasMarkers));
+            OnPropertyChanged(nameof(ShowEmptyState));
+            MarkersRefreshed?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            Markers.Clear();
+            SelectedMarker = null;
+            ActionMessage = null;
+            StatusColor = Color.FromArgb("#B91C1C");
+            StatusMessage = $"Impossibile caricare la mappa. Verifica Backend URL e API LAN. Dettaglio: {_apiClient.DescribeException(ex)}";
+            OnPropertyChanged(nameof(HasMarkers));
+            OnPropertyChanged(nameof(ShowEmptyState));
             MarkersRefreshed?.Invoke(this, EventArgs.Empty);
         }
         finally
         {
             IsBusy = false;
+            OnPropertyChanged(nameof(ShowEmptyState));
         }
     }
 
     public void SelectMarker(VenueMarker marker)
     {
+        if (SelectedMarker?.VenueId == marker.VenueId)
+        {
+            ClearSelection();
+            return;
+        }
+
         SelectedMarker = marker;
-        LastActionMessage = null;
+        ActionMessage = null;
+    }
+
+    public void ClearSelection()
+    {
+        SelectedMarker = null;
+        ActionMessage = null;
+    }
+
+    public void SetStatusMessage(string message)
+    {
+        StatusColor = Color.FromArgb("#B91C1C");
+        StatusMessage = message;
     }
 
     public async Task RequestPermissionsAndRegisterDeviceAsync(IDevicePermissionService permissions)
@@ -167,18 +291,18 @@ public class MainMapViewModel : BindableObject
     {
         if (IsActionBusy) return;
         IsActionBusy = true;
-        LastActionMessage = null;
+        ActionMessage = null;
 
         try
         {
             var userId = await _apiClient.GetCurrentUserIdAsync();
             await action(userId);
-            LastActionMessage = successMessage;
+            ActionMessage = successMessage;
             await RefreshAsync();
         }
         catch (Exception ex)
         {
-            LastActionMessage = ex.Message;
+            ActionMessage = _apiClient.DescribeException(ex);
         }
         finally
         {
@@ -196,6 +320,18 @@ public class MainMapViewModel : BindableObject
             < 65 => Color.FromArgb("#60A5FA"),
             < 85 => Color.FromArgb("#2563EB"),
             _ => Color.FromArgb("#1D4ED8")
+        };
+    }
+
+    private static string FormatDensityLabel(string densityLevel)
+    {
+        return densityLevel?.Trim().ToLowerInvariant() switch
+        {
+            "low" => "Affluenza bassa",
+            "medium" => "Affluenza media",
+            "high" => "Affluenza alta",
+            "full" => "Quasi pieno",
+            _ => "Affluenza stimata"
         };
     }
 }

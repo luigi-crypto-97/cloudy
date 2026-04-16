@@ -3,5 +3,46 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="FriendMap.Mobile.App">
     <Application.Resources>
+        <Color x:Key="PageBackgroundColor">#F8FAFC</Color>
+        <Color x:Key="SurfaceColor">#FFFFFF</Color>
+        <Color x:Key="SurfaceMutedColor">#EFF6FF</Color>
+        <Color x:Key="PrimaryColor">#2563EB</Color>
+        <Color x:Key="PrimaryColorDark">#1D4ED8</Color>
+        <Color x:Key="TextColor">#0F172A</Color>
+        <Color x:Key="MutedTextColor">#64748B</Color>
+        <Color x:Key="BorderColor">#D9E2EC</Color>
+
+        <Style TargetType="ContentPage">
+            <Setter Property="BackgroundColor" Value="{StaticResource PageBackgroundColor}" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryColor}" />
+            <Setter Property="TextColor" Value="White" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="MinimumHeightRequest" Value="48" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="#E2E8F0" />
+            <Setter Property="TextColor" Value="{StaticResource TextColor}" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="14,12" />
+            <Setter Property="MinimumHeightRequest" Value="48" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="FontSize" Value="14" />
+        </Style>
+
+        <Style x:Key="FieldStyle" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="White" />
+            <Setter Property="TextColor" Value="{StaticResource TextColor}" />
+            <Setter Property="PlaceholderColor" Value="{StaticResource MutedTextColor}" />
+            <Setter Property="ClearButtonVisibility" Value="WhileEditing" />
+            <Setter Property="HeightRequest" Value="52" />
+            <Setter Property="Margin" Value="0,0,0,0" />
+        </Style>
     </Application.Resources>
 </Application>

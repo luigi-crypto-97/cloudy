@@ -108,6 +108,7 @@ App su simulatore:
 App su iPhone fisico:
 
 ```bash
+./scripts/stop-api.sh
 ./scripts/run-api-lan.sh
 ./scripts/dev-api-url.sh
 ```
@@ -119,6 +120,8 @@ http://192.168.1.23:8080/
 ```
 
 Serve che Mac e iPhone siano sulla stessa rete Wi-Fi.
+Se `Safari` su iPhone non apre `http://IP-DEL-MAC:8080/health`, l'API e ancora
+in ascolto solo su `localhost` e va riavviata con `run-api-lan.sh`.
 
 ## Installazione su iPhone
 

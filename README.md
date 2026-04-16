@@ -90,12 +90,17 @@ Attenzione: `down -v` elimina i dati locali del database.
 Per usare l'app su iPhone fisico nella stessa rete Wi-Fi del Mac:
 
 ```bash
+./scripts/stop-api.sh
 ./scripts/run-api-lan.sh
 ./scripts/dev-api-url.sh
 ```
 
 Il secondo script stampa l'URL da inserire nella schermata login dell'app iOS,
 ad esempio `http://192.168.1.23:8080/`.
+
+Se l'API era gia stata avviata in modalita localhost, devi fermarla prima con
+`./scripts/stop-api.sh`, altrimenti la porta 8080 resta occupata dalla vecchia
+istanza e l'iPhone non riesce a raggiungerla.
 
 Verifica:
 
