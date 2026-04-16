@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using FriendMap.Mobile.Services;
+using Microsoft.Maui.Devices;
 
 namespace FriendMap.Mobile.ViewModels;
 
@@ -68,6 +69,14 @@ public class LoginViewModel : BindableObject
 
     public async Task<bool> TryRestoreAsync()
     {
+        var apiBaseUrl = _apiClient.GetConfiguredApiBaseUrl();
+        if (DeviceInfo.Current.DeviceType == DeviceType.Physical &&
+            (apiBaseUrl.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+             apiBaseUrl.Contains("localhost", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
         return await _apiClient.TryRestoreSessionAsync();
     }
 
