@@ -16,6 +16,9 @@ public class AppDbContext : DbContext
     public DbSet<SocialTable> SocialTables => Set<SocialTable>();
     public DbSet<SocialTableParticipant> SocialTableParticipants => Set<SocialTableParticipant>();
     public DbSet<SocialTableMessage> SocialTableMessages => Set<SocialTableMessage>();
+    public DbSet<DirectMessageThread> DirectMessageThreads => Set<DirectMessageThread>();
+    public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
     public DbSet<ModerationReport> ModerationReports => Set<ModerationReport>();
     public DbSet<VenueAffluenceSnapshot> VenueAffluenceSnapshots => Set<VenueAffluenceSnapshot>();
     public DbSet<NotificationDeviceToken> NotificationDeviceTokens => Set<NotificationDeviceToken>();
@@ -34,6 +37,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SocialTable>().ToTable("social_tables");
         modelBuilder.Entity<SocialTableParticipant>().ToTable("social_table_participants");
         modelBuilder.Entity<SocialTableMessage>().ToTable("social_table_messages");
+        modelBuilder.Entity<DirectMessageThread>().ToTable("direct_message_threads");
+        modelBuilder.Entity<DirectMessage>().ToTable("direct_messages");
+        modelBuilder.Entity<UserBlock>().ToTable("user_blocks");
         modelBuilder.Entity<ModerationReport>().ToTable("moderation_reports");
         modelBuilder.Entity<VenueAffluenceSnapshot>().ToTable("venue_affluence_snapshots");
         modelBuilder.Entity<NotificationDeviceToken>().ToTable("notification_device_tokens");
@@ -133,6 +139,56 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<SocialTableMessage>()
             .HasIndex(x => new { x.SocialTableId, x.CreatedAtUtc });
+
+        modelBuilder.Entity<DirectMessageThread>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserLowId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DirectMessageThread>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserHighId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DirectMessageThread>()
+            .HasIndex(x => new { x.UserLowId, x.UserHighId })
+            .IsUnique();
+
+        modelBuilder.Entity<DirectMessageThread>()
+            .HasIndex(x => x.LastMessageAtUtc);
+
+        modelBuilder.Entity<DirectMessage>()
+            .HasOne<DirectMessageThread>()
+            .WithMany()
+            .HasForeignKey(x => x.ThreadId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DirectMessage>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.SenderUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<DirectMessage>()
+            .HasIndex(x => new { x.ThreadId, x.CreatedAtUtc });
+
+        modelBuilder.Entity<UserBlock>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.BlockerUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserBlock>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.BlockedUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserBlock>()
+            .HasIndex(x => new { x.BlockerUserId, x.BlockedUserId })
+            .IsUnique();
 
         modelBuilder.Entity<ModerationReport>()
             .HasOne<AppUser>()

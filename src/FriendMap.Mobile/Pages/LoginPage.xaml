@@ -7,9 +7,11 @@
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False"
     ios:Page.UseSafeArea="True"
+    BackgroundColor="{StaticResource PageBackgroundColor}"
     Title="Login">
 
-    <ScrollView>
+    <Grid BackgroundColor="{StaticResource PageBackgroundColor}">
+        <ScrollView>
         <Grid Padding="18,14,18,36"
               RowDefinitions="Auto,Auto,Auto,Auto">
             <Border HorizontalOptions="Center"
@@ -82,6 +84,7 @@
                                 </Border.StrokeShape>
                                 <Label Text="{Binding PushModeLabel}"
                                        FontSize="11"
+                                       LineBreakMode="NoWrap"
                                        TextColor="{StaticResource PrimaryColorDark}" />
                             </Border>
 
@@ -203,5 +206,6 @@
                        TextColor="{StaticResource MutedTextColor}" />
             </Border>
         </Grid>
-    </ScrollView>
+        </ScrollView>
+    </Grid>
 </ContentPage>

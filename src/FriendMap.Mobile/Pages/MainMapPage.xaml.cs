@@ -23,7 +23,12 @@ public partial class MainMapPage : ContentPage
     private readonly ApiClient _apiClient;
 
     private CancellationTokenSource? _viewportRefreshCts;
+    private CancellationTokenSource? _discoveryRefreshCts;
     private SocialHub? _socialHub;
+    private SocialMeState? _socialMeState;
+    private IReadOnlyList<SocialTableSummary> _socialTables = Array.Empty<SocialTableSummary>();
+    private SocialTableThread? _activeTableThread;
+    private SocialTableSummary? _activeTableSummary;
     private VenueOverlayCluster? _activePresenceCluster;
     private VenueOverlayCluster? _activeAreaCluster;
     private PresencePreview? _activeProfilePreview;
@@ -31,6 +36,8 @@ public partial class MainMapPage : ContentPage
     private string? _selectedAreaClusterKey;
     private bool _isSocialBusy;
     private bool _isSocialLoading;
+    private bool _isTableBusy;
+    private bool _isApplyingSocialState;
     private bool _permissionsRequested;
     private bool _isProfileActionBusy;
     private bool _shouldAutoFocusOnNextRender = true;
@@ -52,6 +59,8 @@ public partial class MainMapPage : ContentPage
         NativeMap.MapClicked += OnMapClicked;
         NativeMap.PropertyChanged += OnNativeMapPropertyChanged;
         SizeChanged += OnPageSizeChanged;
+        EditGenderPicker.ItemsSource = new[] { "undisclosed", "female", "male", "non-binary" };
+        UpdateDiscoveryFilterVisualState();
 #if FRIENDMAP_APNS_ENABLED
         ApnsDeviceTokenStore.TokenChanged += OnApnsDeviceTokenChanged;
 #endif
@@ -85,6 +94,7 @@ public partial class MainMapPage : ContentPage
     {
         base.OnDisappearing();
         CancelPendingViewportRefresh();
+        CancelPendingDiscoveryRefresh();
     }
 
     private async void OnRefreshClicked(object sender, EventArgs e)
@@ -106,6 +116,9 @@ public partial class MainMapPage : ContentPage
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
         await HideSocialOverlayAsync(animated: false);
+        await HideTableOverlayAsync(animated: false);
+        await HideEditProfileOverlayAsync(animated: false);
+        await HideDirectMessageOverlayAsync(animated: false);
         ClearAreaSelection();
         await Shell.Current.Navigation.PopToRootAsync();
     }
@@ -113,6 +126,60 @@ public partial class MainMapPage : ContentPage
     private async void OnSocialClicked(object sender, EventArgs e)
     {
         await ShowSocialOverlayAsync(forceRefresh: true);
+    }
+
+    private void OnDiscoverySearchChanged(object? sender, TextChangedEventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            e.NewTextValue ?? string.Empty,
+            _viewModel.SelectedCategory,
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnCategoryAllClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            "all",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnCategoryBarsClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            "bar",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnCategoryFoodClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            "food",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnOpenNowToggleClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            _viewModel.SelectedCategory,
+            !_viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnDistanceFilterClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            _viewModel.SelectedCategory,
+            _viewModel.OpenNowOnly,
+            GetNextDistanceFilter(_viewModel.MaxDistanceKm));
     }
 
     private void OnMapClicked(object? sender, MapClickedEventArgs e)
@@ -274,6 +341,107 @@ public partial class MainMapPage : ContentPage
         _ = HideSocialOverlayAsync(animated: true);
     }
 
+    private async void OnExitCheckInClicked(object? sender, EventArgs e)
+    {
+        if (_isSocialBusy)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSocialBusy = true;
+            await _apiClient.ExitActiveCheckInAsync();
+            SetSocialStatus("Check-in terminato.", false);
+            await RefreshSocialOverlayAsync();
+            await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
+        }
+        catch (Exception ex)
+        {
+            SetSocialStatus(_apiClient.DescribeException(ex), true);
+        }
+        finally
+        {
+            _isSocialBusy = false;
+        }
+    }
+
+    private async void OnGhostModeToggled(object? sender, ToggledEventArgs e)
+    {
+        if (_isApplyingSocialState)
+        {
+            return;
+        }
+
+        await UpdatePrivacyAsync(e.Value, null, null);
+    }
+
+    private async void OnSharePresenceToggled(object? sender, ToggledEventArgs e)
+    {
+        if (_isApplyingSocialState)
+        {
+            return;
+        }
+
+        await UpdatePrivacyAsync(null, e.Value, null);
+    }
+
+    private async void OnShareIntentionsToggled(object? sender, ToggledEventArgs e)
+    {
+        if (_isApplyingSocialState)
+        {
+            return;
+        }
+
+        await UpdatePrivacyAsync(null, null, e.Value);
+    }
+
+    private void OnTableOverlayBackdropTapped(object? sender, TappedEventArgs e)
+    {
+        _ = HideTableOverlayAsync(animated: true);
+    }
+
+    private void OnTableOverlayCloseClicked(object? sender, EventArgs e)
+    {
+        _ = HideTableOverlayAsync(animated: true);
+    }
+
+    private async void OnSendTableMessageClicked(object? sender, EventArgs e)
+    {
+        if (_activeTableSummary is null || _isTableBusy)
+        {
+            return;
+        }
+
+        var message = TableMessageEntry.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            SetTableStatus("Scrivi un messaggio.", true);
+            return;
+        }
+
+        try
+        {
+            _isTableBusy = true;
+            TableLoadingIndicator.IsVisible = true;
+            TableLoadingIndicator.IsRunning = true;
+            await _apiClient.SendTableMessageAsync(_activeTableSummary.TableId, message);
+            TableMessageEntry.Text = string.Empty;
+            SetTableStatus("Messaggio inviato.", false);
+            await RefreshActiveTableThreadAsync();
+        }
+        catch (Exception ex)
+        {
+            SetTableStatus(_apiClient.DescribeException(ex), true);
+        }
+        finally
+        {
+            _isTableBusy = false;
+            TableLoadingIndicator.IsVisible = false;
+            TableLoadingIndicator.IsRunning = false;
+        }
+    }
+
     private async void OnProfilePrimaryActionClicked(object? sender, EventArgs e)
     {
         if (_activeProfilePreview is null || _isProfileActionBusy)
@@ -360,6 +528,120 @@ public partial class MainMapPage : ContentPage
         _lastRequestedViewport = viewport;
         _shouldAutoFocusOnNextRender = centerOnMarkers;
         await _viewModel.RefreshAsync(viewport);
+    }
+
+    private void ApplyDiscoveryFilters(string searchQuery, string category, bool openNowOnly, double? maxDistanceKm)
+    {
+        _viewModel.ApplyDiscoveryFilters(searchQuery, category, openNowOnly, maxDistanceKm);
+        UpdateDiscoveryFilterVisualState();
+        ScheduleDiscoveryRefresh();
+    }
+
+    private void UpdateDiscoveryFilterVisualState()
+    {
+        SetFilterButtonState(FilterAllButton, _viewModel.SelectedCategory == "all");
+        SetFilterButtonState(FilterBarsButton, _viewModel.SelectedCategory == "bar");
+        SetFilterButtonState(FilterFoodButton, _viewModel.SelectedCategory == "food");
+        SetFilterButtonState(FilterOpenNowButton, _viewModel.OpenNowOnly);
+        SetFilterButtonState(FilterDistanceButton, _viewModel.MaxDistanceKm is not null);
+        FilterDistanceButton.Text = FormatDistanceFilter(_viewModel.MaxDistanceKm);
+    }
+
+    private static void SetFilterButtonState(Button button, bool isActive)
+    {
+        button.BackgroundColor = isActive ? Color.FromArgb("#2563EB") : Color.FromArgb("#EAF0F7");
+        button.TextColor = isActive ? Colors.White : Color.FromArgb("#0F172A");
+    }
+
+    private void ScheduleDiscoveryRefresh()
+    {
+        CancelPendingDiscoveryRefresh();
+        _discoveryRefreshCts = new CancellationTokenSource();
+        var token = _discoveryRefreshCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(260, token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    _lastRequestedViewport = null;
+                    await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
+                });
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    private void CancelPendingDiscoveryRefresh()
+    {
+        if (_discoveryRefreshCts is null)
+        {
+            return;
+        }
+
+        _discoveryRefreshCts.Cancel();
+        _discoveryRefreshCts.Dispose();
+        _discoveryRefreshCts = null;
+    }
+
+    private async Task UpdatePrivacyAsync(bool? ghostMode, bool? sharePresence, bool? shareIntentions)
+    {
+        if (_isSocialBusy)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSocialBusy = true;
+            await _apiClient.UpdatePrivacySettingsAsync(ghostMode, sharePresence, shareIntentions);
+            SetSocialStatus("Privacy aggiornata.", false);
+            await RefreshSocialOverlayAsync();
+            await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
+        }
+        catch (Exception ex)
+        {
+            SetSocialStatus(_apiClient.DescribeException(ex), true);
+            await RefreshSocialOverlayAsync();
+        }
+        finally
+        {
+            _isSocialBusy = false;
+        }
+    }
+
+    private static double? GetNextDistanceFilter(double? currentDistanceKm)
+    {
+        if (currentDistanceKm is null)
+        {
+            return 2d;
+        }
+
+        if (currentDistanceKm < 3d)
+        {
+            return 5d;
+        }
+
+        if (currentDistanceKm < 8d)
+        {
+            return 10d;
+        }
+
+        return null;
+    }
+
+    private static string FormatDistanceFilter(double? distanceKm)
+    {
+        return distanceKm is > 0 ? $"{distanceKm.Value:0} km" : "Ovunque";
     }
 
     private void RenderMap()
@@ -943,6 +1225,7 @@ public partial class MainMapPage : ContentPage
 
     private async Task ShowUserProfileAsync(PresencePreview preview)
     {
+        await HideDirectMessageOverlayAsync(animated: false);
         _activeProfilePreview = preview;
         _activeProfile = null;
         ProfileOverlay.IsVisible = true;
@@ -1027,6 +1310,12 @@ public partial class MainMapPage : ContentPage
                 ? $"{profile.MutualFriendsCount} in comune"
                 : $"{profile.FriendsCount} amici";
         ProfileMetaChipLabel.Text = BuildProfileMeta(profile);
+        ProfileBioLabel.Text = profile?.Bio ?? string.Empty;
+        ProfileBioLabel.IsVisible = !string.IsNullOrWhiteSpace(profile?.Bio);
+        ProfileInterestsLabel.Text = profile?.Interests.Count > 0
+            ? string.Join(" • ", profile.Interests)
+            : string.Empty;
+        ProfileInterestsLabel.IsVisible = profile?.Interests.Count > 0;
         ProfileVenueLabel.Text = string.IsNullOrWhiteSpace(profile?.CurrentVenueName)
             ? "Nessuna venue live"
             : profile.CurrentVenueCategory is null
@@ -1039,11 +1328,12 @@ public partial class MainMapPage : ContentPage
     {
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
+        await HideTableOverlayAsync(animated: false);
 
         SocialOverlay.IsVisible = true;
         SocialSheet.TranslationY = 480;
         await SocialSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
-        if (forceRefresh || _socialHub is null)
+        if (forceRefresh || _socialHub is null || _socialMeState is null)
         {
             await RefreshSocialOverlayAsync();
         }
@@ -1083,8 +1373,17 @@ public partial class MainMapPage : ContentPage
             SocialLoadingIndicator.IsRunning = true;
             SocialStatusLabel.IsVisible = false;
 
-            _socialHub = await _apiClient.GetSocialHubAsync();
-            PopulateSocialOverlay(_socialHub);
+            var hubTask = _apiClient.GetSocialHubAsync();
+            var meStateTask = _apiClient.GetSocialMeStateAsync();
+            var tablesTask = _apiClient.GetMyTablesAsync();
+            var inboxTask = _apiClient.GetDirectMessageInboxAsync();
+            await Task.WhenAll(hubTask, meStateTask, tablesTask, inboxTask);
+
+            _socialHub = await hubTask;
+            _socialMeState = await meStateTask;
+            _socialTables = await tablesTask;
+            _messageInbox = await inboxTask;
+            PopulateSocialOverlay(_socialHub, _socialMeState, _socialTables);
         }
         catch (Exception ex)
         {
@@ -1098,9 +1397,12 @@ public partial class MainMapPage : ContentPage
         }
     }
 
-    private void PopulateSocialOverlay(SocialHub hub)
+    private void PopulateSocialOverlay(SocialHub hub, SocialMeState meState, IReadOnlyList<SocialTableSummary> tables)
     {
-        SocialSummaryLabel.Text = $"{hub.Friends.Count} amici • {hub.IncomingRequests.Count} richieste • {hub.TableInvites.Count} inviti";
+        SocialSummaryLabel.Text = $"{hub.Friends.Count} amici • {_messageInbox.Count} chat • {tables.Count} tavoli";
+        PopulateSocialStateCard(meState);
+        PopulateDirectMessageSection(_messageInbox);
+        PopulateSocialTablesSection(tables);
         PopulateSocialSection(
             SocialInviteHeaderLabel,
             SocialInviteStack,
@@ -1129,6 +1431,47 @@ public partial class MainMapPage : ContentPage
             "Amici",
             hub.Friends.Select(x => CreateSocialConnectionCard(x, "friend")).ToList(),
             "Ancora nessun amico");
+    }
+
+    private void PopulateSocialStateCard(SocialMeState meState)
+    {
+        SocialPresenceStateLabel.Text = meState.ActiveCheckInVenueName switch
+        {
+            not null => $"Ora sei a {meState.ActiveCheckInVenueName}",
+            null when !string.IsNullOrWhiteSpace(meState.ActiveIntentionVenueName) => $"Stai andando a {meState.ActiveIntentionVenueName}",
+            _ => "Nessuna presenza live"
+        };
+
+        ExitCheckInButton.IsVisible = meState.ActiveCheckInVenueId is not null;
+
+        _isApplyingSocialState = true;
+        try
+        {
+            GhostModeSwitch.IsToggled = meState.IsGhostModeEnabled;
+            SharePresenceSwitch.IsToggled = meState.SharePresenceWithFriends;
+            ShareIntentionsSwitch.IsToggled = meState.ShareIntentionsWithFriends;
+        }
+        finally
+        {
+            _isApplyingSocialState = false;
+        }
+    }
+
+    private void PopulateSocialTablesSection(IReadOnlyList<SocialTableSummary> tables)
+    {
+        SocialTablesHeaderLabel.Text = $"I tuoi tavoli ({tables.Count})";
+        SocialTablesStack.Children.Clear();
+
+        if (tables.Count == 0)
+        {
+            SocialTablesStack.Children.Add(CreateSocialPlaceholder("Nessun tavolo attivo."));
+            return;
+        }
+
+        foreach (var table in tables)
+        {
+            SocialTablesStack.Children.Add(CreateSocialTableCard(table));
+        }
     }
 
     private void PopulateSocialSection(Label header, VerticalStackLayout container, int count, string title, IReadOnlyList<View> views, string emptyText)
@@ -1355,6 +1698,77 @@ public partial class MainMapPage : ContentPage
         return card;
     }
 
+    private View CreateSocialTableCard(SocialTableSummary table)
+    {
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 12
+        };
+
+        var labels = new VerticalStackLayout
+        {
+            Spacing = 3,
+            Children =
+            {
+                new Label
+                {
+                    Text = table.Title,
+                    FontSize = 14,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#0F172A")
+                },
+                new Label
+                {
+                    Text = $"{table.VenueName} • {table.VenueCategory}",
+                    FontSize = 12,
+                    TextColor = Color.FromArgb("#64748B")
+                },
+                new Label
+                {
+                    Text = $"{table.StartsAtUtc.ToLocalTime():ddd HH:mm} • {BuildTableMembershipLabel(table)}",
+                    FontSize = 11,
+                    TextColor = Color.FromArgb("#475569")
+                },
+                new Label
+                {
+                    Text = $"{table.AcceptedCount}/{table.Capacity} dentro • {table.RequestedCount} richieste • {table.InvitedCount} inviti",
+                    FontSize = 11,
+                    TextColor = Color.FromArgb("#475569")
+                }
+            }
+        };
+
+        grid.Children.Add(labels);
+
+        var action = CreateSocialActionButton("Apri", true, async () =>
+        {
+            await ShowTableOverlayAsync(table);
+        });
+        grid.Children.Add(action);
+        Grid.SetColumn(action, 1);
+
+        var card = new Border
+        {
+            Padding = new Thickness(12, 10),
+            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = 18 },
+            Content = grid
+        };
+
+        card.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await ShowTableOverlayAsync(table))
+        });
+
+        return card;
+    }
+
     private View CreateSocialActionButton(string text, bool primary, Func<Task> action)
     {
         var button = new Button
@@ -1402,9 +1816,287 @@ public partial class MainMapPage : ContentPage
         return button;
     }
 
+    private async Task ShowTableOverlayAsync(SocialTableSummary table)
+    {
+        await HidePresenceOverlayAsync(animated: false);
+        await HideProfileOverlayAsync(animated: false);
+
+        _activeTableSummary = table;
+        _activeTableThread = null;
+        TableTitleLabel.Text = table.Title;
+        TableMetaLabel.Text = $"{table.VenueName} • {table.VenueCategory} • {table.StartsAtUtc.ToLocalTime():ddd HH:mm}";
+        TableStatusLabel.IsVisible = false;
+        TableRequestsStack.Children.Clear();
+        TableMessagesStack.Children.Clear();
+        TableLoadingIndicator.IsVisible = true;
+        TableLoadingIndicator.IsRunning = true;
+        TableOverlay.IsVisible = true;
+        TableSheet.TranslationY = 500;
+        await TableSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await RefreshActiveTableThreadAsync();
+    }
+
+    private async Task HideTableOverlayAsync(bool animated)
+    {
+        if (!TableOverlay.IsVisible)
+        {
+            return;
+        }
+
+        if (animated)
+        {
+            await TableSheet.TranslateTo(0, 500, 180, Easing.CubicIn);
+        }
+        else
+        {
+            TableSheet.TranslationY = 500;
+        }
+
+        TableOverlay.IsVisible = false;
+        TableRequestsStack.Children.Clear();
+        TableMessagesStack.Children.Clear();
+        TableStatusLabel.IsVisible = false;
+        TableMessageEntry.Text = string.Empty;
+        _activeTableSummary = null;
+        _activeTableThread = null;
+    }
+
+    private async Task RefreshActiveTableThreadAsync()
+    {
+        if (_activeTableSummary is null)
+        {
+            return;
+        }
+
+        try
+        {
+            TableLoadingIndicator.IsVisible = true;
+            TableLoadingIndicator.IsRunning = true;
+            var thread = await _apiClient.GetTableThreadAsync(_activeTableSummary.TableId);
+            _activeTableThread = thread;
+            _activeTableSummary = thread.Table;
+            PopulateTableOverlay(thread);
+        }
+        catch (Exception ex)
+        {
+            SetTableStatus(_apiClient.DescribeException(ex), true);
+        }
+        finally
+        {
+            TableLoadingIndicator.IsVisible = false;
+            TableLoadingIndicator.IsRunning = false;
+        }
+    }
+
+    private void PopulateTableOverlay(SocialTableThread thread)
+    {
+        TableTitleLabel.Text = thread.Table.Title;
+        TableMetaLabel.Text = $"{thread.Table.VenueName} • {thread.Table.VenueCategory} • {thread.Table.StartsAtUtc.ToLocalTime():ddd HH:mm}";
+        TableRequestsHeaderLabel.Text = thread.Table.IsHost
+            ? $"Richieste ({thread.Requests.Count})"
+            : $"Persone in attesa ({thread.Requests.Count})";
+
+        TableRequestsStack.Children.Clear();
+        if (thread.Requests.Count == 0)
+        {
+            TableRequestsStack.Children.Add(CreateSocialPlaceholder("Nessuna richiesta pendente."));
+        }
+        else
+        {
+            foreach (var request in thread.Requests)
+            {
+                TableRequestsStack.Children.Add(CreateTableRequestCard(thread.Table, request));
+            }
+        }
+
+        TableMessagesStack.Children.Clear();
+        if (thread.Messages.Count == 0)
+        {
+            TableMessagesStack.Children.Add(CreateSocialPlaceholder("Nessun messaggio ancora."));
+        }
+        else
+        {
+            foreach (var message in thread.Messages)
+            {
+                TableMessagesStack.Children.Add(CreateTableMessageCard(message));
+            }
+        }
+    }
+
+    private View CreateTableRequestCard(SocialTableSummary table, SocialTableRequest request)
+    {
+        var preview = new PresencePreview
+        {
+            UserId = request.UserId,
+            Nickname = request.Nickname,
+            DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? request.Nickname : request.DisplayName!,
+            AvatarUrl = request.AvatarUrl
+        };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 12
+        };
+
+        grid.Children.Add(CreateAvatarBadge(preview, 40));
+
+        var labels = new VerticalStackLayout
+        {
+            Spacing = 2,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                new Label
+                {
+                    Text = string.IsNullOrWhiteSpace(request.DisplayName) ? request.Nickname : request.DisplayName,
+                    FontSize = 13,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#0F172A")
+                },
+                new Label
+                {
+                    Text = $"@{request.Nickname} • {FormatParticipantStatus(request.Status)}",
+                    FontSize = 11,
+                    TextColor = Color.FromArgb("#64748B")
+                }
+            }
+        };
+        grid.Children.Add(labels);
+        Grid.SetColumn(labels, 1);
+
+        var actions = new HorizontalStackLayout
+        {
+            Spacing = 6,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        if (table.IsHost)
+        {
+            actions.Children.Add(CreateSocialActionButton("Approva", true, async () =>
+            {
+                await _apiClient.ApproveTableRequestAsync(table.TableId, request.UserId);
+                SetTableStatus("Richiesta approvata.", false);
+                await RefreshActiveTableThreadAsync();
+                await RefreshSocialOverlayAsync();
+                await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
+            }));
+            actions.Children.Add(CreateSocialActionButton("Rifiuta", false, async () =>
+            {
+                await _apiClient.RejectTableRequestAsync(table.TableId, request.UserId);
+                SetTableStatus("Richiesta rimossa.", false);
+                await RefreshActiveTableThreadAsync();
+                await RefreshSocialOverlayAsync();
+            }));
+        }
+
+        grid.Children.Add(actions);
+        Grid.SetColumn(actions, 2);
+
+        var card = new Border
+        {
+            Padding = new Thickness(12, 10),
+            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = 18 },
+            Content = grid
+        };
+
+        card.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenProfileFromTableAsync(preview))
+        });
+
+        return card;
+    }
+
+    private View CreateTableMessageCard(SocialTableMessage message)
+    {
+        var preview = new PresencePreview
+        {
+            UserId = message.UserId,
+            Nickname = message.Nickname,
+            DisplayName = string.IsNullOrWhiteSpace(message.DisplayName) ? message.Nickname : message.DisplayName!,
+            AvatarUrl = message.AvatarUrl
+        };
+
+        var bubble = new Border
+        {
+            Padding = new Thickness(12, 10),
+            BackgroundColor = message.IsMine ? Color.FromArgb("#2563EB") : Color.FromArgb("#F8FBFF"),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = 18 },
+            MaximumWidthRequest = 260,
+            Content = new VerticalStackLayout
+            {
+                Spacing = 2,
+                Children =
+                {
+                    new Label
+                    {
+                        Text = message.IsMine ? "Tu" : (string.IsNullOrWhiteSpace(message.DisplayName) ? message.Nickname : message.DisplayName),
+                        FontSize = 11,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = message.IsMine ? Colors.White.WithAlpha(0.92f) : Color.FromArgb("#0F172A")
+                    },
+                    new Label
+                    {
+                        Text = message.Body,
+                        FontSize = 13,
+                        TextColor = message.IsMine ? Colors.White : Color.FromArgb("#0F172A")
+                    },
+                    new Label
+                    {
+                        Text = message.SentAtUtc.ToLocalTime().ToString("ddd HH:mm"),
+                        FontSize = 10,
+                        TextColor = message.IsMine ? Colors.White.WithAlpha(0.82f) : Color.FromArgb("#64748B")
+                    }
+                }
+            }
+        };
+
+        if (message.IsMine)
+        {
+            return new HorizontalStackLayout
+            {
+                HorizontalOptions = LayoutOptions.End,
+                Children = { bubble }
+            };
+        }
+
+        var row = new HorizontalStackLayout
+        {
+            Spacing = 10,
+            HorizontalOptions = LayoutOptions.Start,
+            Children =
+            {
+                CreateAvatarBadge(preview, 34),
+                bubble
+            }
+        };
+
+        row.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenProfileFromTableAsync(preview))
+        });
+
+        return row;
+    }
+
     private async Task OpenProfileFromSocialAsync(PresencePreview preview)
     {
         await HideSocialOverlayAsync(animated: false);
+        await ShowUserProfileAsync(preview);
+    }
+
+    private async Task OpenProfileFromTableAsync(PresencePreview preview)
+    {
+        await HideTableOverlayAsync(animated: false);
         await ShowUserProfileAsync(preview);
     }
 
@@ -1415,6 +2107,42 @@ public partial class MainMapPage : ContentPage
             ? Color.FromArgb("#B91C1C")
             : Color.FromArgb("#1D4ED8");
         SocialStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private void SetTableStatus(string message, bool isError)
+    {
+        TableStatusLabel.Text = message;
+        TableStatusLabel.TextColor = isError
+            ? Color.FromArgb("#B91C1C")
+            : Color.FromArgb("#1D4ED8");
+        TableStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private static string BuildTableMembershipLabel(SocialTableSummary table)
+    {
+        if (table.IsHost)
+        {
+            return "Host";
+        }
+
+        return table.MembershipStatus switch
+        {
+            "accepted" => "Dentro",
+            "requested" => "In approvazione",
+            "invited" => "Invitato",
+            _ => "Tavolo"
+        };
+    }
+
+    private static string FormatParticipantStatus(string status)
+    {
+        return status switch
+        {
+            "accepted" => "accettato",
+            "requested" => "richiesta",
+            "invited" => "invitato",
+            _ => status
+        };
     }
 
     private static string BuildProfileMeta(UserProfile? profile)
@@ -1462,8 +2190,13 @@ public partial class MainMapPage : ContentPage
 
         ProfilePrimaryActionButton.IsVisible = !isSelf;
         ProfileInviteActionButton.IsVisible = !isSelf && (profile?.CanInviteToTable ?? true);
+        ProfileMessageActionButton.IsVisible = !isSelf;
+        ProfileBlockActionButton.IsVisible = !isSelf;
+        ProfileReportActionButton.IsVisible = !isSelf;
 
-        ProfileInviteActionButton.IsEnabled = !_isProfileActionBusy && !isSelf && profile is not null;
+        ProfileInviteActionButton.IsEnabled = !_isProfileActionBusy && !isSelf && profile is not null && (profile?.CanInviteToTable ?? false);
+        ProfileMessageActionButton.IsEnabled = !_isProfileActionBusy && !isSelf && (profile?.CanMessageDirectly ?? false);
+        ProfileReportActionButton.IsEnabled = !_isProfileActionBusy && !isSelf && profile is not null;
 
         switch (relationshipStatus)
         {
@@ -1483,6 +2216,14 @@ public partial class MainMapPage : ContentPage
                 ProfilePrimaryActionButton.IsVisible = false;
                 ProfilePrimaryActionButton.IsEnabled = false;
                 break;
+            case "blocked_by_you":
+                ProfilePrimaryActionButton.Text = "Bloccato";
+                ProfilePrimaryActionButton.IsEnabled = false;
+                break;
+            case "blocked_you":
+                ProfilePrimaryActionButton.Text = "Profilo limitato";
+                ProfilePrimaryActionButton.IsEnabled = false;
+                break;
             default:
                 ProfilePrimaryActionButton.Text = profile is null ? "Caricamento" : "Aggiungi";
                 ProfilePrimaryActionButton.IsEnabled = !_isProfileActionBusy && profile is not null;
@@ -1490,6 +2231,9 @@ public partial class MainMapPage : ContentPage
         }
 
         ProfileInviteActionButton.Text = "Invita al tavolo";
+        ProfileMessageActionButton.Text = "Chat";
+        ProfileBlockActionButton.Text = profile?.IsBlockedByViewer == true ? "Sblocca" : "Blocca";
+        ProfileBlockActionButton.IsEnabled = !_isProfileActionBusy && !isSelf && profile is not null;
     }
 
     private void SetProfileActionMessage(string message, bool isError)
@@ -1896,6 +2640,18 @@ public partial class MainMapPage : ContentPage
         if (SocialOverlay.IsVisible)
         {
             bottomChrome = Math.Max(bottomChrome, Math.Max(340d, SocialSheet.Height * 0.88d + 72d));
+        }
+        if (TableOverlay.IsVisible)
+        {
+            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, TableSheet.Height * 0.88d + 72d));
+        }
+        if (EditProfileOverlay.IsVisible)
+        {
+            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, EditProfileSheet.Height * 0.88d + 72d));
+        }
+        if (DirectMessageOverlay.IsVisible)
+        {
+            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, DirectMessageSheet.Height * 0.88d + 72d));
         }
 
         var bottomInset = Math.Clamp(bottomChrome / pageHeight, 0.16d, 0.62d);

@@ -23,17 +23,39 @@ public static class DevelopmentDataSeeder
     {
         if (await db.Users.AnyAsync(ct))
         {
-            var usersWithoutAvatar = await db.Users
-                .Where(x => string.IsNullOrWhiteSpace(x.AvatarUrl))
+            var usersToBackfill = await db.Users
+                .Where(x => string.IsNullOrWhiteSpace(x.AvatarUrl) || string.IsNullOrWhiteSpace(x.Bio))
                 .ToListAsync(ct);
 
-            if (usersWithoutAvatar.Count > 0)
+            if (usersToBackfill.Count > 0)
             {
-                foreach (var user in usersWithoutAvatar)
+                foreach (var user in usersToBackfill)
                 {
-                    user.AvatarUrl = BuildDevAvatarUrl(user.Nickname);
+                    if (string.IsNullOrWhiteSpace(user.AvatarUrl))
+                    {
+                        user.AvatarUrl = BuildDevAvatarUrl(user.Nickname);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(user.Bio))
+                    {
+                        user.Bio = BuildDevBio(user.Nickname);
+                    }
+
                     user.UpdatedAtUtc = DateTimeOffset.UtcNow;
                 }
+
+                await db.SaveChangesAsync(ct);
+            }
+
+            if (!await db.UserInterests.AnyAsync(ct))
+            {
+                db.UserInterests.AddRange(
+                    new UserInterest { UserId = GiuliaUserId, Tag = "aperitivi" },
+                    new UserInterest { UserId = GiuliaUserId, Tag = "cinema" },
+                    new UserInterest { UserId = MarcoUserId, Tag = "musica" },
+                    new UserInterest { UserId = MarcoUserId, Tag = "sport" },
+                    new UserInterest { UserId = SofiaUserId, Tag = "lettura" },
+                    new UserInterest { UserId = SofiaUserId, Tag = "brunch" });
 
                 await db.SaveChangesAsync(ct);
             }
@@ -45,9 +67,17 @@ public static class DevelopmentDataSeeder
         var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
 
         db.Users.AddRange(
-            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", AvatarUrl = BuildDevAvatarUrl("giulia"), BirthYear = 1997, Gender = "female" },
-            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", AvatarUrl = BuildDevAvatarUrl("marco"), BirthYear = 1994, Gender = "male" },
-            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", AvatarUrl = BuildDevAvatarUrl("sofia"), BirthYear = 1999, Gender = "female" });
+            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", AvatarUrl = BuildDevAvatarUrl("giulia"), Bio = "Aperitivi, cinema e tavoli improvvisati.", BirthYear = 1997, Gender = "female" },
+            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", AvatarUrl = BuildDevAvatarUrl("marco"), Bio = "Musica live e locali dove si parla davvero.", BirthYear = 1994, Gender = "male" },
+            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", AvatarUrl = BuildDevAvatarUrl("sofia"), Bio = "Brunch, lettura e serate tranquille.", BirthYear = 1999, Gender = "female" });
+
+        db.UserInterests.AddRange(
+            new UserInterest { UserId = GiuliaUserId, Tag = "aperitivi" },
+            new UserInterest { UserId = GiuliaUserId, Tag = "cinema" },
+            new UserInterest { UserId = MarcoUserId, Tag = "musica" },
+            new UserInterest { UserId = MarcoUserId, Tag = "sport" },
+            new UserInterest { UserId = SofiaUserId, Tag = "lettura" },
+            new UserInterest { UserId = SofiaUserId, Tag = "brunch" });
 
         db.FriendRelations.AddRange(
             new FriendRelation { RequesterId = GiuliaUserId, AddresseeId = MarcoUserId, Status = "accepted" },
@@ -132,6 +162,17 @@ public static class DevelopmentDataSeeder
     private static string BuildDevAvatarUrl(string nickname)
     {
         return $"https://i.pravatar.cc/160?u={Uri.EscapeDataString(nickname)}";
+    }
+
+    private static string BuildDevBio(string nickname)
+    {
+        return nickname.Trim().ToLowerInvariant() switch
+        {
+            "giulia" => "Aperitivi, cinema e tavoli improvvisati.",
+            "marco" => "Musica live e locali dove si parla davvero.",
+            "sofia" => "Brunch, lettura e serate tranquille.",
+            _ => "Profilo development FriendMap."
+        };
     }
 
     private static VenueAffluenceSnapshot CreateSnapshot(Guid venueId, DateTimeOffset bucketStart, int activeUsers)

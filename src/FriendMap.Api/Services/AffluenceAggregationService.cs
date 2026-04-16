@@ -66,8 +66,7 @@ public class AffluenceAggregationService
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(normalizedCategory) &&
-                    !venue.Category.Equals(normalizedCategory, StringComparison.OrdinalIgnoreCase))
+                if (!MatchesCategoryFilter(venue.Category, normalizedCategory))
                 {
                     return false;
                 }
@@ -729,6 +728,33 @@ public class AffluenceAggregationService
             "restaurant" or "ristorante" or "bistrot" => hour is >= 12 and <= 15 || hour is >= 19 and <= 23,
             "cafe" or "cafè" => hour is >= 7 and <= 19,
             _ => hour is >= 10 and <= 23
+        };
+    }
+
+    private static bool MatchesCategoryFilter(string venueCategory, string? categoryFilter)
+    {
+        if (string.IsNullOrWhiteSpace(categoryFilter))
+        {
+            return true;
+        }
+
+        var normalizedVenueCategory = venueCategory.Trim().ToLowerInvariant();
+        var normalizedFilter = categoryFilter.Trim().ToLowerInvariant();
+
+        return normalizedFilter switch
+        {
+            "all" => true,
+            "bar" => normalizedVenueCategory.Contains("bar", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("pub", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("club", StringComparison.OrdinalIgnoreCase),
+            "food" => normalizedVenueCategory.Contains("restaurant", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("ristor", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("bistrot", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("pizzer", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("trattor", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("cafe", StringComparison.OrdinalIgnoreCase)
+                || normalizedVenueCategory.Contains("caf", StringComparison.OrdinalIgnoreCase),
+            _ => normalizedVenueCategory.Equals(normalizedFilter, StringComparison.OrdinalIgnoreCase)
         };
     }
 }

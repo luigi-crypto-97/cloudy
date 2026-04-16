@@ -3,6 +3,7 @@ using System;
 using FriendMap.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FriendMap.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260416181457_AddSocialTableMessages")]
+    partial class AddSocialTableMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,10 +37,6 @@ namespace FriendMap.Api.Data.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("text")
                         .HasColumnName("avatar_url");
-
-                    b.Property<string>("Bio")
-                        .HasColumnType("text")
-                        .HasColumnName("bio");
 
                     b.Property<int?>("BirthYear")
                         .HasColumnType("integer")
@@ -86,89 +85,6 @@ namespace FriendMap.Api.Data.Migrations
                         .HasName("pk_app_users");
 
                     b.ToTable("app_users", (string)null);
-                });
-
-            modelBuilder.Entity("FriendMap.Api.Models.DirectMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("body");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<Guid>("SenderUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sender_user_id");
-
-                    b.Property<Guid>("ThreadId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("thread_id");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.HasKey("Id")
-                        .HasName("pk_direct_messages");
-
-                    b.HasIndex("SenderUserId")
-                        .HasDatabaseName("ix_direct_messages_sender_user_id");
-
-                    b.HasIndex("ThreadId", "CreatedAtUtc")
-                        .HasDatabaseName("ix_direct_messages_thread_id_created_at_utc");
-
-                    b.ToTable("direct_messages", (string)null);
-                });
-
-            modelBuilder.Entity("FriendMap.Api.Models.DirectMessageThread", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<DateTimeOffset>("LastMessageAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_message_at_utc");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.Property<Guid>("UserHighId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_high_id");
-
-                    b.Property<Guid>("UserLowId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_low_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_direct_message_threads");
-
-                    b.HasIndex("LastMessageAtUtc")
-                        .HasDatabaseName("ix_direct_message_threads_last_message_at_utc");
-
-                    b.HasIndex("UserHighId")
-                        .HasDatabaseName("ix_direct_message_threads_user_high_id");
-
-                    b.HasIndex("UserLowId", "UserHighId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_direct_message_threads_user_low_id_user_high_id");
-
-                    b.ToTable("direct_message_threads", (string)null);
                 });
 
             modelBuilder.Entity("FriendMap.Api.Models.FriendRelation", b =>
@@ -531,42 +447,6 @@ namespace FriendMap.Api.Data.Migrations
                     b.ToTable("social_table_participants", (string)null);
                 });
 
-            modelBuilder.Entity("FriendMap.Api.Models.UserBlock", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("BlockedUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("blocked_user_id");
-
-                    b.Property<Guid>("BlockerUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("blocker_user_id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.HasKey("Id")
-                        .HasName("pk_user_blocks");
-
-                    b.HasIndex("BlockedUserId")
-                        .HasDatabaseName("ix_user_blocks_blocked_user_id");
-
-                    b.HasIndex("BlockerUserId", "BlockedUserId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_blocks_blocker_user_id_blocked_user_id");
-
-                    b.ToTable("user_blocks", (string)null);
-                });
-
             modelBuilder.Entity("FriendMap.Api.Models.UserInterest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -831,40 +711,6 @@ namespace FriendMap.Api.Data.Migrations
                     b.ToTable("venue_intentions", (string)null);
                 });
 
-            modelBuilder.Entity("FriendMap.Api.Models.DirectMessage", b =>
-                {
-                    b.HasOne("FriendMap.Api.Models.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("SenderUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_direct_messages_app_users_sender_user_id");
-
-                    b.HasOne("FriendMap.Api.Models.DirectMessageThread", null)
-                        .WithMany()
-                        .HasForeignKey("ThreadId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_direct_messages_direct_message_threads_thread_id");
-                });
-
-            modelBuilder.Entity("FriendMap.Api.Models.DirectMessageThread", b =>
-                {
-                    b.HasOne("FriendMap.Api.Models.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserHighId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_direct_message_threads_app_users_user_high_id");
-
-                    b.HasOne("FriendMap.Api.Models.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserLowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_direct_message_threads_app_users_user_low_id");
-                });
-
             modelBuilder.Entity("FriendMap.Api.Models.FriendRelation", b =>
                 {
                     b.HasOne("FriendMap.Api.Models.AppUser", null)
@@ -979,23 +825,6 @@ namespace FriendMap.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_social_table_participants_app_users_user_id");
-                });
-
-            modelBuilder.Entity("FriendMap.Api.Models.UserBlock", b =>
-                {
-                    b.HasOne("FriendMap.Api.Models.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("BlockedUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_blocks_app_users_blocked_user_id");
-
-                    b.HasOne("FriendMap.Api.Models.AppUser", null)
-                        .WithMany()
-                        .HasForeignKey("BlockerUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_blocks_app_users_blocker_user_id");
                 });
 
             modelBuilder.Entity("FriendMap.Api.Models.UserInterest", b =>

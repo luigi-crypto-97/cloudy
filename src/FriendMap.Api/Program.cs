@@ -139,6 +139,8 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapVenueEndpoints();
 app.MapSocialEndpoints();
+app.MapMessagingEndpoints();
+app.MapSafetyEndpoints();
 app.MapAdminEndpoints();
 app.MapNotificationEndpoints();
 

@@ -643,6 +643,18 @@
                         </VerticalStackLayout>
                     </Border>
 
+                    <Label x:Name="ProfileBioLabel"
+                           Text=""
+                           FontSize="13"
+                           TextColor="{StaticResource MutedTextColor}"
+                           IsVisible="False" />
+
+                    <Label x:Name="ProfileInterestsLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
                     <Grid ColumnDefinitions="*,*"
                           ColumnSpacing="8">
                         <Button x:Name="ProfilePrimaryActionButton"
@@ -661,6 +673,33 @@
                                 FontSize="13"
                                 Style="{StaticResource SecondaryButtonStyle}" />
                     </Grid>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="8">
+                        <Button x:Name="ProfileMessageActionButton"
+                                Text="Chat"
+                                Clicked="OnProfileMessageClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                        <Button x:Name="ProfileBlockActionButton"
+                                Grid.Column="1"
+                                Text="Blocca"
+                                Clicked="OnProfileBlockClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </Grid>
+
+                    <Button x:Name="ProfileReportActionButton"
+                            Text="Segnala"
+                            Clicked="OnProfileReportClicked"
+                            MinimumHeightRequest="40"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource SecondaryButtonStyle}" />
 
                     <Label x:Name="ProfileActionMessageLabel"
                            Text=""
@@ -757,6 +796,13 @@
                                             FontSize="13"
                                             Style="{StaticResource SecondaryButtonStyle}"
                                             IsVisible="False" />
+                                    <Button x:Name="OpenEditProfileButton"
+                                            Text="Modifica profilo"
+                                            Clicked="OnOpenEditProfileClicked"
+                                            MinimumHeightRequest="40"
+                                            Padding="10,10"
+                                            FontSize="13"
+                                            Style="{StaticResource SecondaryButtonStyle}" />
                                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
                                         <Label Text="Ghost mode"
                                                FontSize="12"
@@ -783,6 +829,16 @@
                                     </Grid>
                                 </VerticalStackLayout>
                             </Border>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialMessagesHeaderLabel"
+                                       Text="Messaggi"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialMessagesStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
 
                             <VerticalStackLayout Spacing="8">
                                 <Label x:Name="SocialTablesHeaderLabel"
@@ -940,6 +996,171 @@
                         <Button Grid.Column="1"
                                 Text="Invia"
                                 Clicked="OnSendTableMessageClicked"
+                                MinimumHeightRequest="42"
+                                Padding="12,10"
+                                FontSize="13"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="EditProfileOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#260F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnEditProfileOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="EditProfileSheet"
+                    Margin="16,0,16,96"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="500">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Modifica profilo"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="EditProfileHandleLabel"
+                                   Text="@me"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="1"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnEditProfileOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <ScrollView MaximumHeightRequest="420">
+                        <VerticalStackLayout Spacing="10">
+                            <Entry x:Name="EditDisplayNameEntry"
+                                   Placeholder="Nome pubblico" />
+                            <Entry x:Name="EditAvatarUrlEntry"
+                                   Placeholder="Avatar URL" />
+                            <Entry x:Name="EditBirthYearEntry"
+                                   Placeholder="Anno di nascita"
+                                   Keyboard="Numeric" />
+                            <Picker x:Name="EditGenderPicker"
+                                    Title="Genere" />
+                            <Editor x:Name="EditBioEditor"
+                                    Placeholder="Bio breve"
+                                    AutoSize="TextChanges"
+                                    MaxLength="280" />
+                            <Editor x:Name="EditInterestsEditor"
+                                    Placeholder="Interessi separati da virgola"
+                                    AutoSize="TextChanges" />
+                        </VerticalStackLayout>
+                    </ScrollView>
+
+                    <Label x:Name="EditProfileStatusLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="8">
+                        <Button Text="Annulla"
+                                Clicked="OnEditProfileOverlayCloseClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                        <Button Grid.Column="1"
+                                Text="Salva"
+                                Clicked="OnSaveProfileClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="DirectMessageOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#260F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnDirectMessageOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="DirectMessageSheet"
+                    Margin="16,0,16,96"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="500">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label x:Name="DirectMessageTitleLabel"
+                                   Text="Chat"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="DirectMessageSubtitleLabel"
+                                   Text="@user"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="1"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnDirectMessageOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <Label x:Name="DirectMessageStatusLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
+                    <ScrollView MaximumHeightRequest="320">
+                        <VerticalStackLayout x:Name="DirectMessageMessagesStack"
+                                             Spacing="10" />
+                    </ScrollView>
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="8">
+                        <Entry x:Name="DirectMessageEntry"
+                               Placeholder="Scrivi un messaggio" />
+                        <Button Grid.Column="1"
+                                Text="Invia"
+                                Clicked="OnSendDirectMessageClicked"
                                 MinimumHeightRequest="42"
                                 Padding="12,10"
                                 FontSize="13"

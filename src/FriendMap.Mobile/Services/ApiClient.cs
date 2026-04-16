@@ -151,6 +151,89 @@ public class ApiClient
         return profile ?? throw new InvalidOperationException("Profilo utente non disponibile.");
     }
 
+    public async Task<EditableUserProfile> GetMyProfileAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/users/me/profile");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<EditableUserProfile>()
+            ?? throw new InvalidOperationException("Profilo personale non disponibile.");
+    }
+
+    public async Task<EditableUserProfile> UpdateMyProfileAsync(
+        string? displayName,
+        string? avatarUrl,
+        string? bio,
+        int? birthYear,
+        string? gender,
+        IEnumerable<string> interests)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/profile",
+            new UpdateMyProfileRequestDto(displayName, avatarUrl, bio, birthYear, gender, interests.ToList()));
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<EditableUserProfile>()
+            ?? throw new InvalidOperationException("Profilo aggiornato non disponibile.");
+    }
+
+    public async Task<List<DirectMessageThreadSummary>> GetDirectMessageInboxAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/messages/threads");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<DirectMessageThreadSummary>>() ?? new List<DirectMessageThreadSummary>();
+    }
+
+    public async Task<DirectMessageThread> GetDirectMessageThreadAsync(Guid otherUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync($"api/messages/threads/{otherUserId}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<DirectMessageThread>() ?? new DirectMessageThread();
+    }
+
+    public async Task SendDirectMessageAsync(Guid otherUserId, string body)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/messages/threads/{otherUserId}",
+            new SendDirectMessageRequestDto(body));
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task BlockUserAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/safety/blocks/{targetUserId}", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task UnblockUserAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.DeleteAsync($"api/safety/blocks/{targetUserId}");
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task ReportUserAsync(Guid reportedUserId, string reasonCode, string? details)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/safety/reports/user",
+            new CreateUserReportRequestDto(reportedUserId, reasonCode, details));
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task ReportTableAsync(Guid tableId, string reasonCode, string? details)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/safety/reports/table",
+            new CreateTableReportRequestDto(tableId, reasonCode, details));
+        await EnsureSuccessAsync(response);
+    }
+
     public async Task<SocialHub> GetSocialHubAsync()
     {
         await EnsureAuthenticatedAsync();
@@ -432,8 +515,8 @@ public class ApiClient
 
         return ex switch
         {
-            TaskCanceledException => $"Timeout verso {_httpClient.BaseAddress}. Controlla rete e backend.",
-            HttpRequestException => $"Backend non raggiungibile su {_httpClient.BaseAddress}.",
+            TaskCanceledException => $"Timeout verso {_httpClient.BaseAddress}. Controlla rete, backend e avvio LAN.",
+            HttpRequestException => $"Backend non raggiungibile su {_httpClient.BaseAddress}. Sul Mac usa ./scripts/run-api-lan.sh.",
             InvalidOperationException => ex.Message,
             _ => ex.Message
         };
@@ -452,6 +535,14 @@ public class ApiClient
     private record UpdatePrivacySettingsRequest(bool? IsGhostModeEnabled, bool? SharePresenceWithFriends, bool? ShareIntentionsWithFriends);
 
     private record SendSocialTableMessageRequest(string Body);
+
+    private record UpdateMyProfileRequestDto(string? DisplayName, string? AvatarUrl, string? Bio, int? BirthYear, string? Gender, List<string> Interests);
+
+    private record SendDirectMessageRequestDto(string Body);
+
+    private record CreateUserReportRequestDto(Guid ReportedUserId, string ReasonCode, string? Details);
+
+    private record CreateTableReportRequestDto(Guid SocialTableId, string ReasonCode, string? Details);
 
     private record RegisterDeviceTokenRequest(Guid UserId, string Platform, string DeviceToken);
 

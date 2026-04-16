@@ -5,6 +5,32 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 DESIRED_URLS="${ASPNETCORE_URLS:-http://127.0.0.1:8080}"
+DB_HOST="${FRIENDMAP_DB_HOST:-127.0.0.1}"
+DB_PORT="${FRIENDMAP_DB_PORT:-5432}"
+
+if [[ "${SKIP_DB_PREFLIGHT:-0}" != "1" ]]; then
+  if command -v nc >/dev/null 2>&1 && ! nc -z "$DB_HOST" "$DB_PORT" >/dev/null 2>&1; then
+    echo "PostgreSQL is not reachable at ${DB_HOST}:${DB_PORT}." >&2
+    echo >&2
+
+    if command -v docker >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
+      echo "Docker is installed but the daemon is not running." >&2
+      echo "Start Docker Desktop first, then run:" >&2
+    else
+      echo "Start the local development services first:" >&2
+    fi
+
+    echo "  ./scripts/bootstrap-dev.sh" >&2
+    echo >&2
+    echo "Then retry:" >&2
+    echo "  ./scripts/run-api.sh" >&2
+    echo "  ./scripts/run-api-lan.sh" >&2
+    echo >&2
+    echo "If you are using a custom PostgreSQL instance, make sure it is reachable on ${DB_HOST}:${DB_PORT}" >&2
+    echo "or export FRIENDMAP_DB_HOST / FRIENDMAP_DB_PORT before running this script." >&2
+    exit 1
+  fi
+fi
 
 if lsof -nP -iTCP:8080 -sTCP:LISTEN >/dev/null 2>&1; then
   LISTENERS="$(lsof -nP -iTCP:8080 -sTCP:LISTEN || true)"

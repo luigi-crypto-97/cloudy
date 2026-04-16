@@ -5,10 +5,10 @@ Registrazione tramite numero di telefono
 Eventuale social login
 Age gate / verifica età minima
 Creazione profilo con nickname [FATTO!]
-Foto profilo opzionale
-Fascia d’età
-Genere, inclusa opzione “preferisco non dichiarare”
-Selezione interessi/tag personali
+Foto profilo opzionale [FATTO!]
+Fascia d’età [FATTO!]
+Genere, inclusa opzione “preferisco non dichiarare” [FATTO!]
+Selezione interessi/tag personali [FATTO!]
 Impostazioni privacy iniziali
 Gestione consensi separati per:
 localizzazione
@@ -18,9 +18,9 @@ marketing/comunicazioni promozionali
 Mappa principale della città [FATTO!]
 Visualizzazione iniziale di bar e ristoranti [FATTO!]
 Estensione futura ad altre venue/categorie
-Ricerca locali
-Filtri per distanza
-Filtro “open now”
+Ricerca locali [FATTO!]
+Filtri per distanza [FATTO!]
+Filtro “open now” [FATTO!]
 Filtri per interessi
 Filtri per vibe/tipologia serata
 Scheda locale con:
@@ -37,7 +37,7 @@ Finestre orarie di maggiore movimento
 Visualizzazione di statistiche demografiche solo aggregate:
 fasce d’età
 distribuzione di genere
-Nessuna visibilità di singoli utenti sconosciuti
+Nessuna visibilità di singoli utenti sconosciuti [FATTO!]
 Messaggio “dati insufficienti” quando non c’è massa critica sufficiente
 Visualizzazione aggregata delle intenzioni future sul locale [FATTO!]
 1.4 Intenzioni e pianificazione
@@ -45,15 +45,15 @@ Funzione “sto andando / andrò qui” [FATTO!]
 Scelta della venue di destinazione [FATTO!]
 Scelta della finestra temporale
 Eventuale tag dell’intenzione
-Visibilità in chiaro agli amici, se consentito
-Visibilità anonima e aggregata ai non amici
+Visibilità in chiaro agli amici, se consentito [FATTO!]
+Visibilità anonima e aggregata ai non amici [FATTO!]
 Uso delle intenzioni come segnale sociale per rendere vivo il locale anche prima della presenza fisica
 1.5 Check-in e presenza
 Check-in manuale “sono qui” [FATTO!]
 Presenza temporanea con scadenza automatica [FATTO!]
-Pulsante “esci ora”
-Presenza visibile in modo dettagliato solo agli amici
-Presenza visibile agli altri solo come dato aggregato
+Pulsante “esci ora” [FATTO!]
+Presenza visibile in modo dettagliato solo agli amici [FATTO!]
+Presenza visibile agli altri solo come dato aggregato [FATTO!]
 Approccio MVP senza location in background
 Uso preferenziale della localizzazione foreground/manuale per ridurre rischio privacy e problemi di policy store
 2. Funzioni social
@@ -61,15 +61,15 @@ Uso preferenziale della localizzazione foreground/manuale per ridurre rischio pr
 Invio richiesta di amicizia [FATTO!]
 Accettazione/rifiuto amicizia [FATTO!]
 Lista amici [FATTO!]
-Visibilità friend-only di dati sensibili
-Blocco utente
-Segnalazione utente
+Visibilità friend-only di dati sensibili [FATTO!]
+Blocco utente [FATTO!]
+Segnalazione utente [FATTO!]
 Rate limiting sulle richieste di amicizia
 2.2 Messaggistica
-Chat 1:1 tra utenti
-Chat attiva solo dopo amicizia o consenso reciproco
+Chat 1:1 tra utenti [FATTO!]
+Chat attiva solo dopo amicizia o consenso reciproco [FATTO!]
 Richieste di messaggio / pattern anti-intrusione
-Blocca utente in chat
+Blocca utente in chat [FATTO!]
 Segnala messaggio o conversazione
 Filtri anti-spam sulla messaggistica
 2.3 Tavoli sociali e micro-eventi
@@ -79,18 +79,18 @@ Capacità massima tavolo
 Tag/interessi del tavolo
 Regole del tavolo
 Adesione al tavolo [FATTO!]
-Modalità richiesta + approvazione
+Modalità richiesta + approvazione [FATTO!]
 Modalità auto-join con regole automatiche
 Moderazione del tavolo
 Chiusura tavolo
 Ban dal tavolo
-Chat del tavolo opzionale
+Chat del tavolo opzionale [FATTO!]
 Alternativa “richiedi contatto” con consenso reciproco
 Tavoli ufficiali creati dai locali
 Tavoli spontanei creati dagli utenti [FATTO!]
 2.4 Interessi e matching
 Inserimento interessi in fase di registrazione
-Modifica interessi nel profilo
+Modifica interessi nel profilo [FATTO!]
 Motore di raccomandazione basato sugli interessi
 Segnalazione eventi compatibili nella zona
 Segnalazione tavoli sociali coerenti con gli interessi
@@ -102,14 +102,14 @@ Notifiche per tavoli sociali compatibili
 Reminder di intenzioni pianificate
 Notifiche per eventi nella zona
 Notifiche per interessi compatibili
-Notifiche di approvazione/rifiuto ingresso tavolo
+Notifiche di approvazione/rifiuto ingresso tavolo [FATTO!]
 Notifiche di nuove richieste amicizia [FATTO!]
 Notifiche di nuovi messaggi
 3. Privacy e sicurezza utente
 3.1 Privacy by design
-Nessuna identità dei non amici visibile
-Nessuna posizione individuale dei non amici visibile
-Dati mostrati agli sconosciuti solo in forma aggregata
+Nessuna identità dei non amici visibile [FATTO!]
+Nessuna posizione individuale dei non amici visibile [FATTO!]
+Dati mostrati agli sconosciuti solo in forma aggregata [FATTO!]
 Soglie minime per mostrare statistiche
 Bin ampi per fasce d’età
 Arrotondamento/rumore statistico per evitare inferenze
@@ -117,17 +117,17 @@ Condivisione posizione disattivata di default
 Granularità di condivisione per amici
 Revoca immediata della visibilità posizione/presenza
 3.2 Controlli utente
-Ghost mode / modalità invisibile
-Possibilità di non comparire
-Gestione visibilità intenzioni
-Gestione visibilità check-in
+Ghost mode / modalità invisibile [FATTO!]
+Possibilità di non comparire [FATTO!]
+Gestione visibilità intenzioni [FATTO!]
+Gestione visibilità check-in [FATTO!]
 Gestione visibilità posizione per amici
 Impostazioni privacy avanzate per categorie di utenti
 3.3 Misure anti-abuso
-Reporting utenti
-Reporting tavoli
+Reporting utenti [FATTO!]
+Reporting tavoli [FATTO!]
 Reporting messaggi
-Enforcement admin
+Enforcement admin [FATTO!]
 Rate limiting su richieste amicizia
 Rate limiting su messaggi
 Antispam

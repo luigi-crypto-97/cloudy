@@ -25,9 +25,16 @@ public static class SocialEndpoints
                 return Results.Forbid();
             }
 
+            var blockedUserIds = await db.UserBlocks
+                .AsNoTracking()
+                .Where(x => x.BlockerUserId == currentUserId || x.BlockedUserId == currentUserId)
+                .Select(x => x.BlockerUserId == currentUserId ? x.BlockedUserId : x.BlockerUserId)
+                .ToListAsync(ct);
+
             var relations = await db.FriendRelations
                 .AsNoTracking()
                 .Where(x => x.RequesterId == currentUserId || x.AddresseeId == currentUserId)
+                .Where(x => !blockedUserIds.Contains(x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId))
                 .ToListAsync(ct);
 
             var friendIds = relations
@@ -107,6 +114,7 @@ public static class SocialEndpoints
                         host.Nickname,
                         host.DisplayName,
                         host.AvatarUrl))
+                .Where(x => !blockedUserIds.Contains(x.HostUserId))
                 .OrderBy(x => x.StartsAtUtc)
                 .ToListAsync(ct);
 
@@ -344,6 +352,14 @@ public static class SocialEndpoints
                 return Results.NotFound("Utente non trovato.");
             }
 
+            var blocked = await db.UserBlocks.AsNoTracking().AnyAsync(x =>
+                (x.BlockerUserId == currentUserId && x.BlockedUserId == targetUserId) ||
+                (x.BlockerUserId == targetUserId && x.BlockedUserId == currentUserId), ct);
+            if (blocked)
+            {
+                return Results.Conflict("Relazione non disponibile con questo utente.");
+            }
+
             var relation = await db.FriendRelations
                 .FirstOrDefaultAsync(x =>
                     (x.RequesterId == currentUserId && x.AddresseeId == targetUserId) ||
@@ -391,6 +407,14 @@ public static class SocialEndpoints
             if (currentUserId == Guid.Empty)
             {
                 return Results.Forbid();
+            }
+
+            var blocked = await db.UserBlocks.AsNoTracking().AnyAsync(x =>
+                (x.BlockerUserId == currentUserId && x.BlockedUserId == targetUserId) ||
+                (x.BlockerUserId == targetUserId && x.BlockedUserId == currentUserId), ct);
+            if (blocked)
+            {
+                return Results.Conflict("Relazione non disponibile con questo utente.");
             }
 
             var relation = await db.FriendRelations
@@ -559,6 +583,14 @@ public static class SocialEndpoints
             if (!targetExists)
             {
                 return Results.NotFound("Utente non trovato.");
+            }
+
+            var blocked = await db.UserBlocks.AsNoTracking().AnyAsync(x =>
+                (x.BlockerUserId == currentUserId && x.BlockedUserId == request.TargetUserId) ||
+                (x.BlockerUserId == request.TargetUserId && x.BlockedUserId == currentUserId), ct);
+            if (blocked)
+            {
+                return Results.Conflict("Invito non disponibile per questo utente.");
             }
 
             var now = DateTimeOffset.UtcNow;
@@ -827,6 +859,14 @@ public static class SocialEndpoints
             if (!await db.Users.AnyAsync(x => x.Id == userId, ct))
             {
                 return Results.NotFound("User not found.");
+            }
+
+            var blocked = await db.UserBlocks.AsNoTracking().AnyAsync(x =>
+                (x.BlockerUserId == userId && x.BlockedUserId == table.HostUserId) ||
+                (x.BlockerUserId == table.HostUserId && x.BlockedUserId == userId), ct);
+            if (blocked)
+            {
+                return Results.Conflict("Non puoi unirti a questo tavolo.");
             }
 
             var existingParticipant = await db.SocialTableParticipants

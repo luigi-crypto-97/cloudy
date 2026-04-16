@@ -36,11 +36,11 @@ public class LoginViewModel : BindableObject
         }
     }
 
-    public string ConnectionHint => "Simulatore: http://127.0.0.1:8080/  |  iPhone: http://IP-DEL-MAC:8080/";
+    public string ConnectionHint => "Sim: 127.0.0.1:8080  |  iPhone: IP del Mac:8080";
 
     public string PushModeLabel => MobileBuildFeatures.PushNotificationsEnabled
-        ? "Build con APNs attive."
-        : "Build locale senza APNs reali. Location e backend restano attivi.";
+        ? "Build con APNs"
+        : "Build dev senza push";
 
     public string? BackendStatusMessage
     {
