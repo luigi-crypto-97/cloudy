@@ -1,6 +1,10 @@
 using FriendMap.Mobile.Models;
+using FriendMap.Mobile.Services;
 using FriendMap.Mobile.ViewModels;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 using Microsoft.Maui.Maps;
 
 namespace FriendMap.Mobile.Pages;
@@ -8,17 +12,30 @@ namespace FriendMap.Mobile.Pages;
 public partial class MainMapPage : ContentPage
 {
     private readonly MainMapViewModel _viewModel;
+    private readonly IDevicePermissionService _permissions;
+    private bool _permissionsRequested;
 
-    public MainMapPage(MainMapViewModel viewModel)
+    public MainMapPage(MainMapViewModel viewModel, IDevicePermissionService permissions)
     {
         InitializeComponent();
         _viewModel = viewModel;
+        _permissions = permissions;
         BindingContext = _viewModel;
+        _viewModel.MarkersRefreshed += (_, _) => MainThread.BeginInvokeOnMainThread(RenderMap);
+#if FRIENDMAP_APNS_ENABLED
+        ApnsDeviceTokenStore.TokenChanged += OnApnsDeviceTokenChanged;
+#endif
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (!_permissionsRequested)
+        {
+            _permissionsRequested = true;
+            await _viewModel.RequestPermissionsAndRegisterDeviceAsync(_permissions);
+        }
+
         await _viewModel.RefreshAsync();
         RenderMap();
     }
@@ -49,13 +66,19 @@ public partial class MainMapPage : ContentPage
         foreach (var marker in markers)
         {
             var location = new Location(marker.Latitude, marker.Longitude);
-            NativeMap.Pins.Add(new Pin
+            var pin = new Pin
             {
                 Label = $"{marker.Name} ({marker.PeopleEstimate})",
                 Address = marker.Category,
                 Type = PinType.Place,
                 Location = location
-            });
+            };
+            pin.MarkerClicked += (_, args) =>
+            {
+                args.HideInfoWindow = false;
+                _viewModel.SelectMarker(marker);
+            };
+            NativeMap.Pins.Add(pin);
 
             NativeMap.MapElements.Add(new Circle
             {
@@ -103,6 +126,7 @@ public partial class MainMapPage : ContentPage
             {
                 WidthRequest = size,
                 HeightRequest = size,
+                InputTransparent = false,
                 BackgroundColor = _viewModel.ResolveBubbleColor(marker.BubbleIntensity),
                 StrokeShape = new RoundRectangle { CornerRadius = size / 2 },
                 StrokeThickness = 0,
@@ -115,10 +139,29 @@ public partial class MainMapPage : ContentPage
                     VerticalTextAlignment = TextAlignment.Center
                 }
             };
+            bubble.GestureRecognizers.Add(new TapGestureRecognizer
+            {
+                Command = new Command(() => _viewModel.SelectMarker(marker))
+            });
 
             AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.PositionProportional);
             AbsoluteLayout.SetLayoutBounds(bubble, new Rect(x, y, size, size));
             BubbleLayer.Children.Add(bubble);
         }
+    }
+
+    private void OnApnsDeviceTokenChanged(object? sender, string token)
+    {
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                await _viewModel.RegisterStoredDeviceTokenAsync();
+            }
+            catch
+            {
+                // Push registration is best-effort in local development.
+            }
+        });
     }
 }

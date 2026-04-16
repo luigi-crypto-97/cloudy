@@ -7,6 +7,7 @@ public class LoginViewModel : BindableObject
 {
     private readonly ApiClient _apiClient;
     private string _nickname = "giulia";
+    private string _apiBaseUrl;
     private string? _error;
     private bool _isBusy;
 
@@ -19,6 +20,22 @@ public class LoginViewModel : BindableObject
             OnPropertyChanged();
         }
     }
+
+    public string ApiBaseUrl
+    {
+        get => _apiBaseUrl;
+        set
+        {
+            _apiBaseUrl = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ConnectionHint => "Simulatore: http://127.0.0.1:8080/  |  iPhone: http://IP-DEL-MAC:8080/";
+
+    public string PushModeLabel => MobileBuildFeatures.PushNotificationsEnabled
+        ? "Build con APNs attive."
+        : "Build locale senza APNs reali. Location e backend restano attivi.";
 
     public string? Error
     {
@@ -45,6 +62,7 @@ public class LoginViewModel : BindableObject
     public LoginViewModel(ApiClient apiClient)
     {
         _apiClient = apiClient;
+        _apiBaseUrl = _apiClient.GetConfiguredApiBaseUrl();
         LoginCommand = new Command(async () => await LoginAsync());
     }
 
@@ -61,6 +79,7 @@ public class LoginViewModel : BindableObject
 
         try
         {
+            _apiClient.ConfigureApiBaseUrl(ApiBaseUrl);
             await _apiClient.DevLoginAsync(Nickname, Nickname);
             await Shell.Current.GoToAsync("//map");
         }

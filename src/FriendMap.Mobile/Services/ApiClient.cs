@@ -9,13 +9,29 @@ public class ApiClient
     private const string AccessTokenKey = "friendmap_access_token";
     private const string UserIdKey = "friendmap_user_id";
     private const string NicknameKey = "friendmap_nickname";
+    private const string ApiBaseUrlKey = "friendmap_api_base_url";
+    private const string DefaultApiBaseUrl = "http://127.0.0.1:8080/";
 
-    private readonly HttpClient _httpClient = new()
-    {
-        BaseAddress = new Uri("http://localhost:8080/")
-    };
+    private readonly HttpClient _httpClient = new();
 
     public Guid? CurrentUserId { get; private set; }
+
+    public ApiClient()
+    {
+        _httpClient.BaseAddress = new Uri(GetConfiguredApiBaseUrl());
+    }
+
+    public string GetConfiguredApiBaseUrl()
+    {
+        return Preferences.Default.Get(ApiBaseUrlKey, DefaultApiBaseUrl);
+    }
+
+    public void ConfigureApiBaseUrl(string apiBaseUrl)
+    {
+        var normalized = NormalizeApiBaseUrl(apiBaseUrl);
+        Preferences.Default.Set(ApiBaseUrlKey, normalized);
+        _httpClient.BaseAddress = new Uri(normalized);
+    }
 
     public async Task<AuthSession> DevLoginAsync(string nickname, string? displayName = null)
     {
@@ -46,6 +62,12 @@ public class ApiClient
 
         ApplySession(token, userId);
         return true;
+    }
+
+    public async Task<Guid> GetCurrentUserIdAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        return CurrentUserId ?? throw new InvalidOperationException("Missing authenticated user.");
     }
 
     public async Task<List<VenueMarker>> GetVenueMarkersAsync()
@@ -88,12 +110,34 @@ public class ApiClient
 
     public async Task RegisterDeviceTokenAsync(Guid userId, string deviceToken)
     {
+#if !FRIENDMAP_APNS_ENABLED
+        await Task.CompletedTask;
+        return;
+#else
         await EnsureAuthenticatedAsync();
         var response = await _httpClient.PostAsJsonAsync(
             "api/notifications/device-tokens",
             new RegisterDeviceTokenRequest(userId, "ios", deviceToken));
 
         response.EnsureSuccessStatusCode();
+#endif
+    }
+
+    public async Task RegisterStoredDeviceTokenAsync()
+    {
+#if !FRIENDMAP_APNS_ENABLED
+        await Task.CompletedTask;
+        return;
+#else
+        await EnsureAuthenticatedAsync();
+        var deviceToken = ApnsDeviceTokenStore.CurrentToken;
+        if (string.IsNullOrWhiteSpace(deviceToken) || CurrentUserId is not Guid userId)
+        {
+            return;
+        }
+
+        await RegisterDeviceTokenAsync(userId, deviceToken);
+#endif
     }
 
     private async Task EnsureAuthenticatedAsync()
@@ -113,6 +157,33 @@ public class ApiClient
     {
         CurrentUserId = userId;
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    }
+
+    private static string NormalizeApiBaseUrl(string? apiBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(apiBaseUrl))
+        {
+            throw new InvalidOperationException("Inserisci un backend URL valido.");
+        }
+
+        var normalized = apiBaseUrl.Trim();
+        if (!normalized.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !normalized.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = $"http://{normalized}";
+        }
+
+        if (!normalized.EndsWith('/'))
+        {
+            normalized = $"{normalized}/";
+        }
+
+        if (!Uri.TryCreate(normalized, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException("Backend URL non valido.");
+        }
+
+        return uri.ToString();
     }
 
     private record DevLoginRequest(string Nickname, string? DisplayName);

@@ -89,8 +89,14 @@ Development bootstrap completed.
 Run the backend:
   ./scripts/run-api.sh
 
+Run the backend on LAN for a physical iPhone:
+  ./scripts/run-api-lan.sh
+
 Run the admin panel in another terminal:
   ./scripts/run-admin.sh
+
+Print the backend URL to insert in the iPhone app:
+  ./scripts/dev-api-url.sh
 
 Open:
   API health: http://localhost:8080/health

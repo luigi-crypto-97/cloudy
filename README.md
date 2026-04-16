@@ -17,6 +17,7 @@ Ambiente locale supportato:
 - dev-login utente app con JWT bearer
 - outbox notifiche e client APNs HTTP/2 token-based
 - Swagger backend su `http://localhost:8080/swagger`
+- flusso iOS dev senza APNs reali, compatibile con simulatore e Personal Team
 
 La parte mobile MAUI resta iOS-first e richiede workload/Xcode separati.
 
@@ -85,6 +86,16 @@ Attenzione: `down -v` elimina i dati locali del database.
 ```bash
 ./scripts/run-api.sh
 ```
+
+Per usare l'app su iPhone fisico nella stessa rete Wi-Fi del Mac:
+
+```bash
+./scripts/run-api-lan.sh
+./scripts/dev-api-url.sh
+```
+
+Il secondo script stampa l'URL da inserire nella schermata login dell'app iOS,
+ad esempio `http://192.168.1.23:8080/`.
 
 Verifica:
 
@@ -176,6 +187,8 @@ Servizi:
 - `src/FriendMap.Admin`: admin panel Blazor Server
 - `src/FriendMap.Mobile`: shell .NET MAUI iOS-first
 - `infra/docker-compose.yml`: servizi locali
+- `scripts/run-api-lan.sh`: avvio API esposta su LAN per iPhone fisico
+- `scripts/dev-api-url.sh`: stampa l'URL backend da usare sull'app iOS
 - `sql/migrations.sql`: script SQL idempotente generato dalle migrations
 - `sql/schema.sql`: riferimento SQL legacy, non usato dal bootstrap
 - `docs/`: note architetturali e specifiche starter
@@ -194,6 +207,9 @@ Servizi:
 - Le notifiche usano outbox DB. L'invio APNs reale e implementato ma disattivato
   di default. Configura `Apns__Enabled=true`, `Apns__TeamId`, `Apns__KeyId`,
   `Apns__BundleId` e `Apns__PrivateKeyPath` o `Apns__PrivateKey`.
+- Il client iOS disattiva automaticamente la registrazione APNs nelle build
+  locali standard. Per riattivarla serve una build con
+  `-p:EnablePushEntitlements=true` e asset Apple validi.
 - Il client iOS richiede workload `maui-ios`. Se manca:
 
 ```bash
@@ -201,3 +217,25 @@ dotnet workload restore src/FriendMap.Mobile/FriendMap.Mobile.csproj
 ```
 
 Su macOS può richiedere privilegi elevati.
+
+## iOS dev senza push
+
+Il flusso locale consigliato e:
+
+1. `./scripts/bootstrap-dev.sh`
+2. simulatore: `./scripts/run-api.sh`
+3. iPhone fisico: `./scripts/run-api-lan.sh`
+4. recupera l'URL LAN con `./scripts/dev-api-url.sh`
+5. nell'app, inserisci il backend URL nella schermata login
+
+Build simulatore:
+
+```bash
+dotnet build src/FriendMap.Mobile/FriendMap.Mobile.csproj -f net8.0-ios -p:RuntimeIdentifier=iossimulator-x64 -p:EnableCodeSigning=false
+```
+
+Su Apple Silicon usa `iossimulator-arm64`.
+
+Per iPhone fisico senza Apple Developer Program a pagamento puoi usare un
+Personal Team in Xcode. In pratica servono comunque certificato e profilo
+development generati da Xcode sul Mac; le APNs reali restano escluse.

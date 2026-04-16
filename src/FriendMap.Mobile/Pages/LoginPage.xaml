@@ -9,6 +9,21 @@
         <VerticalStackLayout Grid.Row="1" Spacing="14">
             <Label Text="FriendMap" FontSize="32" FontAttributes="Bold" />
             <Label Text="Dev login" FontSize="15" TextColor="#64748B" />
+            <Border Padding="12"
+                    BackgroundColor="#EFF6FF"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10" />
+                </Border.StrokeShape>
+                <Label Text="{Binding PushModeLabel}"
+                       FontSize="12"
+                       TextColor="#1D4ED8" />
+            </Border>
+            <Entry Placeholder="Backend URL"
+                   Text="{Binding ApiBaseUrl}"
+                   Keyboard="Url"
+                   ClearButtonVisibility="WhileEditing" />
+            <Label Text="{Binding ConnectionHint}" FontSize="12" TextColor="#64748B" />
             <Entry Placeholder="Nickname" Text="{Binding Nickname}" />
             <Button Text="Accedi" Command="{Binding LoginCommand}" />
             <Label Text="{Binding Error}" TextColor="#B91C1C" />

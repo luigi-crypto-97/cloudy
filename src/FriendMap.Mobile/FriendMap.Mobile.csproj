@@ -7,6 +7,17 @@
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ApplicationTitle>FriendMap</ApplicationTitle>
+    <ApplicationId>com.friendmap.mobile</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>
+    <EnablePushEntitlements Condition="'$(EnablePushEntitlements)' == ''">false</EnablePushEntitlements>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(EnablePushEntitlements)' == 'true'">
+    <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
+    <DefineConstants>$(DefineConstants);FRIENDMAP_APNS_ENABLED</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,4 +30,11 @@
       <Generator>MSBuild:Compile</Generator>
     </MauiXaml>
   </ItemGroup>
+
+  <Target Name="DisablePushEntitlementsForUnsignedBuild" BeforeTargets="_DetectSigningIdentity" Condition="'$(EnablePushEntitlements)' != 'true'">
+    <PropertyGroup>
+      <CodesignEntitlements></CodesignEntitlements>
+      <CodesignRequireProvisioningProfile Condition="'$(EnableCodeSigning)' == 'false'">false</CodesignRequireProvisioningProfile>
+    </PropertyGroup>
+  </Target>
 </Project>

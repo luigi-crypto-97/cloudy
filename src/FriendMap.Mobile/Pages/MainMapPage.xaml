@@ -22,7 +22,52 @@
                       IsShowingUser="True"
                       MapType="Street" />
             <AbsoluteLayout x:Name="BubbleLayer"
-                            InputTransparent="False" />
+                            CascadeInputTransparent="False"
+                            InputTransparent="True" />
+            <Border Margin="16"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E2E8F0"
+                    StrokeThickness="1"
+                    IsVisible="{Binding HasSelectedMarker}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding SelectedMarker.Name}" FontSize="18" FontAttributes="Bold" />
+                            <Label Text="{Binding SelectedMarker.Category}" FontSize="13" TextColor="#64748B" />
+                        </VerticalStackLayout>
+                        <Border Grid.Column="1"
+                                WidthRequest="56"
+                                HeightRequest="56"
+                                BackgroundColor="#2563EB"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="28" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding SelectedMarker.PeopleEstimate}"
+                                   TextColor="White"
+                                   FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center" />
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Button Text="Check-in" Command="{Binding CheckInCommand}" />
+                        <Button Grid.Column="1" Text="Ci vado" Command="{Binding PlanIntentionCommand}" />
+                        <Button Grid.Column="2" Text="Tavolo" Command="{Binding CreateTableCommand}" />
+                    </Grid>
+
+                    <Label Grid.Row="2"
+                           Text="{Binding LastActionMessage}"
+                           FontSize="12"
+                           TextColor="#1D4ED8" />
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>
