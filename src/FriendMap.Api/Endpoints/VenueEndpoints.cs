@@ -15,13 +15,63 @@ public static class VenueEndpoints
             double minLng,
             double maxLat,
             double maxLng,
+            string? q,
+            string? category,
+            bool? openNow,
+            double? centerLat,
+            double? centerLng,
+            double? maxDistanceKm,
             ClaimsPrincipal user,
             AffluenceAggregationService service,
             CancellationToken ct) =>
         {
             var viewerUserId = CurrentUser.GetUserId(user);
-            var markers = await service.GetVenueMarkersAsync(minLat, minLng, maxLat, maxLng, viewerUserId, ct);
+            var markers = await service.GetVenueMarkersAsync(
+                minLat,
+                minLng,
+                maxLat,
+                maxLng,
+                viewerUserId,
+                q,
+                category,
+                openNow == true,
+                centerLat,
+                centerLng,
+                maxDistanceKm,
+                ct);
             return Results.Ok(markers);
+        });
+
+        group.MapGet("/map-layer", async (
+            double minLat,
+            double minLng,
+            double maxLat,
+            double maxLng,
+            string? q,
+            string? category,
+            bool? openNow,
+            double? centerLat,
+            double? centerLng,
+            double? maxDistanceKm,
+            ClaimsPrincipal user,
+            AffluenceAggregationService service,
+            CancellationToken ct) =>
+        {
+            var viewerUserId = CurrentUser.GetUserId(user);
+            var layer = await service.GetVenueMapLayerAsync(
+                minLat,
+                minLng,
+                maxLat,
+                maxLng,
+                viewerUserId,
+                q,
+                category,
+                openNow == true,
+                centerLat,
+                centerLng,
+                maxDistanceKm,
+                ct);
+            return Results.Ok(layer);
         });
 
         group.MapGet("/{venueId:guid}", async (

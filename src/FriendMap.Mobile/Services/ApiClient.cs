@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
+using System.Globalization;
 using FriendMap.Mobile.Models;
 using Microsoft.Maui.Devices;
 
@@ -80,12 +81,99 @@ public class ApiClient
         return CurrentUserId ?? throw new InvalidOperationException("Missing authenticated user.");
     }
 
-    public async Task<List<VenueMarker>> GetVenueMarkersAsync()
+    public Task<List<VenueMarker>> GetVenueMarkersAsync()
     {
-        var result = await _httpClient.GetFromJsonAsync<List<VenueMarker>>(
-            "api/venues/map?minLat=44.0&minLng=8.0&maxLat=46.0&maxLng=10.0");
+        return GetVenueMarkersAsync(MapViewport.MilanDefault);
+    }
 
-        return result ?? new List<VenueMarker>();
+    public async Task<List<VenueMarker>> GetVenueMarkersAsync(MapViewport viewport)
+    {
+        var layer = await GetMapLayerAsync(viewport);
+        return layer.Markers;
+    }
+
+    public async Task<VenueMapLayer> GetMapLayerAsync(MapViewport viewport)
+    {
+        return await GetMapLayerAsync(viewport, null, null, false, null);
+    }
+
+    public async Task<VenueMapLayer> GetMapLayerAsync(
+        MapViewport viewport,
+        string? query,
+        string? category,
+        bool openNowOnly,
+        double? maxDistanceKm)
+    {
+        var queryViewport = viewport.Normalize();
+        var parameters = new List<string>
+        {
+            $"minLat={queryViewport.MinLatitude.ToString(CultureInfo.InvariantCulture)}",
+            $"minLng={queryViewport.MinLongitude.ToString(CultureInfo.InvariantCulture)}",
+            $"maxLat={queryViewport.MaxLatitude.ToString(CultureInfo.InvariantCulture)}",
+            $"maxLng={queryViewport.MaxLongitude.ToString(CultureInfo.InvariantCulture)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            parameters.Add($"q={Uri.EscapeDataString(query.Trim())}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            parameters.Add($"category={Uri.EscapeDataString(category.Trim())}");
+        }
+
+        if (openNowOnly)
+        {
+            parameters.Add("openNow=true");
+        }
+
+        if (maxDistanceKm is > 0)
+        {
+            parameters.Add($"centerLat={queryViewport.CenterLatitude.ToString(CultureInfo.InvariantCulture)}");
+            parameters.Add($"centerLng={queryViewport.CenterLongitude.ToString(CultureInfo.InvariantCulture)}");
+            parameters.Add($"maxDistanceKm={maxDistanceKm.Value.ToString(CultureInfo.InvariantCulture)}");
+        }
+
+        var response = await _httpClient.GetAsync(
+            $"api/venues/map-layer?{string.Join("&", parameters)}");
+        await EnsureSuccessAsync(response);
+
+        return await response.Content.ReadFromJsonAsync<VenueMapLayer>()
+            ?? new VenueMapLayer();
+    }
+
+    public async Task<UserProfile> GetUserProfileAsync(Guid userId)
+    {
+        var response = await _httpClient.GetAsync($"api/users/{userId}");
+        await EnsureSuccessAsync(response);
+        var profile = await response.Content.ReadFromJsonAsync<UserProfile>();
+        return profile ?? throw new InvalidOperationException("Profilo utente non disponibile.");
+    }
+
+    public async Task<SocialHub> GetSocialHubAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/social/hub");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<SocialHub>() ?? new SocialHub();
+    }
+
+    public async Task<SocialMeState> GetSocialMeStateAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/social/me/state");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<SocialMeState>() ?? new SocialMeState();
+    }
+
+    public async Task UpdatePrivacySettingsAsync(bool? ghostMode, bool? sharePresence, bool? shareIntentions)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/social/me/privacy",
+            new UpdatePrivacySettingsRequest(ghostMode, sharePresence, shareIntentions));
+        await EnsureSuccessAsync(response);
     }
 
     public async Task<ServiceHealthResponse> GetHealthAsync()
@@ -117,7 +205,7 @@ public class ApiClient
             "api/social/check-ins",
             new CreateCheckInRequest(userId, venueId, ttlMinutes));
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task CreateIntentionAsync(Guid userId, Guid venueId, DateTimeOffset startsAtUtc, DateTimeOffset endsAtUtc, string? note)
@@ -127,7 +215,7 @@ public class ApiClient
             "api/social/intentions",
             new CreateIntentionRequest(userId, venueId, startsAtUtc, endsAtUtc, note));
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
     }
 
     public async Task CreateSocialTableAsync(Guid hostUserId, Guid venueId, string title, string? description, DateTimeOffset startsAtUtc, int capacity, string joinPolicy)
@@ -137,7 +225,88 @@ public class ApiClient
             "api/social/tables",
             new CreateSocialTableRequest(hostUserId, venueId, title, description, startsAtUtc, capacity, joinPolicy));
 
-        response.EnsureSuccessStatusCode();
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task SendFriendRequestAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/social/friends/{targetUserId}/request", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task AcceptFriendRequestAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/social/friends/{targetUserId}/accept", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task RejectFriendRequestAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/social/friends/{targetUserId}/reject", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task InviteUserToHostedTableAsync(Guid targetUserId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/social/tables/mine/invite",
+            new InviteToHostedTableRequest(targetUserId));
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task AcceptTableInviteAsync(Guid tableId)
+    {
+        var userId = await GetCurrentUserIdAsync();
+        var response = await _httpClient.PostAsync($"api/social/tables/{tableId}/join?userId={userId}", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task ExitActiveCheckInAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync("api/social/check-ins/exit", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task<List<SocialTableSummary>> GetMyTablesAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/social/tables/mine");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<SocialTableSummary>>() ?? new List<SocialTableSummary>();
+    }
+
+    public async Task<SocialTableThread> GetTableThreadAsync(Guid tableId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync($"api/social/tables/{tableId}/thread");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<SocialTableThread>() ?? new SocialTableThread();
+    }
+
+    public async Task ApproveTableRequestAsync(Guid tableId, Guid userId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/social/tables/{tableId}/participants/{userId}/approve", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task RejectTableRequestAsync(Guid tableId, Guid userId)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync($"api/social/tables/{tableId}/participants/{userId}/reject", content: null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task SendTableMessageAsync(Guid tableId, string body)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync($"api/social/tables/{tableId}/messages", new SendSocialTableMessageRequest(body));
+        await EnsureSuccessAsync(response);
     }
 
     public async Task RegisterDeviceTokenAsync(Guid userId, string deviceToken)
@@ -208,6 +377,22 @@ public class ApiClient
         return client;
     }
 
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var detail = await response.Content.ReadAsStringAsync();
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            throw new InvalidOperationException(detail.Trim().Trim('"'));
+        }
+
+        response.EnsureSuccessStatusCode();
+    }
+
     private static string NormalizeApiBaseUrl(string? apiBaseUrl)
     {
         if (string.IsNullOrWhiteSpace(apiBaseUrl))
@@ -261,6 +446,12 @@ public class ApiClient
     private record CreateIntentionRequest(Guid UserId, Guid VenueId, DateTimeOffset StartsAtUtc, DateTimeOffset EndsAtUtc, string? Note);
 
     private record CreateSocialTableRequest(Guid HostUserId, Guid VenueId, string Title, string? Description, DateTimeOffset StartsAtUtc, int Capacity, string JoinPolicy);
+
+    private record InviteToHostedTableRequest(Guid TargetUserId);
+
+    private record UpdatePrivacySettingsRequest(bool? IsGhostModeEnabled, bool? SharePresenceWithFriends, bool? ShareIntentionsWithFriends);
+
+    private record SendSocialTableMessageRequest(string Body);
 
     private record RegisterDeviceTokenRequest(Guid UserId, string Platform, string DeviceToken);
 

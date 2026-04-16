@@ -1,0 +1,264 @@
+1. Funzioni core lato utente
+1.1 Onboarding e account
+Registrazione tramite email
+Registrazione tramite numero di telefono
+Eventuale social login
+Age gate / verifica età minima
+Creazione profilo con nickname [FATTO!]
+Foto profilo opzionale
+Fascia d’età
+Genere, inclusa opzione “preferisco non dichiarare”
+Selezione interessi/tag personali
+Impostazioni privacy iniziali
+Gestione consensi separati per:
+localizzazione
+notifiche push
+marketing/comunicazioni promozionali
+1.2 Mappa e scoperta locali
+Mappa principale della città [FATTO!]
+Visualizzazione iniziale di bar e ristoranti [FATTO!]
+Estensione futura ad altre venue/categorie
+Ricerca locali
+Filtri per distanza
+Filtro “open now”
+Filtri per interessi
+Filtri per vibe/tipologia serata
+Scheda locale con:
+nome
+indirizzo
+categoria
+orari
+dati base del posto
+1.3 Affluenza e segnali sociali del locale
+Visualizzazione affluenza del locale [FATTO!]
+Stato affluenza in forma semplice: bassa/media/alta oppure scala numerica [FATTO!]
+Trend di affluenza per fascia oraria
+Finestre orarie di maggiore movimento
+Visualizzazione di statistiche demografiche solo aggregate:
+fasce d’età
+distribuzione di genere
+Nessuna visibilità di singoli utenti sconosciuti
+Messaggio “dati insufficienti” quando non c’è massa critica sufficiente
+Visualizzazione aggregata delle intenzioni future sul locale [FATTO!]
+1.4 Intenzioni e pianificazione
+Funzione “sto andando / andrò qui” [FATTO!]
+Scelta della venue di destinazione [FATTO!]
+Scelta della finestra temporale
+Eventuale tag dell’intenzione
+Visibilità in chiaro agli amici, se consentito
+Visibilità anonima e aggregata ai non amici
+Uso delle intenzioni come segnale sociale per rendere vivo il locale anche prima della presenza fisica
+1.5 Check-in e presenza
+Check-in manuale “sono qui” [FATTO!]
+Presenza temporanea con scadenza automatica [FATTO!]
+Pulsante “esci ora”
+Presenza visibile in modo dettagliato solo agli amici
+Presenza visibile agli altri solo come dato aggregato
+Approccio MVP senza location in background
+Uso preferenziale della localizzazione foreground/manuale per ridurre rischio privacy e problemi di policy store
+2. Funzioni social
+2.1 Sistema amicizie
+Invio richiesta di amicizia [FATTO!]
+Accettazione/rifiuto amicizia [FATTO!]
+Lista amici [FATTO!]
+Visibilità friend-only di dati sensibili
+Blocco utente
+Segnalazione utente
+Rate limiting sulle richieste di amicizia
+2.2 Messaggistica
+Chat 1:1 tra utenti
+Chat attiva solo dopo amicizia o consenso reciproco
+Richieste di messaggio / pattern anti-intrusione
+Blocca utente in chat
+Segnala messaggio o conversazione
+Filtri anti-spam sulla messaggistica
+2.3 Tavoli sociali e micro-eventi
+Creazione tavolo sociale presso un locale [FATTO!]
+Selezione data e ora
+Capacità massima tavolo
+Tag/interessi del tavolo
+Regole del tavolo
+Adesione al tavolo [FATTO!]
+Modalità richiesta + approvazione
+Modalità auto-join con regole automatiche
+Moderazione del tavolo
+Chiusura tavolo
+Ban dal tavolo
+Chat del tavolo opzionale
+Alternativa “richiedi contatto” con consenso reciproco
+Tavoli ufficiali creati dai locali
+Tavoli spontanei creati dagli utenti [FATTO!]
+2.4 Interessi e matching
+Inserimento interessi in fase di registrazione
+Modifica interessi nel profilo
+Motore di raccomandazione basato sugli interessi
+Segnalazione eventi compatibili nella zona
+Segnalazione tavoli sociali coerenti con gli interessi
+Segnalazione gruppi/persone affini in forma non invasiva
+Esempi d’uso come D&D, sport, musica, cinema, lettura, eventi culturali
+2.5 Notifiche
+Notifiche per amici che stanno andando in un luogo
+Notifiche per tavoli sociali compatibili
+Reminder di intenzioni pianificate
+Notifiche per eventi nella zona
+Notifiche per interessi compatibili
+Notifiche di approvazione/rifiuto ingresso tavolo
+Notifiche di nuove richieste amicizia [FATTO!]
+Notifiche di nuovi messaggi
+3. Privacy e sicurezza utente
+3.1 Privacy by design
+Nessuna identità dei non amici visibile
+Nessuna posizione individuale dei non amici visibile
+Dati mostrati agli sconosciuti solo in forma aggregata
+Soglie minime per mostrare statistiche
+Bin ampi per fasce d’età
+Arrotondamento/rumore statistico per evitare inferenze
+Condivisione posizione disattivata di default
+Granularità di condivisione per amici
+Revoca immediata della visibilità posizione/presenza
+3.2 Controlli utente
+Ghost mode / modalità invisibile
+Possibilità di non comparire
+Gestione visibilità intenzioni
+Gestione visibilità check-in
+Gestione visibilità posizione per amici
+Impostazioni privacy avanzate per categorie di utenti
+3.3 Misure anti-abuso
+Reporting utenti
+Reporting tavoli
+Reporting messaggi
+Enforcement admin
+Rate limiting su richieste amicizia
+Rate limiting su messaggi
+Antispam
+Log di audit
+Eventuale verifica telefono/OTP
+Controlli anti-frode sulla verifica
+Prevenzione stalking/adescamento tramite regole di visibilità restrittive
+4. Funzioni B2B per i locali
+4.1 Profilo venue
+Claim del profilo locale
+Gestione scheda locale
+Aggiornamento informazioni venue
+Gestione contenuti/promozioni del locale
+4.2 Tavoli ed eventi ufficiali
+Creazione tavoli ufficiali del locale
+Gestione micro-eventi ufficiali
+Promozione di serate o occasioni speciali
+Moderazione base delle attività ospitate dal locale
+4.3 Promo e visibilità commerciale
+Posizionamenti sponsorizzati
+Featured listing
+Coupon/offerte future
+Promozioni contestuali sulla mappa
+Partnership con locali e sponsor
+4.4 Analytics venue
+Impression sulla mappa
+Click sulla scheda locale
+Add-to-intent
+Partecipazioni ai tavoli
+Conversione evento
+Trend affluenza della community dell’app
+Fasce orarie di interesse
+Interessi prevalenti del pubblico, sempre con soglie privacy
+5. Funzioni admin e back-office
+5.1 Pannello amministrativo
+Dashboard amministrativa
+Review queue
+Gestione segnalazioni
+Enforcement
+Audit log
+Tool di emergenza/panic tools
+Gestione ghost mode lato supporto/moderazione se previsto
+Monitoraggio attività utenti e tavoli in forma conforme alla privacy
+5.2 Moderazione operativa
+Revisione utenti segnalati
+Revisione tavoli segnalati
+Revisione messaggi/contenuti segnalati
+Ban/sospensioni
+Chiusura eventi o tavoli problematici
+Gestione incidenti Trust & Safety
+Monitoraggio antifrode OTP/verifica
+Response plan serale/notturno per eventi sociali
+5.3 Analytics interne
+Coorti utenti
+Retention
+Funnel map view → venue click → intent → check-in
+Dati di conversione utenti
+Dati di densità per città
+Monitoraggio uso feature
+Dashboard prodotto per decisioni roadmap
+6. Funzioni non strettamente visibili ma necessarie
+6.1 Requisiti operativi
+Real-time bucketizzato
+Caching per contenere costi map loads
+Monitoring
+Tracing
+Log retention
+Alert su costi API
+Separazione dati PII vs analytics
+Cifratura at-rest e in-transit
+Controlli accesso stretti
+6.2 Compliance e governance
+DPIA
+Definizione del “privacy contract” del prodotto
+Policy di retention per:
+pings
+check-in
+intenzioni
+aggregati
+log moderazione
+Conformità store per UGC
+Conformità store per location permissions
+7. Funzioni premium / monetizzazione
+7.1 Premium lato utente
+Filtri avanzati
+Notifiche avanzate
+Priorità tavoli
+Strumenti anti-spam migliori
+Raccomandazioni personalizzate più evolute
+Funzioni utility-first che non aumentano l’identificabilità dell’utente
+7.2 Ricavi lato locale
+Abbonamento venue
+Tavoli ufficiali
+Promo contestuali
+Analytics premium
+Posizionamenti sponsorizzati
+Partnership commerciali
+7.3 Transazioni future
+Prenotazioni
+Ticketing
+Commissioni sulle prenotazioni
+Sponsorship/placement avanzati
+8. Evoluzioni future previste nel report
+Estensione oltre bar e ristoranti
+Prenotazioni
+Ticketing
+Collaborazioni commerciali con attività del territorio
+Scouting di posti interessanti
+Funzioni dedicate ai gruppi
+Verifica documento e badge verified
+Sezione dating separata e dichiarata
+Eventuali moduli più avanzati di community locale
+Sintesi finale: macro-moduli dell’app
+Se vuoi una vista “da backlog”, i moduli principali sono questi:
+Account e onboarding
+Profilo utente e interessi
+Mappa e discovery locali
+Affluenza aggregata e dati demografici anonimi
+Intenzioni e pianificazione
+Check-in e presenza
+Amicizie
+Chat 1:1
+Tavoli sociali / micro-eventi
+Notifiche
+Privacy controls
+Moderazione e sicurezza
+Portale venue
+Analytics venue
+Admin panel
+Analytics interne
+Verifica / antifrode
+Monetizzazione premium
+Prenotazioni e transazioni future
+Modulo dating futuro separato

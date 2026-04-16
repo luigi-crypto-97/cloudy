@@ -12,7 +12,6 @@
 
     <Grid>
         <maps:Map x:Name="NativeMap"
-                  MapClicked="OnMapClicked"
                   IsShowingUser="True"
                   MapType="Street" />
 
@@ -108,6 +107,72 @@
                 <Label Text="{Binding StatusMessage}"
                        FontSize="12"
                        TextColor="{Binding StatusColor}" />
+            </Border>
+
+            <Border Padding="14,12"
+                    BackgroundColor="#FDFEFF"
+                    Stroke="#E3EBF5"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="22" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Border Padding="12,4"
+                            BackgroundColor="#F8FBFF"
+                            Stroke="#E3EBF5"
+                            StrokeThickness="1">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="16" />
+                        </Border.StrokeShape>
+                        <Entry x:Name="DiscoverySearchEntry"
+                               Placeholder="Cerca locali, zone, categorie"
+                               TextChanged="OnDiscoverySearchChanged"
+                               ReturnType="Search"
+                               BackgroundColor="Transparent"
+                               TextColor="{StaticResource TextColor}"
+                               PlaceholderColor="{StaticResource MutedTextColor}" />
+                    </Border>
+
+                    <ScrollView Orientation="Horizontal">
+                        <HorizontalStackLayout Spacing="8">
+                            <Button x:Name="FilterAllButton"
+                                    Text="Tutti"
+                                    Clicked="OnCategoryAllClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource PrimaryButtonStyle}" />
+                            <Button x:Name="FilterBarsButton"
+                                    Text="Bar"
+                                    Clicked="OnCategoryBarsClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterFoodButton"
+                                    Text="Food"
+                                    Clicked="OnCategoryFoodClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterOpenNowButton"
+                                    Text="Open now"
+                                    Clicked="OnOpenNowToggleClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterDistanceButton"
+                                    Text="Ovunque"
+                                    Clicked="OnDistanceFilterClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                        </HorizontalStackLayout>
+                    </ScrollView>
+                </VerticalStackLayout>
             </Border>
         </VerticalStackLayout>
 
@@ -252,7 +317,21 @@
                                FontSize="12"
                                TextColor="{StaticResource MutedTextColor}" />
                     </Border>
+                    <Border Padding="10,7"
+                            BackgroundColor="#F6F9FD"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="12" />
+                        </Border.StrokeShape>
+                        <Label Text="{Binding SelectedOpenNowLabel}"
+                               FontSize="12"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </Border>
                 </HorizontalStackLayout>
+
+                <Label Text="{Binding SelectedAddressLabel}"
+                       FontSize="12"
+                       TextColor="{StaticResource MutedTextColor}" />
 
                 <HorizontalStackLayout Spacing="8">
                     <Border Padding="10,7"
@@ -293,7 +372,11 @@
                            FontSize="11"
                            TextColor="{StaticResource MutedTextColor}" />
                     <HorizontalStackLayout x:Name="SheetPresenceStack"
-                                           Spacing="-8" />
+                                           Spacing="-8">
+                        <HorizontalStackLayout.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnSheetPresenceTapped" />
+                        </HorizontalStackLayout.GestureRecognizers>
+                    </HorizontalStackLayout>
                 </VerticalStackLayout>
 
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
@@ -328,6 +411,543 @@
                        IsVisible="{Binding HasActionMessage}" />
             </VerticalStackLayout>
         </Border>
+
+        <Border x:Name="AreaSelectionCard"
+                Margin="16,0,16,116"
+                Padding="14"
+                VerticalOptions="End"
+                BackgroundColor="#FCFEFF"
+                Stroke="#DDE7F5"
+                StrokeThickness="1"
+                IsVisible="False">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="26" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#170F172A" Offset="0,12" Radius="26" Opacity="0.16" />
+            </Border.Shadow>
+            <VerticalStackLayout Spacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="2">
+                        <Label x:Name="AreaSelectionTitleLabel"
+                               Text="Area"
+                               FontSize="17"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextColor}" />
+                        <Label x:Name="AreaSelectionMetaLabel"
+                               Text="0 persone • 0 luoghi"
+                               FontSize="12"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+
+                    <ImageButton Grid.Column="1"
+                                 Source="icon-close-blue.svg"
+                                 WidthRequest="34"
+                                 HeightRequest="34"
+                                 MinimumHeightRequest="34"
+                                 Padding="9"
+                                 Clicked="OnAreaDismissClicked"
+                                 BackgroundColor="#EEF2F7"
+                                 BorderWidth="0"
+                                 CornerRadius="17" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Text="Persone"
+                            Clicked="OnAreaPeopleClicked"
+                            MinimumHeightRequest="42"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                    <Button Grid.Column="1"
+                            Text="Esplora"
+                            Clicked="OnAreaExploreClicked"
+                            MinimumHeightRequest="42"
+                            Padding="10,10"
+                            FontSize="13"
+                            Style="{StaticResource SecondaryButtonStyle}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <Grid x:Name="PresenceOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#220F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnPresenceOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="PresenceSheet"
+                    Margin="16,0,16,110"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="420">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="28" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#1A0F172A" Offset="0,14" Radius="30" Opacity="0.18" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label x:Name="PresenceTitleLabel"
+                                   Text="Presenti ora"
+                                   FontSize="18"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="PresenceSubtitleLabel"
+                                   Text="Persone visibili in questa zona"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="1"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnPresenceOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <ScrollView MaximumHeightRequest="260">
+                        <VerticalStackLayout x:Name="PresenceListStack"
+                                             Spacing="10" />
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="ProfileOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#240F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnProfileOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="ProfileSheet"
+                    Margin="16,0,16,102"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="460">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#1A0F172A" Offset="0,14" Radius="30" Opacity="0.18" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Grid x:Name="ProfileAvatarHost"
+                              WidthRequest="72"
+                              HeightRequest="72" />
+
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="2"
+                                             VerticalOptions="Center">
+                            <Label x:Name="ProfileNameLabel"
+                                   Text="Profilo"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="ProfileHandleLabel"
+                                   Text="@friend"
+                                   FontSize="13"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="2"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnProfileOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <Label x:Name="ProfileStatusLabel"
+                           Text="Nessuna presenza live"
+                           FontSize="14"
+                           TextColor="{StaticResource TextColor}" />
+
+                    <HorizontalStackLayout Spacing="8">
+                        <Border Padding="10,7"
+                                BackgroundColor="#EDF4FF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Label x:Name="ProfileRelationChipLabel"
+                                   Text="Non amico"
+                                   FontSize="12"
+                                   TextColor="{StaticResource PrimaryColorDark}" />
+                        </Border>
+
+                        <Border Padding="10,7"
+                                BackgroundColor="#F6F9FD"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Label x:Name="ProfileFriendsChipLabel"
+                                   Text="0 amici"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </Border>
+
+                        <Border Padding="10,7"
+                                BackgroundColor="#F6F9FD"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Label x:Name="ProfileMetaChipLabel"
+                                   Text="--"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </Border>
+                    </HorizontalStackLayout>
+
+                    <Border Padding="12,10"
+                            BackgroundColor="#F8FBFF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="18" />
+                        </Border.StrokeShape>
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Venue attuale"
+                                   FontSize="11"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                            <Label x:Name="ProfileVenueLabel"
+                                   Text="Nessuna venue live"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="8">
+                        <Button x:Name="ProfilePrimaryActionButton"
+                                Text="Aggiungi"
+                                Clicked="OnProfilePrimaryActionClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                        <Button x:Name="ProfileInviteActionButton"
+                                Grid.Column="1"
+                                Text="Invita al tavolo"
+                                Clicked="OnProfileInviteClicked"
+                                MinimumHeightRequest="42"
+                                Padding="10,10"
+                                FontSize="13"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </Grid>
+
+                    <Label x:Name="ProfileActionMessageLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
+                    <ActivityIndicator x:Name="ProfileLoadingIndicator"
+                                       IsVisible="False"
+                                       IsRunning="False"
+                                       Color="{StaticResource PrimaryColor}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="SocialOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#240F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSocialOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="SocialSheet"
+                    Margin="16,0,16,94"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="480">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#1A0F172A" Offset="0,14" Radius="30" Opacity="0.18" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Social"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="SocialSummaryLabel"
+                                   Text="Amici e inviti"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="1"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnSocialOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <ActivityIndicator x:Name="SocialLoadingIndicator"
+                                       IsVisible="False"
+                                       IsRunning="False"
+                                       Color="{StaticResource PrimaryColor}" />
+
+                    <Label x:Name="SocialStatusLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
+                    <ScrollView MaximumHeightRequest="420">
+                        <VerticalStackLayout Spacing="16">
+                            <Border Padding="12"
+                                    BackgroundColor="#F8FBFF"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="18" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="10">
+                                    <Label x:Name="SocialPresenceStateLabel"
+                                           Text="Nessuna presenza live"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource TextColor}" />
+                                    <Button x:Name="ExitCheckInButton"
+                                            Text="Esci ora"
+                                            Clicked="OnExitCheckInClicked"
+                                            MinimumHeightRequest="40"
+                                            Padding="10,10"
+                                            FontSize="13"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            IsVisible="False" />
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+                                        <Label Text="Ghost mode"
+                                               FontSize="12"
+                                               TextColor="{StaticResource TextColor}" />
+                                        <Switch x:Name="GhostModeSwitch"
+                                                Grid.Column="1"
+                                                Toggled="OnGhostModeToggled" />
+                                        <Label Grid.Row="1"
+                                               Text="Presenza visibile agli amici"
+                                               FontSize="12"
+                                               TextColor="{StaticResource TextColor}" />
+                                        <Switch x:Name="SharePresenceSwitch"
+                                                Grid.Row="1"
+                                                Grid.Column="1"
+                                                Toggled="OnSharePresenceToggled" />
+                                        <Label Grid.Row="2"
+                                               Text="Intenzioni visibili agli amici"
+                                               FontSize="12"
+                                               TextColor="{StaticResource TextColor}" />
+                                        <Switch x:Name="ShareIntentionsSwitch"
+                                                Grid.Row="2"
+                                                Grid.Column="1"
+                                                Toggled="OnShareIntentionsToggled" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialTablesHeaderLabel"
+                                       Text="I tuoi tavoli"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialTablesStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialInviteHeaderLabel"
+                                       Text="Inviti tavolo"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialInviteStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialIncomingHeaderLabel"
+                                       Text="Richieste in arrivo"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialIncomingStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialOutgoingHeaderLabel"
+                                       Text="Richieste inviate"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialOutgoingStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="SocialFriendsHeaderLabel"
+                                       Text="Amici"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <VerticalStackLayout x:Name="SocialFriendsStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="TableOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#260F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnTableOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="TableSheet"
+                    Margin="16,0,16,96"
+                    Padding="16"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="500">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#1A0F172A" Offset="0,14" Radius="30" Opacity="0.18" />
+                </Border.Shadow>
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label x:Name="TableTitleLabel"
+                                   Text="Tavolo"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextColor}" />
+                            <Label x:Name="TableMetaLabel"
+                                   Text="Venue"
+                                   FontSize="12"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                        </VerticalStackLayout>
+
+                        <ImageButton Grid.Column="1"
+                                     Source="icon-close-blue.svg"
+                                     WidthRequest="34"
+                                     HeightRequest="34"
+                                     MinimumHeightRequest="34"
+                                     Padding="9"
+                                     Clicked="OnTableOverlayCloseClicked"
+                                     BackgroundColor="#EEF2F7"
+                                     BorderWidth="0"
+                                     CornerRadius="17" />
+                    </Grid>
+
+                    <Label x:Name="TableStatusLabel"
+                           Text=""
+                           FontSize="12"
+                           TextColor="{StaticResource PrimaryColorDark}"
+                           IsVisible="False" />
+
+                    <ActivityIndicator x:Name="TableLoadingIndicator"
+                                       IsVisible="False"
+                                       IsRunning="False"
+                                       Color="{StaticResource PrimaryColor}" />
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label x:Name="TableRequestsHeaderLabel"
+                               Text="Richieste"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextColor}" />
+                        <ScrollView MaximumHeightRequest="140">
+                            <VerticalStackLayout x:Name="TableRequestsStack"
+                                                 Spacing="10" />
+                        </ScrollView>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Chat tavolo"
+                               FontSize="13"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextColor}" />
+                        <ScrollView MaximumHeightRequest="220">
+                            <VerticalStackLayout x:Name="TableMessagesStack"
+                                                 Spacing="10" />
+                        </ScrollView>
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="8">
+                        <Border Padding="12,4"
+                                BackgroundColor="#F8FBFF"
+                                Stroke="#E3EBF5"
+                                StrokeThickness="1">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <Entry x:Name="TableMessageEntry"
+                                   Placeholder="Scrivi un messaggio"
+                                   BackgroundColor="Transparent"
+                                   TextColor="{StaticResource TextColor}"
+                                   PlaceholderColor="{StaticResource MutedTextColor}" />
+                        </Border>
+                        <Button Grid.Column="1"
+                                Text="Invia"
+                                Clicked="OnSendTableMessageClicked"
+                                MinimumHeightRequest="42"
+                                Padding="12,10"
+                                FontSize="13"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
 
         <Border Margin="16,0,16,18"
                 Padding="14,12,14,8"
@@ -369,16 +989,16 @@
                 <VerticalStackLayout Grid.Column="1"
                                      Spacing="6"
                                      HorizontalOptions="Center">
-                    <ImageButton Source="icon-refresh-blue.svg"
+                    <ImageButton Source="icon-users-blue.svg"
                                  WidthRequest="54"
                                  HeightRequest="54"
                                  MinimumHeightRequest="54"
                                  Padding="15"
-                                 Clicked="OnRefreshClicked"
+                                 Clicked="OnSocialClicked"
                                  BackgroundColor="#ECF2FF"
                                  BorderWidth="0"
                                  CornerRadius="27" />
-                    <Label Text="Aggiorna"
+                    <Label Text="Social"
                            FontSize="11"
                            TextColor="{StaticResource MutedTextColor}" />
                 </VerticalStackLayout>

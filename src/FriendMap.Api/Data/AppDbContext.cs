@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<VenueCheckIn> VenueCheckIns => Set<VenueCheckIn>();
     public DbSet<SocialTable> SocialTables => Set<SocialTable>();
     public DbSet<SocialTableParticipant> SocialTableParticipants => Set<SocialTableParticipant>();
+    public DbSet<SocialTableMessage> SocialTableMessages => Set<SocialTableMessage>();
     public DbSet<ModerationReport> ModerationReports => Set<ModerationReport>();
     public DbSet<VenueAffluenceSnapshot> VenueAffluenceSnapshots => Set<VenueAffluenceSnapshot>();
     public DbSet<NotificationDeviceToken> NotificationDeviceTokens => Set<NotificationDeviceToken>();
@@ -32,6 +33,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<VenueCheckIn>().ToTable("venue_checkins");
         modelBuilder.Entity<SocialTable>().ToTable("social_tables");
         modelBuilder.Entity<SocialTableParticipant>().ToTable("social_table_participants");
+        modelBuilder.Entity<SocialTableMessage>().ToTable("social_table_messages");
         modelBuilder.Entity<ModerationReport>().ToTable("moderation_reports");
         modelBuilder.Entity<VenueAffluenceSnapshot>().ToTable("venue_affluence_snapshots");
         modelBuilder.Entity<NotificationDeviceToken>().ToTable("notification_device_tokens");
@@ -116,6 +118,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SocialTableParticipant>()
             .HasIndex(x => new { x.SocialTableId, x.UserId })
             .IsUnique();
+
+        modelBuilder.Entity<SocialTableMessage>()
+            .HasOne<SocialTable>()
+            .WithMany()
+            .HasForeignKey(x => x.SocialTableId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTableMessage>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SocialTableMessage>()
+            .HasIndex(x => new { x.SocialTableId, x.CreatedAtUtc });
 
         modelBuilder.Entity<ModerationReport>()
             .HasOne<AppUser>()

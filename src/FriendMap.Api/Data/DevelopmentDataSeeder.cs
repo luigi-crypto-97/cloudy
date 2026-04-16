@@ -23,6 +23,21 @@ public static class DevelopmentDataSeeder
     {
         if (await db.Users.AnyAsync(ct))
         {
+            var usersWithoutAvatar = await db.Users
+                .Where(x => string.IsNullOrWhiteSpace(x.AvatarUrl))
+                .ToListAsync(ct);
+
+            if (usersWithoutAvatar.Count > 0)
+            {
+                foreach (var user in usersWithoutAvatar)
+                {
+                    user.AvatarUrl = BuildDevAvatarUrl(user.Nickname);
+                    user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                }
+
+                await db.SaveChangesAsync(ct);
+            }
+
             return;
         }
 
@@ -30,9 +45,9 @@ public static class DevelopmentDataSeeder
         var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
 
         db.Users.AddRange(
-            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", BirthYear = 1997, Gender = "female" },
-            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", BirthYear = 1994, Gender = "male" },
-            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", BirthYear = 1999, Gender = "female" });
+            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", AvatarUrl = BuildDevAvatarUrl("giulia"), BirthYear = 1997, Gender = "female" },
+            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", AvatarUrl = BuildDevAvatarUrl("marco"), BirthYear = 1994, Gender = "male" },
+            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", AvatarUrl = BuildDevAvatarUrl("sofia"), BirthYear = 1999, Gender = "female" });
 
         db.FriendRelations.AddRange(
             new FriendRelation { RequesterId = GiuliaUserId, AddresseeId = MarcoUserId, Status = "accepted" },
@@ -112,6 +127,11 @@ public static class DevelopmentDataSeeder
     private static Point CreatePoint(double longitude, double latitude)
     {
         return GeometryFactory.CreatePoint(new Coordinate(longitude, latitude));
+    }
+
+    private static string BuildDevAvatarUrl(string nickname)
+    {
+        return $"https://i.pravatar.cc/160?u={Uri.EscapeDataString(nickname)}";
     }
 
     private static VenueAffluenceSnapshot CreateSnapshot(Guid venueId, DateTimeOffset bucketStart, int activeUsers)

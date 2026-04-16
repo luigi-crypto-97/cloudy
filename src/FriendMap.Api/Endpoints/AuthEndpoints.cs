@@ -32,16 +32,33 @@ public static class AuthEndpoints
                 user = new AppUser
                 {
                     Nickname = nickname,
-                    DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? nickname : request.DisplayName.Trim()
+                    DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? nickname : request.DisplayName.Trim(),
+                    AvatarUrl = BuildDevAvatarUrl(nickname)
                 };
                 db.Users.Add(user);
                 await db.SaveChangesAsync(ct);
             }
-            else if (!string.IsNullOrWhiteSpace(request.DisplayName) && user.DisplayName != request.DisplayName.Trim())
+            else
             {
-                user.DisplayName = request.DisplayName.Trim();
-                user.UpdatedAtUtc = DateTimeOffset.UtcNow;
-                await db.SaveChangesAsync(ct);
+                var shouldSave = false;
+
+                if (!string.IsNullOrWhiteSpace(request.DisplayName) && user.DisplayName != request.DisplayName.Trim())
+                {
+                    user.DisplayName = request.DisplayName.Trim();
+                    shouldSave = true;
+                }
+
+                if (string.IsNullOrWhiteSpace(user.AvatarUrl))
+                {
+                    user.AvatarUrl = BuildDevAvatarUrl(nickname);
+                    shouldSave = true;
+                }
+
+                if (shouldSave)
+                {
+                    user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+                    await db.SaveChangesAsync(ct);
+                }
             }
 
             return Results.Ok(jwt.CreateToken(user));
@@ -64,5 +81,10 @@ public static class AuthEndpoints
     private static string NormalizeNickname(string nickname)
     {
         return nickname.Trim().ToLowerInvariant().Replace(" ", "-");
+    }
+
+    private static string BuildDevAvatarUrl(string nickname)
+    {
+        return $"https://i.pravatar.cc/160?u={Uri.EscapeDataString(nickname)}";
     }
 }

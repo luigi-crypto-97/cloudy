@@ -11,11 +11,17 @@ public class MainMapViewModel : BindableObject
     private bool _isBusy;
     private bool _isActionBusy;
     private VenueMarker? _selectedMarker;
+    private string _searchQuery = string.Empty;
+    private string _selectedCategory = "all";
+    private bool _openNowOnly;
+    private double? _maxDistanceKm;
     private string? _statusMessage;
     private string? _actionMessage;
     private Color _statusColor = Color.FromArgb("#B91C1C");
 
     public ObservableCollection<VenueMarker> Markers { get; } = new();
+    public MapViewport CurrentViewport { get; private set; } = MapViewport.MilanDefault;
+    public IReadOnlyList<MapArea> Areas { get; private set; } = Array.Empty<MapArea>();
 
     public event EventHandler? MarkersRefreshed;
 
@@ -55,6 +61,8 @@ public class MainMapViewModel : BindableObject
             OnPropertyChanged(nameof(SelectedCheckInLabel));
             OnPropertyChanged(nameof(SelectedIntentionLabel));
             OnPropertyChanged(nameof(SelectedTableLabel));
+            OnPropertyChanged(nameof(SelectedAddressLabel));
+            OnPropertyChanged(nameof(SelectedOpenNowLabel));
             OnPropertyChanged(nameof(HasSelectedPresencePreview));
         }
     }
@@ -105,6 +113,46 @@ public class MainMapViewModel : BindableObject
 
     public bool AreVenueActionsEnabled => SelectedMarker is not null && !IsActionBusy;
 
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            _searchQuery = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string SelectedCategory
+    {
+        get => _selectedCategory;
+        set
+        {
+            _selectedCategory = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool OpenNowOnly
+    {
+        get => _openNowOnly;
+        set
+        {
+            _openNowOnly = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public double? MaxDistanceKm
+    {
+        get => _maxDistanceKm;
+        set
+        {
+            _maxDistanceKm = value;
+            OnPropertyChanged();
+        }
+    }
+
     public string MapSummaryLabel => Markers.Count switch
     {
         0 => "Nessun luogo attivo",
@@ -114,7 +162,7 @@ public class MainMapViewModel : BindableObject
 
     public string SelectedVenueMeta => SelectedMarker is null
         ? string.Empty
-        : $"{SelectedMarker.PeopleEstimate} persone • {FormatDensityLabel(SelectedMarker.DensityLevel)}";
+        : $"{SelectedMarker.PeopleEstimate} persone • {FormatDensityLabel(SelectedMarker.DensityLevel)} • {SelectedMarker.City}";
 
     public string SelectedPeopleLabel => SelectedMarker is null
         ? string.Empty
@@ -135,6 +183,14 @@ public class MainMapViewModel : BindableObject
     public string SelectedTableLabel => SelectedMarker is null
         ? string.Empty
         : $"{SelectedMarker.OpenTables} tavoli";
+
+    public string SelectedAddressLabel => SelectedMarker is null
+        ? string.Empty
+        : $"{SelectedMarker.AddressLine}, {SelectedMarker.City}";
+
+    public string SelectedOpenNowLabel => SelectedMarker is null
+        ? string.Empty
+        : SelectedMarker.IsOpenNow ? "Open now" : "Orari stimati";
 
     public bool HasSelectedPresencePreview => SelectedMarker?.PresencePreview?.Count > 0;
 
@@ -162,18 +218,31 @@ public class MainMapViewModel : BindableObject
 
     public async Task RefreshAsync()
     {
+        await RefreshAsync(CurrentViewport);
+    }
+
+    public async Task RefreshAsync(MapViewport viewport)
+    {
         if (IsBusy) return;
         IsBusy = true;
         OnPropertyChanged(nameof(ShowEmptyState));
+        CurrentViewport = viewport.Normalize();
 
         try
         {
-            var markers = await _apiClient.GetVenueMarkersAsync();
+            var layer = await _apiClient.GetMapLayerAsync(
+                CurrentViewport,
+                string.IsNullOrWhiteSpace(SearchQuery) ? null : SearchQuery,
+                SelectedCategory == "all" ? null : SelectedCategory,
+                OpenNowOnly,
+                MaxDistanceKm);
+            var markers = layer.Markers ?? new List<VenueMarker>();
             Markers.Clear();
             foreach (var marker in markers)
             {
                 Markers.Add(marker);
             }
+            Areas = layer.Areas ?? new List<MapArea>();
 
             if (markers.Count > 0 || SelectedMarker is not null)
             {
@@ -197,6 +266,7 @@ public class MainMapViewModel : BindableObject
         catch (Exception ex)
         {
             Markers.Clear();
+            Areas = Array.Empty<MapArea>();
             SelectedMarker = null;
             ActionMessage = null;
             StatusColor = Color.FromArgb("#B91C1C");
@@ -234,6 +304,14 @@ public class MainMapViewModel : BindableObject
     {
         StatusColor = Color.FromArgb("#B91C1C");
         StatusMessage = message;
+    }
+
+    public void ApplyDiscoveryFilters(string searchQuery, string category, bool openNowOnly, double? maxDistanceKm)
+    {
+        SearchQuery = searchQuery;
+        SelectedCategory = string.IsNullOrWhiteSpace(category) ? "all" : category;
+        OpenNowOnly = openNowOnly;
+        MaxDistanceKm = maxDistanceKm;
     }
 
     public async Task RequestPermissionsAndRegisterDeviceAsync(IDevicePermissionService permissions)

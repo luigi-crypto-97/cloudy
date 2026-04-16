@@ -136,6 +136,7 @@ app.MapGet("/health/db", async (AppDbContext db, CancellationToken ct) =>
 });
 
 app.MapAuthEndpoints();
+app.MapUserEndpoints();
 app.MapVenueEndpoints();
 app.MapSocialEndpoints();
 app.MapAdminEndpoints();

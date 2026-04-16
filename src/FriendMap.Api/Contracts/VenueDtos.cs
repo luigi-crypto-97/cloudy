@@ -1,11 +1,22 @@
 namespace FriendMap.Api.Contracts;
 
+public record GeoPointDto(
+    double Latitude,
+    double Longitude);
+
+public record VenueMapLayerDto(
+    IEnumerable<VenueMapMarkerDto> Markers,
+    IEnumerable<VenueMapAreaDto> Areas);
+
 public record VenueMapMarkerDto(
     Guid VenueId,
     string Name,
     string Category,
+    string AddressLine,
+    string City,
     double Latitude,
     double Longitude,
+    bool IsOpenNow,
     int PeopleEstimate,
     string DensityLevel,
     int BubbleIntensity,
@@ -13,6 +24,23 @@ public record VenueMapMarkerDto(
     int ActiveCheckIns,
     int ActiveIntentions,
     int OpenTables,
+    IEnumerable<PresencePreviewDto> PresencePreview);
+
+public record VenueMapAreaDto(
+    string AreaId,
+    string Label,
+    double CentroidLatitude,
+    double CentroidLongitude,
+    int PeopleCount,
+    string DensityLevel,
+    int BubbleIntensity,
+    int VenueCount,
+    int ActiveCheckIns,
+    int ActiveIntentions,
+    int OpenTables,
+    int PresenceCount,
+    IEnumerable<Guid> VenueIds,
+    IEnumerable<GeoPointDto> Polygon,
     IEnumerable<PresencePreviewDto> PresencePreview);
 
 public record PresencePreviewDto(
