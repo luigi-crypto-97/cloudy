@@ -1,5 +1,7 @@
 using FriendMap.Mobile.Models;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Media;
 
 namespace FriendMap.Mobile.Pages;
 
@@ -9,6 +11,8 @@ public partial class MainMapPage
     private IReadOnlyList<DirectMessageThreadSummary> _messageInbox = Array.Empty<DirectMessageThreadSummary>();
     private DirectMessageThread? _activeDirectMessageThread;
     private UserProfile? _activeDirectMessageProfile;
+    private IReadOnlyList<UserSearchResult> _userSearchResults = Array.Empty<UserSearchResult>();
+    private CancellationTokenSource? _userSearchCts;
     private bool _isEditProfileBusy;
     private bool _isDirectMessageBusy;
 
@@ -60,6 +64,60 @@ public partial class MainMapPage
         {
             _isEditProfileBusy = false;
         }
+    }
+
+    private async void OnUploadAvatarClicked(object? sender, EventArgs e)
+    {
+        if (_isEditProfileBusy)
+        {
+            return;
+        }
+
+        try
+        {
+            var file = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
+            {
+                Title = "Scegli immagine profilo"
+            });
+
+            if (file is null)
+            {
+                return;
+            }
+
+            _isEditProfileBusy = true;
+            var updated = await _apiClient.UploadMyAvatarAsync(file);
+            _myProfile = updated;
+            PopulateEditProfileForm(updated);
+            SetEditProfileStatus("Immagine profilo aggiornata.", false);
+            await RefreshSocialOverlayAsync();
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetEditProfileStatus("Selezione foto non supportata su questo device.", true);
+        }
+        catch (PermissionException)
+        {
+            SetEditProfileStatus("Permesso foto non concesso.", true);
+        }
+        catch (Exception ex)
+        {
+            SetEditProfileStatus(_apiClient.DescribeException(ex), true);
+        }
+        finally
+        {
+            _isEditProfileBusy = false;
+        }
+    }
+
+    private void OnEditAvatarUrlChanged(object? sender, TextChangedEventArgs e)
+    {
+        UpdateEditProfileAvatarPreview(e.NewTextValue);
+    }
+
+    private void OnSocialUserSearchChanged(object? sender, TextChangedEventArgs e)
+    {
+        ScheduleUserSearch(e.NewTextValue);
     }
 
     private async void OnProfileMessageClicked(object? sender, EventArgs e)
@@ -225,6 +283,7 @@ public partial class MainMapPage
         EditGenderPicker.SelectedItem = profile.Gender;
         EditBioEditor.Text = profile.Bio;
         EditInterestsEditor.Text = string.Join(", ", profile.Interests);
+        UpdateEditProfileAvatarPreview(profile.AvatarUrl, profile.Nickname);
     }
 
     private async Task ShowDirectMessageOverlayAsync(UserProfile profile)
@@ -452,6 +511,234 @@ public partial class MainMapPage
         DirectMessageStatusLabel.Text = message;
         DirectMessageStatusLabel.TextColor = isError ? Color.FromArgb("#B91C1C") : Color.FromArgb("#1D4ED8");
         DirectMessageStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private void ScheduleUserSearch(string? query)
+    {
+        CancelUserSearch();
+        var normalized = query?.Trim() ?? string.Empty;
+        if (normalized.Length < 2)
+        {
+            _userSearchResults = Array.Empty<UserSearchResult>();
+            PopulateUserSearchSection(normalized, _userSearchResults);
+            return;
+        }
+
+        _userSearchCts = new CancellationTokenSource();
+        var token = _userSearchCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(260, token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    SocialUserSearchIndicator.IsVisible = true;
+                    SocialUserSearchIndicator.IsRunning = true;
+
+                    try
+                    {
+                        _userSearchResults = await _apiClient.SearchUsersAsync(normalized);
+                        PopulateUserSearchSection(normalized, _userSearchResults);
+                    }
+                    catch (Exception ex)
+                    {
+                        SetSocialStatus(_apiClient.DescribeException(ex), true);
+                    }
+                    finally
+                    {
+                        SocialUserSearchIndicator.IsVisible = false;
+                        SocialUserSearchIndicator.IsRunning = false;
+                    }
+                });
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    private void CancelUserSearch()
+    {
+        if (_userSearchCts is null)
+        {
+            return;
+        }
+
+        _userSearchCts.Cancel();
+        _userSearchCts.Dispose();
+        _userSearchCts = null;
+    }
+
+    private void PopulateUserSearchSection(string? query, IReadOnlyList<UserSearchResult> results)
+    {
+        SocialUserSearchStack.Children.Clear();
+        var hasQuery = !string.IsNullOrWhiteSpace(query) && query.Trim().Length >= 2;
+        SocialSearchHeaderLabel.IsVisible = hasQuery;
+        SocialSearchHeaderLabel.Text = hasQuery
+            ? $"Risultati ricerca ({results.Count})"
+            : "Risultati ricerca";
+
+        if (!hasQuery)
+        {
+            return;
+        }
+
+        if (results.Count == 0)
+        {
+            SocialUserSearchStack.Children.Add(CreateSocialPlaceholder("Nessun utente trovato."));
+            return;
+        }
+
+        foreach (var result in results)
+        {
+            SocialUserSearchStack.Children.Add(CreateUserSearchResultCard(result));
+        }
+    }
+
+    private View CreateUserSearchResultCard(UserSearchResult result)
+    {
+        var preview = new PresencePreview
+        {
+            UserId = result.UserId,
+            Nickname = result.Nickname,
+            DisplayName = string.IsNullOrWhiteSpace(result.DisplayName) ? result.Nickname : result.DisplayName!,
+            AvatarUrl = result.AvatarUrl
+        };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto)
+            },
+            ColumnSpacing = 12
+        };
+
+        grid.Children.Add(CreateAvatarBadge(preview, 44));
+
+        var labels = new VerticalStackLayout
+        {
+            Spacing = 2,
+            VerticalOptions = LayoutOptions.Center,
+            Children =
+            {
+                new Label
+                {
+                    Text = string.IsNullOrWhiteSpace(result.DisplayName) ? result.Nickname : result.DisplayName,
+                    FontSize = 14,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#0F172A")
+                },
+                new Label
+                {
+                    Text = $"@{result.Nickname}",
+                    FontSize = 12,
+                    TextColor = Color.FromArgb("#64748B")
+                },
+                new Label
+                {
+                    Text = result.Interests.Count > 0
+                        ? string.Join(" • ", result.Interests.Take(3))
+                        : "Profilo FriendMap",
+                    FontSize = 11,
+                    TextColor = Color.FromArgb("#475569")
+                }
+            }
+        };
+        grid.Children.Add(labels);
+        Grid.SetColumn(labels, 1);
+
+        View action = result.RelationshipStatus switch
+        {
+            "none" => CreateSocialActionButton("Aggiungi", true, async () =>
+            {
+                await _apiClient.SendFriendRequestAsync(result.UserId);
+                SetSocialStatus("Richiesta di amicizia inviata.", false);
+                await RefreshSocialOverlayAsync();
+                ScheduleUserSearch(SocialUserSearchEntry.Text);
+            }),
+            "pending_received" => CreateSocialActionButton("Accetta", true, async () =>
+            {
+                await _apiClient.AcceptFriendRequestAsync(result.UserId);
+                SetSocialStatus("Richiesta accettata.", false);
+                await RefreshSocialOverlayAsync();
+                ScheduleUserSearch(SocialUserSearchEntry.Text);
+            }),
+            "pending_sent" => new Border
+            {
+                Padding = new Thickness(10, 8),
+                BackgroundColor = Color.FromArgb("#EAF0F7"),
+                StrokeThickness = 0,
+                StrokeShape = new RoundRectangle { CornerRadius = 14 },
+                Content = new Label
+                {
+                    Text = "Inviata",
+                    FontSize = 12,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#475569")
+                }
+            },
+            _ => CreateSocialActionButton("Profilo", false, async () => await OpenProfileFromSocialAsync(preview))
+        };
+
+        grid.Children.Add(action);
+        Grid.SetColumn(action, 2);
+
+        var card = new Border
+        {
+            Padding = new Thickness(12, 10),
+            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = 18 },
+            Content = grid
+        };
+
+        card.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(async () => await OpenProfileFromSocialAsync(preview))
+        });
+
+        return card;
+    }
+
+    private void UpdateEditProfileAvatarPreview(string? avatarUrl, string? nickname = null)
+    {
+        var sourceUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
+        EditProfileAvatarImage.Source = string.IsNullOrWhiteSpace(sourceUrl)
+            ? null
+            : ImageSource.FromUri(new Uri(sourceUrl, UriKind.Absolute));
+        EditProfileAvatarImage.IsVisible = !string.IsNullOrWhiteSpace(sourceUrl);
+
+        var fallbackSeed = !string.IsNullOrWhiteSpace(EditDisplayNameEntry.Text)
+            ? EditDisplayNameEntry.Text
+            : nickname ?? _myProfile?.Nickname ?? "FM";
+
+        EditProfileAvatarFallbackLabel.Text = BuildAvatarInitials(fallbackSeed);
+        EditProfileAvatarFallbackLabel.IsVisible = string.IsNullOrWhiteSpace(sourceUrl);
+    }
+
+    private static string BuildAvatarInitials(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "FM";
+        }
+
+        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 1)
+        {
+            return parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant();
+        }
+
+        return string.Concat(parts.Take(2).Select(x => char.ToUpperInvariant(x[0])));
     }
 
     private static List<string> SplitInterests(string? text)

@@ -37,6 +37,18 @@ public sealed class EditableUserProfile
     public List<string> Interests { get; set; } = new();
 }
 
+public sealed class UserSearchResult
+{
+    public Guid UserId { get; set; }
+    public string Nickname { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? AvatarUrl { get; set; }
+    public string RelationshipStatus { get; set; } = "none";
+    public bool IsBlockedByViewer { get; set; }
+    public bool HasBlockedViewer { get; set; }
+    public List<string> Interests { get; set; } = new();
+}
+
 public sealed class DirectMessageThreadSummary
 {
     public Guid OtherUserId { get; set; }

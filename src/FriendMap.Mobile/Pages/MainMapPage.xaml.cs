@@ -37,6 +37,7 @@ public partial class MainMapPage : ContentPage
     private UserProfile? _activeProfile;
     private VenueDetails? _activeVenueDetails;
     private string? _selectedAreaClusterKey;
+    private bool _isQuickActionRailOpen;
     private bool _isSocialBusy;
     private bool _isSocialLoading;
     private bool _isTableBusy;
@@ -119,6 +120,7 @@ public partial class MainMapPage : ContentPage
 
     private async void OnServerClicked(object sender, EventArgs e)
     {
+        await HideQuickActionRailAsync(animated: false);
         _loginViewModel.PauseAutoRestoreOnce();
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
@@ -133,7 +135,37 @@ public partial class MainMapPage : ContentPage
 
     private async void OnSocialClicked(object sender, EventArgs e)
     {
+        await HideQuickActionRailAsync(animated: true);
         await ShowSocialOverlayAsync(forceRefresh: true);
+    }
+
+    private async void OnQuickMenuToggleClicked(object? sender, EventArgs e)
+    {
+        if (_isQuickActionRailOpen)
+        {
+            await HideQuickActionRailAsync(animated: true);
+            return;
+        }
+
+        await ShowQuickActionRailAsync();
+    }
+
+    private async void OnQuickFiltersToggleClicked(object? sender, EventArgs e)
+    {
+        DiscoveryFiltersPanel.IsVisible = !DiscoveryFiltersPanel.IsVisible;
+
+        if (DiscoveryFiltersPanel.IsVisible)
+        {
+            SetMapStatus("Filtri aperti.", false);
+        }
+        else
+        {
+            SetMapStatus(string.Empty, false);
+        }
+
+        await HideQuickActionRailAsync(animated: true);
+        _lastOverlayViewport = null;
+        RenderViewportOverlay();
     }
 
     private void OnDiscoverySearchChanged(object? sender, TextChangedEventArgs e)
@@ -193,6 +225,7 @@ public partial class MainMapPage : ContentPage
     private void OnMapClicked(object? sender, MapClickedEventArgs e)
     {
         _viewModel.ClearSelection();
+        _ = HideQuickActionRailAsync(animated: true);
         _ = HidePresenceOverlayAsync(animated: true);
         _ = HideProfileOverlayAsync(animated: true);
         _ = HideVenueDetailOverlayAsync(animated: true);
@@ -652,6 +685,44 @@ public partial class MainMapPage : ContentPage
         _viewModel.ApplyDiscoveryFilters(searchQuery, category, openNowOnly, maxDistanceKm);
         UpdateDiscoveryFilterVisualState();
         ScheduleDiscoveryRefresh();
+    }
+
+    private async Task ShowQuickActionRailAsync()
+    {
+        if (_isQuickActionRailOpen)
+        {
+            return;
+        }
+
+        QuickActionRail.IsVisible = true;
+        await QuickActionRail.FadeTo(1, 140, Easing.CubicOut);
+        await QuickActionRail.TranslateTo(0, 0, 180, Easing.CubicOut);
+        _isQuickActionRailOpen = true;
+        QuickMenuButton.BackgroundColor = Color.FromArgb("#E8F0FF");
+    }
+
+    private async Task HideQuickActionRailAsync(bool animated)
+    {
+        if (!_isQuickActionRailOpen && !QuickActionRail.IsVisible)
+        {
+            return;
+        }
+
+        if (animated)
+        {
+            await Task.WhenAll(
+                QuickActionRail.FadeTo(0, 120, Easing.CubicIn),
+                QuickActionRail.TranslateTo(28, 0, 140, Easing.CubicIn));
+        }
+        else
+        {
+            QuickActionRail.Opacity = 0;
+            QuickActionRail.TranslationX = 28;
+        }
+
+        QuickActionRail.IsVisible = false;
+        _isQuickActionRailOpen = false;
+        QuickMenuButton.BackgroundColor = Colors.Transparent;
     }
 
     private void UpdateDiscoveryFilterVisualState()
@@ -1306,6 +1377,7 @@ public partial class MainMapPage : ContentPage
 
     private async Task ShowVenueDetailOverlayAsync(VenueMarker marker)
     {
+        await HideQuickActionRailAsync(animated: false);
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
         await HideSocialOverlayAsync(animated: false);
@@ -1495,6 +1567,7 @@ public partial class MainMapPage : ContentPage
 
     private async Task ShowUserProfileAsync(PresencePreview preview)
     {
+        await HideQuickActionRailAsync(animated: false);
         await HideDirectMessageOverlayAsync(animated: false);
         await HideVenueDetailOverlayAsync(animated: false);
         _activeProfilePreview = preview;
@@ -1597,6 +1670,7 @@ public partial class MainMapPage : ContentPage
 
     private async Task ShowSocialOverlayAsync(bool forceRefresh)
     {
+        await HideQuickActionRailAsync(animated: false);
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
         await HideVenueDetailOverlayAsync(animated: false);
@@ -1703,6 +1777,7 @@ public partial class MainMapPage : ContentPage
             "Amici",
             hub.Friends.Select(x => CreateSocialConnectionCard(x, "friend")).ToList(),
             "Ancora nessun amico");
+        PopulateUserSearchSection(SocialUserSearchEntry.Text, _userSearchResults);
     }
 
     private void PopulateSocialStateCard(SocialMeState meState)
@@ -2090,6 +2165,7 @@ public partial class MainMapPage : ContentPage
 
     private async Task ShowTableOverlayAsync(SocialTableSummary table)
     {
+        await HideQuickActionRailAsync(animated: false);
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
         await HideVenueDetailOverlayAsync(animated: false);
@@ -2932,8 +3008,9 @@ public partial class MainMapPage : ContentPage
         }
 
         var bottomInset = Math.Clamp(bottomChrome / pageHeight, 0.16d, 0.62d);
-        var sideInset = Math.Clamp(24d / pageWidth, 0.05d, 0.10d);
-        return new OverlayInsets(sideInset, topInset, sideInset, bottomInset);
+        var leftInset = Math.Clamp(24d / pageWidth, 0.05d, 0.10d);
+        var rightInset = Math.Clamp((_isQuickActionRailOpen ? 88d : 24d) / pageWidth, 0.05d, 0.24d);
+        return new OverlayInsets(leftInset, topInset, rightInset, bottomInset);
     }
 
     private void StartOverlaySyncTimer()

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Globalization;
 using FriendMap.Mobile.Models;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Storage;
 
 namespace FriendMap.Mobile.Services;
 
@@ -183,6 +184,29 @@ public class ApiClient
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<EditableUserProfile>()
             ?? throw new InvalidOperationException("Profilo aggiornato non disponibile.");
+    }
+
+    public async Task<EditableUserProfile> UploadMyAvatarAsync(FileResult file)
+    {
+        await EnsureAuthenticatedAsync();
+        await using var stream = await file.OpenReadAsync();
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(stream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(GetContentType(file.FileName));
+        content.Add(fileContent, "file", file.FileName);
+
+        var response = await _httpClient.PostAsync("api/users/me/avatar", content);
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<EditableUserProfile>()
+            ?? throw new InvalidOperationException("Avatar aggiornato non disponibile.");
+    }
+
+    public async Task<List<UserSearchResult>> SearchUsersAsync(string query)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync($"api/users/search?q={Uri.EscapeDataString(query.Trim())}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<UserSearchResult>>() ?? new List<UserSearchResult>();
     }
 
     public async Task<List<DirectMessageThreadSummary>> GetDirectMessageInboxAsync()
@@ -509,6 +533,16 @@ public class ApiClient
         }
 
         return uri.ToString();
+    }
+
+    private static string GetContentType(string fileName)
+    {
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "image/jpeg"
+        };
     }
 
     public string DescribeException(Exception ex)

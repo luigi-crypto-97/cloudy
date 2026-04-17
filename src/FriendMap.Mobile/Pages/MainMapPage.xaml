@@ -22,88 +22,120 @@
                         InputTransparent="True" />
 
         <VerticalStackLayout Margin="16,10,16,0"
-                             Spacing="12"
+                             Spacing="8"
                              VerticalOptions="Start">
-            <Border HorizontalOptions="Center"
-                    Padding="14,6"
-                    BackgroundColor="#243CFF"
-                    StrokeThickness="0">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="16" />
-                </Border.StrokeShape>
-                <Border.Shadow>
-                    <Shadow Brush="#220F172A" Offset="0,8" Radius="20" Opacity="0.22" />
-                </Border.Shadow>
-                <Label Text="FriendMap"
-                       FontSize="12"
-                       FontAttributes="Bold"
-                       TextColor="White" />
-            </Border>
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="8">
+                <Border Padding="12,6"
+                        BackgroundColor="#243CFF"
+                        StrokeThickness="0"
+                        VerticalOptions="Center">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="16" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#220F172A" Offset="0,8" Radius="20" Opacity="0.22" />
+                    </Border.Shadow>
+                    <Label Text="FriendMap"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                </Border>
 
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                <Border Padding="16,13"
-                        BackgroundColor="#EAF7FFFF"
+                <Border Grid.Column="1"
+                        Padding="14,10"
+                        BackgroundColor="#F8FCFF"
                         Stroke="#DDE7F5"
                         StrokeThickness="1">
                     <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="22" />
+                        <RoundRectangle CornerRadius="20" />
                     </Border.StrokeShape>
                     <Border.Shadow>
-                        <Shadow Brush="#180F172A" Offset="0,10" Radius="26" Opacity="0.18" />
+                        <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.16" />
                     </Border.Shadow>
-                    <VerticalStackLayout Spacing="2">
-                        <Label Text="Live ora"
-                               FontSize="11"
-                               TextColor="{StaticResource MutedTextColor}" />
-                        <Label Text="{Binding MapSummaryLabel}"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource TextColor}" />
-                    </VerticalStackLayout>
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="34"
+                                HeightRequest="34"
+                                BackgroundColor="#F4F8FF"
+                                StrokeThickness="0"
+                                VerticalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="17" />
+                            </Border.StrokeShape>
+                            <Label Text="•"
+                                   FontSize="22"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"
+                                   TextColor="{StaticResource PrimaryColor}" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1"
+                                             Spacing="0"
+                                             VerticalOptions="Center">
+                            <Label Text="Live"
+                                   FontSize="10"
+                                   TextColor="{StaticResource MutedTextColor}" />
+                            <Label Text="{Binding MapSummaryLabel}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   LineBreakMode="TailTruncation"
+                                   TextColor="{StaticResource TextColor}" />
+                        </VerticalStackLayout>
+                    </Grid>
                 </Border>
 
-                <Button Grid.Column="1"
-                        Text="Server"
-                        Clicked="OnServerClicked"
-                        MinimumHeightRequest="48"
-                        Padding="14,10"
-                        FontSize="13"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        VerticalOptions="Center" />
-
-                <Button Grid.Column="2"
-                        Text="Aggiorna"
-                        Clicked="OnRefreshClicked"
-                        MinimumHeightRequest="48"
-                        Padding="16,10"
-                        FontSize="13"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        VerticalOptions="Center" />
+                <Border Grid.Column="2"
+                        WidthRequest="48"
+                        HeightRequest="48"
+                        Padding="0"
+                        BackgroundColor="#F8FBFF"
+                        Stroke="#DDE7F5"
+                        StrokeThickness="1">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="24" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.16" />
+                    </Border.Shadow>
+                    <ImageButton x:Name="QuickMenuButton"
+                             Source="icon-compass-blue.svg"
+                             WidthRequest="48"
+                             HeightRequest="48"
+                             MinimumHeightRequest="48"
+                             Padding="13"
+                             Clicked="OnQuickMenuToggleClicked"
+                             BackgroundColor="Transparent"
+                             BorderWidth="0"
+                             CornerRadius="24" />
+                </Border>
             </Grid>
 
-            <Border Padding="12,9"
+            <Border Padding="12,8"
                     BackgroundColor="#FDFEFF"
                     Stroke="#E3EBF5"
                     StrokeThickness="1"
                     IsVisible="{Binding HasStatusMessage}">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="18" />
+                    <RoundRectangle CornerRadius="16" />
                 </Border.StrokeShape>
                 <Border.Shadow>
-                    <Shadow Brush="#120F172A" Offset="0,8" Radius="18" Opacity="0.14" />
+                    <Shadow Brush="#120F172A" Offset="0,8" Radius="16" Opacity="0.12" />
                 </Border.Shadow>
                 <Label Text="{Binding StatusMessage}"
                        FontSize="12"
                        TextColor="{Binding StatusColor}" />
             </Border>
 
-            <Border Padding="14,12"
-                    BackgroundColor="#FDFEFF"
+            <Border Padding="12,10"
+                    BackgroundColor="#FCFEFF"
                     Stroke="#E3EBF5"
                     StrokeThickness="1">
                 <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="22" />
+                    <RoundRectangle CornerRadius="18" />
                 </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#120F172A" Offset="0,10" Radius="22" Opacity="0.14" />
+                </Border.Shadow>
                 <VerticalStackLayout Spacing="10">
                     <Border Padding="12,4"
                             BackgroundColor="#F8FBFF"
@@ -121,7 +153,9 @@
                                PlaceholderColor="{StaticResource MutedTextColor}" />
                     </Border>
 
-                    <ScrollView Orientation="Horizontal">
+                    <ScrollView x:Name="DiscoveryFiltersPanel"
+                                Orientation="Horizontal"
+                                IsVisible="False">
                         <HorizontalStackLayout Spacing="8">
                             <Button x:Name="FilterAllButton"
                                     Text="Tutti"
@@ -164,55 +198,116 @@
             </Border>
         </VerticalStackLayout>
 
-        <HorizontalStackLayout Margin="18,0,18,126"
-                               HorizontalOptions="Fill"
-                               VerticalOptions="End"
-                               Spacing="10"
-                               InputTransparent="False">
-            <VerticalStackLayout Spacing="6"
-                                 HorizontalOptions="Start">
-                <ImageButton Source="icon-location-blue.svg"
-                             WidthRequest="52"
-                             HeightRequest="52"
-                             MinimumHeightRequest="52"
-                             Padding="14"
-                             Clicked="OnFocusMarkersClicked"
-                             BackgroundColor="#F8FBFF"
-                             BorderWidth="0"
-                             CornerRadius="26">
-                    <ImageButton.Shadow>
-                        <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
-                    </ImageButton.Shadow>
-                </ImageButton>
-                <Label Text="Locali"
-                       FontSize="11"
-                       HorizontalTextAlignment="Center"
-                       TextColor="{StaticResource MutedTextColor}" />
+        <Border x:Name="QuickActionRail"
+                Margin="0,86,12,0"
+                Padding="8"
+                HorizontalOptions="End"
+                VerticalOptions="Start"
+                BackgroundColor="#FCFEFF"
+                Stroke="#DDE7F5"
+                StrokeThickness="1"
+                IsVisible="False"
+                Opacity="0"
+                TranslationX="28">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="26" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.18" />
+            </Border.Shadow>
+            <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-sliders-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnQuickFiltersToggleClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Filtri"
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-refresh-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnRefreshClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Agg."
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-focus-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnFocusMarkersClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Locali"
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-location-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnCenterUserLocationClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Tu"
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-users-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnSocialClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Social"
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Spacing="4"
+                                     HorizontalOptions="Center">
+                    <ImageButton Source="icon-close-blue.svg"
+                                 WidthRequest="44"
+                                 HeightRequest="44"
+                                 Padding="11"
+                                 Clicked="OnServerClicked"
+                                 BackgroundColor="#EEF4FF"
+                                 BorderWidth="0"
+                                 CornerRadius="22" />
+                    <Label Text="Server"
+                           FontSize="10"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource TextColor}" />
+                </VerticalStackLayout>
             </VerticalStackLayout>
-
-            <Grid HorizontalOptions="FillAndExpand" />
-
-            <VerticalStackLayout Spacing="6"
-                                 HorizontalOptions="End">
-                <ImageButton Source="icon-focus-blue.svg"
-                             WidthRequest="52"
-                             HeightRequest="52"
-                             MinimumHeightRequest="52"
-                             Padding="14"
-                             Clicked="OnCenterUserLocationClicked"
-                             BackgroundColor="#F8FBFF"
-                             BorderWidth="0"
-                             CornerRadius="26">
-                    <ImageButton.Shadow>
-                        <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
-                    </ImageButton.Shadow>
-                </ImageButton>
-                <Label Text="Posizione"
-                       FontSize="11"
-                       HorizontalTextAlignment="Center"
-                       TextColor="{StaticResource MutedTextColor}" />
-            </VerticalStackLayout>
-        </HorizontalStackLayout>
+        </Border>
 
         <Border Padding="18"
                 Margin="28"
@@ -1073,6 +1168,40 @@
                             </Border>
 
                             <VerticalStackLayout Spacing="8">
+                                <Label Text="Cerca persone"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+                                <Border Padding="12,4"
+                                        BackgroundColor="#F8FBFF"
+                                        Stroke="#E3EBF5"
+                                        StrokeThickness="1">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="16" />
+                                    </Border.StrokeShape>
+                                    <Entry x:Name="SocialUserSearchEntry"
+                                           Placeholder="Nickname o nome"
+                                           TextChanged="OnSocialUserSearchChanged"
+                                           ReturnType="Search"
+                                           BackgroundColor="Transparent"
+                                           TextColor="{StaticResource TextColor}"
+                                           PlaceholderColor="{StaticResource MutedTextColor}" />
+                                </Border>
+                                <ActivityIndicator x:Name="SocialUserSearchIndicator"
+                                                   IsVisible="False"
+                                                   IsRunning="False"
+                                                   Color="{StaticResource PrimaryColor}" />
+                                <Label x:Name="SocialSearchHeaderLabel"
+                                       Text="Risultati ricerca"
+                                       FontSize="13"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}"
+                                       IsVisible="False" />
+                                <VerticalStackLayout x:Name="SocialUserSearchStack"
+                                                     Spacing="10" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="8">
                                 <Label x:Name="SocialMessagesHeaderLabel"
                                        Text="Messaggi"
                                        FontSize="13"
@@ -1294,10 +1423,48 @@
 
                     <ScrollView MaximumHeightRequest="420">
                         <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="12">
+                                <Border WidthRequest="72"
+                                        HeightRequest="72"
+                                        BackgroundColor="#EEF4FF"
+                                        StrokeThickness="0"
+                                        VerticalOptions="Start">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="36" />
+                                    </Border.StrokeShape>
+                                    <Grid>
+                                        <Image x:Name="EditProfileAvatarImage"
+                                               Aspect="AspectFill"
+                                               IsVisible="False" />
+                                        <Label x:Name="EditProfileAvatarFallbackLabel"
+                                               Text="FM"
+                                               FontSize="24"
+                                               FontAttributes="Bold"
+                                               HorizontalTextAlignment="Center"
+                                               VerticalTextAlignment="Center"
+                                               TextColor="{StaticResource PrimaryColorDark}" />
+                                    </Grid>
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1"
+                                                     Spacing="8"
+                                                     VerticalOptions="Center">
+                                    <Button Text="Carica foto"
+                                            Clicked="OnUploadAvatarClicked"
+                                            MinimumHeightRequest="40"
+                                            Padding="10,10"
+                                            FontSize="13"
+                                            Style="{StaticResource SecondaryButtonStyle}" />
+                                    <Label Text="Puoi caricare una foto dal telefono oppure usare un URL."
+                                           FontSize="11"
+                                           TextColor="{StaticResource MutedTextColor}" />
+                                </VerticalStackLayout>
+                            </Grid>
                             <Entry x:Name="EditDisplayNameEntry"
                                    Placeholder="Nome pubblico" />
                             <Entry x:Name="EditAvatarUrlEntry"
-                                   Placeholder="Avatar URL" />
+                                   Placeholder="Avatar URL"
+                                   TextChanged="OnEditAvatarUrlChanged" />
                             <Entry x:Name="EditBirthYearEntry"
                                    Placeholder="Anno di nascita"
                                    Keyboard="Numeric" />

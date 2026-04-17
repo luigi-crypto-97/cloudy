@@ -33,6 +33,16 @@ public record EditableUserProfileDto(
     string Gender,
     IEnumerable<string> Interests);
 
+public record UserSearchResultDto(
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    string RelationshipStatus,
+    bool IsBlockedByViewer,
+    bool HasBlockedViewer,
+    IEnumerable<string> Interests);
+
 public record UpdateMyProfileRequest(
     string? DisplayName,
     string? AvatarUrl,

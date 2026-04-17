@@ -32,6 +32,10 @@
   <string>FriendMap invia notifiche per aggiornamenti su tavoli sociali e locali.</string>
   <key>NSLocalNetworkUsageDescription</key>
   <string>FriendMap usa la rete locale per raggiungere il backend di sviluppo sul tuo Mac.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>FriendMap usa le tue foto solo per permetterti di aggiornare l'immagine profilo.</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>FriendMap puo salvare o aggiornare immagini profilo generate localmente.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key>

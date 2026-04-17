@@ -118,6 +118,147 @@ public static class UserEndpoints
                 normalizedInterests));
         }).RequireAuthorization();
 
+        group.MapGet("/search", async (
+            string q,
+            ClaimsPrincipal principal,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var query = q?.Trim();
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+            {
+                return Results.Ok(Array.Empty<UserSearchResultDto>());
+            }
+
+            var blocks = await db.UserBlocks
+                .AsNoTracking()
+                .Where(x => x.BlockerUserId == currentUserId || x.BlockedUserId == currentUserId)
+                .ToListAsync(ct);
+
+            var blockedUserIds = blocks
+                .Select(x => x.BlockerUserId == currentUserId ? x.BlockedUserId : x.BlockerUserId)
+                .ToHashSet();
+
+            var users = await db.Users
+                .AsNoTracking()
+                .Include(x => x.Interests)
+                .Where(x =>
+                    x.Id != currentUserId &&
+                    !blockedUserIds.Contains(x.Id) &&
+                    (EF.Functions.ILike(x.Nickname, $"%{query}%") ||
+                     (x.DisplayName != null && EF.Functions.ILike(x.DisplayName, $"%{query}%"))))
+                .OrderBy(x => x.DisplayName ?? x.Nickname)
+                .Take(20)
+                .ToListAsync(ct);
+
+            var relations = await db.FriendRelations
+                .AsNoTracking()
+                .Where(x =>
+                    (x.RequesterId == currentUserId && users.Select(u => u.Id).Contains(x.AddresseeId)) ||
+                    (x.AddresseeId == currentUserId && users.Select(u => u.Id).Contains(x.RequesterId)))
+                .ToListAsync(ct);
+
+            var results = users.Select(user =>
+            {
+                var relation = relations.FirstOrDefault(x =>
+                    (x.RequesterId == currentUserId && x.AddresseeId == user.Id) ||
+                    (x.RequesterId == user.Id && x.AddresseeId == currentUserId));
+
+                return new UserSearchResultDto(
+                    user.Id,
+                    user.Nickname,
+                    user.DisplayName,
+                    user.AvatarUrl,
+                    ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
+                    false,
+                    false,
+                    user.Interests.Select(x => x.Tag).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList());
+            }).ToList();
+
+            return Results.Ok(results);
+        }).RequireAuthorization();
+
+        group.MapPost("/me/avatar", async (
+            HttpRequest request,
+            ClaimsPrincipal principal,
+            IWebHostEnvironment env,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            if (!request.HasFormContentType)
+            {
+                return Results.BadRequest(new { message = "Upload multipart/form-data richiesto." });
+            }
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files["file"];
+            if (file is null || file.Length == 0)
+            {
+                return Results.BadRequest(new { message = "File avatar mancante." });
+            }
+
+            const long maxBytes = 5 * 1024 * 1024;
+            if (file.Length > maxBytes)
+            {
+                return Results.BadRequest(new { message = "Avatar troppo grande. Massimo 5MB." });
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp" };
+            if (!allowed.Contains(extension))
+            {
+                return Results.BadRequest(new { message = "Formato non supportato. Usa jpg, png o webp." });
+            }
+
+            var user = await db.Users
+                .Include(x => x.Interests)
+                .FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
+
+            if (user is null)
+            {
+                return Results.NotFound();
+            }
+
+            var webRootPath = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+            var relativeFolder = Path.Combine("uploads", "avatars");
+            var targetFolder = Path.Combine(webRootPath, relativeFolder);
+            Directory.CreateDirectory(targetFolder);
+
+            var fileName = $"{currentUserId:N}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{extension}";
+            var physicalPath = Path.Combine(targetFolder, fileName);
+            await using (var stream = File.Create(physicalPath))
+            {
+                await file.CopyToAsync(stream, ct);
+            }
+
+            var baseUri = $"{request.Scheme}://{request.Host}";
+            user.AvatarUrl = $"{baseUri}/{relativeFolder.Replace('\\', '/')}/{fileName}";
+            user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new EditableUserProfileDto(
+                user.Id,
+                user.Nickname,
+                user.DisplayName,
+                user.AvatarUrl,
+                user.Bio,
+                user.BirthYear,
+                user.Gender,
+                user.Interests.Select(x => x.Tag).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()));
+        }).RequireAuthorization();
+
         return group;
     }
 

@@ -25,6 +25,12 @@ public static class DevelopmentDataSeeder
     public static readonly Guid LoveItVenueId = Guid.Parse("20000000-0000-0000-0000-000000000013");
     public static readonly Guid MurneeVenueId = Guid.Parse("20000000-0000-0000-0000-000000000014");
     public static readonly Guid LArmonicaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000015");
+    public static readonly Guid EmmaCaffeVenueId = Guid.Parse("20000000-0000-0000-0000-000000000016");
+    public static readonly Guid BerBeneVenueId = Guid.Parse("20000000-0000-0000-0000-000000000017");
+    public static readonly Guid OroRossoVenueId = Guid.Parse("20000000-0000-0000-0000-000000000018");
+    public static readonly Guid RoadhouseVenueId = Guid.Parse("20000000-0000-0000-0000-000000000019");
+    public static readonly Guid IlCastagnoVenueId = Guid.Parse("20000000-0000-0000-0000-000000000020");
+    public static readonly Guid LaBottegaVinoVenueId = Guid.Parse("20000000-0000-0000-0000-000000000021");
 
     public static readonly Guid BreraTableId = Guid.Parse("30000000-0000-0000-0000-000000000001");
     public static readonly Guid DemoReportId = Guid.Parse("40000000-0000-0000-0000-000000000001");
@@ -180,7 +186,13 @@ public static class DevelopmentDataSeeder
             CreateSnapshot(LaCucina42VenueId, bucketStart, 7),
             CreateSnapshot(LoveItVenueId, bucketStart, 8),
             CreateSnapshot(MurneeVenueId, bucketStart, 6),
-            CreateSnapshot(LArmonicaVenueId, bucketStart, 9));
+            CreateSnapshot(LArmonicaVenueId, bucketStart, 9),
+            CreateSnapshot(EmmaCaffeVenueId, bucketStart, 5),
+            CreateSnapshot(BerBeneVenueId, bucketStart, 4),
+            CreateSnapshot(OroRossoVenueId, bucketStart, 11),
+            CreateSnapshot(RoadhouseVenueId, bucketStart, 13),
+            CreateSnapshot(IlCastagnoVenueId, bucketStart, 7),
+            CreateSnapshot(LaBottegaVinoVenueId, bucketStart, 3));
 
         await db.SaveChangesAsync(ct);
     }
@@ -424,14 +436,116 @@ public static class DevelopmentDataSeeder
                 "Tradate",
                 "IT",
                 "+39 331 161 1851",
-                "https://www.ristorantelarmonica.it/",
-                "Dom 12:30-15:00 • servizio cena e menu mediterraneo/vegetariano",
+                "https://www.ristorantelarmonica.com/",
+                "Lun-Mar, Gio-Sab 19:30-22:30 • Dom 12:30-15:30",
                 BuildSeedCoverUrl("larmonica-tradate"),
                 "Ristorante mediterraneo più curato, adatto a cena con prenotazione e occasioni più calme.",
                 "cena,mediterraneo,vegetariano,prenotazione",
                 45.7167202,
                 8.9058848,
-                9)
+                9),
+            new SeedVenueDefinition(
+                EmmaCaffeVenueId,
+                "dev-tradate-013",
+                "Emma Caffe",
+                "cafe",
+                "Via Monte Grappa 41",
+                "Tradate",
+                "IT",
+                "+39 0331 117 5469",
+                "https://www.emmacaffe.it/",
+                "Mar-Ven 05:30-21:30 • Sab 06:30-21:30 • Dom 07:30-13:30, 15:30-21:30",
+                BuildSeedCoverUrl("emma-caffe-tradate"),
+                "Caffetteria recente con colazioni, aperitivi e apericena in una fascia più everyday.",
+                "caffetteria,colazione,aperitivo,apericena",
+                45.7161000,
+                8.8996000,
+                5),
+            new SeedVenueDefinition(
+                BerBeneVenueId,
+                "dev-tradate-014",
+                "Enoteca Bar BerBene",
+                "wine-bar",
+                "Corso Paolo Bernacchi 97",
+                "Tradate",
+                "IT",
+                "+39 0331 844584",
+                "https://www.enotecaberbene.it/",
+                "Mar-Sab 07:30-21:30 • Dom-Lun chiuso",
+                BuildSeedCoverUrl("berbene-tradate"),
+                "Enoteca urbana per aperitivi, vini e piccoli piatti nel cuore di Tradate.",
+                "enoteca,aperitivo,vino,prenotazione",
+                45.7132500,
+                8.9059000,
+                4),
+            new SeedVenueDefinition(
+                OroRossoVenueId,
+                "dev-tradate-015",
+                "Oro Rosso",
+                "restaurant",
+                "Via Guglielmo Marconi 26",
+                "Tradate",
+                "IT",
+                "+39 0331 852703",
+                "http://www.ororossoristorante.it",
+                "Mar-Ven 12:00-14:30, 19:00-23:30 • Sab 19:00-00:30 • Dom 12:00-14:30, 19:00-23:30",
+                BuildSeedCoverUrl("oro-rosso-tradate"),
+                "Ristorante più classico con pizza e cucina italiana, vicino alla stazione.",
+                "ristorante,pizza,cena,prenotazione",
+                45.7115000,
+                8.9075000,
+                11),
+            new SeedVenueDefinition(
+                RoadhouseVenueId,
+                "dev-tradate-016",
+                "Roadhouse Restaurant Tradate",
+                "restaurant",
+                "Via Monte S. Michele 52",
+                "Tradate",
+                "IT",
+                "+39 0331 841680",
+                "https://www.roadhouse.it/",
+                "Tutti i giorni 12:00-15:00, 18:30-22:30 • Ven-Sab fino a 23:30",
+                BuildSeedCoverUrl("roadhouse-tradate"),
+                "Catena casual dining per burger e carne, utile per gruppi e serate più semplici.",
+                "burger,gruppi,cena,prenotazione",
+                45.7198000,
+                8.9182000,
+                13),
+            new SeedVenueDefinition(
+                IlCastagnoVenueId,
+                "dev-tradate-017",
+                "Il Castagno",
+                "restaurant",
+                "Via Dei Cappuccini 47",
+                "Tradate",
+                "IT",
+                "+39 349 354 3139",
+                "https://www.agriilcastagno.com/",
+                "Prenotazione consigliata • agriturismo/ristorante nel verde",
+                BuildSeedCoverUrl("il-castagno-tradate"),
+                "Agriturismo poco fuori centro, più adatto a pranzi, cene e tavolate con prenotazione.",
+                "agriturismo,pranzo,cena,prenotazione,eventi",
+                45.7179000,
+                8.8974000,
+                7),
+            new SeedVenueDefinition(
+                LaBottegaVinoVenueId,
+                "dev-tradate-018",
+                "La Bottega Del Vino",
+                "wine-bar",
+                "Via Sopranzi 3",
+                "Tradate",
+                "IT",
+                null,
+                null,
+                "Lun-Sab 09:00-12:30, 15:30-19:00",
+                BuildSeedCoverUrl("la-bottega-del-vino-tradate"),
+                "Enoteca compatta da centro storico, più da degustazione e bottiglia che da lunga permanenza.",
+                "enoteca,vino,degustazione",
+                45.7157000,
+                8.9067000,
+                3)
         };
     }
 
@@ -572,7 +686,35 @@ public static class DevelopmentDataSeeder
 
     private static string BuildSeedCoverUrl(string slug)
     {
-        return $"https://picsum.photos/seed/{Uri.EscapeDataString($"friendmap-{slug}")}/960/640";
+        var sourceUrl = slug switch
+        {
+            "folk-pub-tradate" => "https://www.folkpub.it/",
+            "convivio-tradate" => "https://www.conviviotradate.it/",
+            "fanari-tradate" => "https://www.paginegialle.it/tradate-va/ristoranti/fanari-pub_20328890",
+            "mood-cafe-tradate" => "https://www.paginegialle.it/tradate-va/ristoranti/mood-cafe_20318699",
+            "nonna-adelma-tradate" => "https://trattorianonnaadelma.eatbu.com/?lang=en",
+            "inout-tradate" => "https://www.inouttradate.it/",
+            "street-taste-tradate" => "https://www.streettradate.it/",
+            "rarica-tradate" => "https://www.rarica.it/",
+            "cucina-quarantadue-tradate" => "https://www.cylex-italia.it/tradate/la-cucina-del-quarantadue-12932190.html",
+            "love-it-tradate" => "https://www.tripadvisor.com/Restaurant_Review-g1574957-d32882733-Reviews-Love_It-Tradate_Province_of_Varese_Lombardy.html",
+            "murnee-tradate" => "https://maps.apple.com/place?place-id=I50E8CF1D90BE589",
+            "larmonica-tradate" => "https://www.ristorantelarmonica.com/",
+            "emma-caffe-tradate" => "https://www.emmacaffe.it/",
+            "berbene-tradate" => "https://www.enotecaberbene.it/",
+            "oro-rosso-tradate" => "http://www.ororossoristorante.it",
+            "roadhouse-tradate" => "https://www.roadhouse.it/",
+            "il-castagno-tradate" => "https://www.agriilcastagno.com/",
+            "la-bottega-del-vino-tradate" => "https://restaurantguru.it/La-Bottega-Del-Vino-Tradate",
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(sourceUrl))
+        {
+            return $"https://picsum.photos/seed/{Uri.EscapeDataString($"friendmap-{slug}")}/960/640";
+        }
+
+        return $"https://s.wordpress.com/mshots/v1/{Uri.EscapeDataString(sourceUrl)}?w=1200";
     }
 
     private static VenueAffluenceSnapshot CreateSnapshot(Guid venueId, DateTimeOffset bucketStart, int activeUsers)

@@ -9,6 +9,7 @@ using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.UseWebRoot("wwwroot");
 
 builder.Host.UseSerilog((context, configuration) =>
 {
@@ -93,6 +94,7 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 app.UseCors("default");
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
