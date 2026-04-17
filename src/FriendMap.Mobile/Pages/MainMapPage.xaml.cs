@@ -17,6 +17,7 @@ public partial class MainMapPage : ContentPage
     private const double MinimumTeaserVisibleHeight = 116;
     private const double MinimumCollapsedVisibleHeight = 288;
     private const int ViewportRefreshDelayMs = 420;
+    private const int OverlaySyncIntervalMs = 120;
 
     private readonly MainMapViewModel _viewModel;
     private readonly LoginViewModel _loginViewModel;
@@ -44,8 +45,10 @@ public partial class MainMapPage : ContentPage
     private bool _shouldAutoFocusOnNextRender = true;
     private double _sheetPanStartY;
     private MapViewport? _lastRequestedViewport;
+    private MapViewport? _lastOverlayViewport;
     private DateTimeOffset _suspendViewportRefreshUntilUtc = DateTimeOffset.MinValue;
     private VenueSheetSnapState _sheetSnapState = VenueSheetSnapState.Teaser;
+    private IDispatcherTimer? _overlaySyncTimer;
 
     public MainMapPage(MainMapViewModel viewModel, LoginViewModel loginViewModel, IDevicePermissionService permissions, ApiClient apiClient)
     {
@@ -70,6 +73,7 @@ public partial class MainMapPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        StartOverlaySyncTimer();
 
         try
         {
@@ -94,6 +98,7 @@ public partial class MainMapPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        StopOverlaySyncTimer();
         CancelPendingViewportRefresh();
         CancelPendingDiscoveryRefresh();
     }
@@ -203,6 +208,49 @@ public partial class MainMapPage : ContentPage
         MoveToMarkers(markers, suppressViewportRefresh: true);
     }
 
+    private async void OnCenterUserLocationClicked(object sender, EventArgs e)
+    {
+        try
+        {
+            var permission = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            if (permission != PermissionStatus.Granted)
+            {
+                permission = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            }
+
+            if (permission != PermissionStatus.Granted)
+            {
+                SetMapStatus("Permesso posizione non concesso.", true);
+                return;
+            }
+
+            var location = await Geolocation.Default.GetLastKnownLocationAsync();
+            location ??= await Geolocation.Default.GetLocationAsync(
+                new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8)));
+
+            if (location is null)
+            {
+                SetMapStatus("Posizione non disponibile sul dispositivo.", true);
+                return;
+            }
+
+            SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(1200));
+            _lastOverlayViewport = null;
+            NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
+                new Location(location.Latitude, location.Longitude),
+                Distance.FromKilometers(1.2)));
+            SetMapStatus("Mappa centrata sulla tua posizione.", false);
+        }
+        catch (FeatureNotSupportedException)
+        {
+            SetMapStatus("Geolocalizzazione non supportata su questo device.", true);
+        }
+        catch (Exception ex)
+        {
+            SetMapStatus(_apiClient.DescribeException(ex), true);
+        }
+    }
+
     private async void OnVenueSheetPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
         if (!_viewModel.HasSelectedMarker)
@@ -242,6 +290,7 @@ public partial class MainMapPage : ContentPage
             VenueSheet.TranslationY = GetHiddenSheetOffset();
         }
 
+        _lastOverlayViewport = null;
         RenderViewportOverlay();
     }
 
@@ -265,6 +314,7 @@ public partial class MainMapPage : ContentPage
             return;
         }
 
+        _lastOverlayViewport = null;
         RenderViewportOverlay();
 
         if (DateTimeOffset.UtcNow < _suspendViewportRefreshUntilUtc)
@@ -651,6 +701,7 @@ public partial class MainMapPage : ContentPage
         NativeMap.MapElements.Clear();
         BubbleLayer.Children.Clear();
         RenderSelectedPresencePreview();
+        _lastOverlayViewport = null;
 
         var markers = GetRenderableMarkers();
         if (markers.Count == 0)
@@ -788,6 +839,7 @@ public partial class MainMapPage : ContentPage
         }
 
         var viewport = GetCurrentViewportOrDefault().Expand(0.04d).Normalize();
+        _lastOverlayViewport = viewport;
         var visibleMarkers = markers
             .Where(x => viewport.Contains(x.Latitude, x.Longitude))
             .ToList();
@@ -810,8 +862,8 @@ public partial class MainMapPage : ContentPage
 
         foreach (var cluster in clusters)
         {
-            RenderAreaBadge(cluster, insets);
-            RenderPresenceOverlay(cluster, insets);
+            RenderAreaBadge(cluster);
+            RenderPresenceOverlay(cluster);
         }
 
         var useNativeCloudAnnotations =
@@ -830,8 +882,8 @@ public partial class MainMapPage : ContentPage
             foreach (var cluster in clusters)
             {
                 var bubble = CreateClusterBubble(cluster);
-                AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.PositionProportional);
-                AbsoluteLayout.SetLayoutBounds(bubble, new Rect(cluster.X, cluster.Y, cluster.LayoutWidth, cluster.LayoutHeight));
+                AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.None);
+                AbsoluteLayout.SetLayoutBounds(bubble, BuildClusterBubbleBounds(cluster));
                 BubbleLayer.Children.Add(bubble);
             }
         }
@@ -842,10 +894,6 @@ public partial class MainMapPage : ContentPage
     private List<VenueOverlayCluster> BuildOverlayAreas(List<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
     {
         var markerMap = markers.ToDictionary(x => x.VenueId);
-        var latRange = viewport.LatitudeSpan;
-        var lngRange = viewport.LongitudeSpan;
-        var usableWidth = Math.Max(0.18d, 1d - insets.Left - insets.Right);
-        var usableHeight = Math.Max(0.18d, 1d - insets.Top - insets.Bottom);
         var zoomScale = Math.Clamp(0.09d / viewport.LatitudeSpan, 0.84d, 1.24d);
 
         return _viewModel.Areas
@@ -862,10 +910,11 @@ public partial class MainMapPage : ContentPage
                     return null;
                 }
 
-                var normalizedX = (area.CentroidLongitude - viewport.MinLongitude) / lngRange;
-                var normalizedY = (area.CentroidLatitude - viewport.MinLatitude) / latRange;
-                var x = Math.Clamp(insets.Left + normalizedX * usableWidth, insets.Left + 0.03d, 1d - insets.Right - 0.03d);
-                var y = Math.Clamp(1d - insets.Bottom - normalizedY * usableHeight, insets.Top + 0.04d, 1d - insets.Bottom - 0.04d);
+                if (!TryGetOverlayAnchorPoint(area.CentroidLatitude, area.CentroidLongitude, viewport, insets, out var anchor))
+                {
+                    return null;
+                }
+
                 var size = Math.Clamp((44 + Math.Min(30, area.BubbleIntensity / 3.1)) * zoomScale * (area.IsCluster ? 1.05d : 1d), 46, 88);
 
                 return new VenueOverlayCluster(
@@ -876,8 +925,8 @@ public partial class MainMapPage : ContentPage
                     area.PeopleCount,
                     area.VenueCount,
                     area.Label,
-                    x,
-                    y,
+                    anchor.X,
+                    anchor.Y,
                     size,
                     ResolveAreaColor(area),
                     area.IsCluster,
@@ -1015,7 +1064,7 @@ public partial class MainMapPage : ContentPage
         return cloud;
     }
 
-    private void RenderAreaBadge(VenueOverlayCluster cluster, OverlayInsets insets)
+    private void RenderAreaBadge(VenueOverlayCluster cluster)
     {
         if (!cluster.IsCluster)
         {
@@ -1040,15 +1089,17 @@ public partial class MainMapPage : ContentPage
             }
         };
 
-        var badgeWidth = 112d;
-        var positionX = Math.Clamp(cluster.X, insets.Left + 0.12d, 1d - insets.Right - 0.12d);
-        var positionY = Math.Clamp(cluster.Y - 0.11d, insets.Top + 0.04d, 1d - insets.Bottom - 0.10d);
-        AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.PositionProportional);
-        AbsoluteLayout.SetLayoutBounds(badge, new Rect(positionX, positionY, badgeWidth, 28));
+        var badgeWidth = Math.Min(172d, Math.Max(112d, 52d + cluster.AreaLabel.Length * 6.4d));
+        var badgeHeight = 30d;
+        var layerWidth = GetOverlayLayerWidth();
+        var x = Math.Clamp(cluster.X - badgeWidth / 2d, 10d, Math.Max(10d, layerWidth - badgeWidth - 10d));
+        var y = Math.Max(8d, cluster.Y - cluster.LayoutHeight - 18d);
+        AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
+        AbsoluteLayout.SetLayoutBounds(badge, new Rect(x, y, badgeWidth, badgeHeight));
         BubbleLayer.Children.Add(badge);
     }
 
-    private void RenderPresenceOverlay(VenueOverlayCluster cluster, OverlayInsets insets)
+    private void RenderPresenceOverlay(VenueOverlayCluster cluster)
     {
         if (cluster.PresencePreview.Count == 0)
         {
@@ -1077,11 +1128,12 @@ public partial class MainMapPage : ContentPage
         });
 
         var stackWidth = 34 + Math.Min(Math.Max(cluster.TotalPresenceCount, 1) - 1, 2) * 20;
-        var positionX = Math.Clamp(cluster.X + 0.085d, insets.Left + 0.04d, 1d - insets.Right - 0.06d);
-        var positionY = Math.Clamp(cluster.Y - 0.028d, insets.Top + 0.07d, 1d - insets.Bottom - 0.05d);
+        var layerWidth = GetOverlayLayerWidth();
+        var x = Math.Clamp(cluster.X + cluster.LayoutWidth * 0.16d, 8d, Math.Max(8d, layerWidth - stackWidth - 8d));
+        var y = Math.Max(8d, cluster.Y - cluster.LayoutHeight + 18d);
 
-        AbsoluteLayout.SetLayoutFlags(stack, AbsoluteLayoutFlags.PositionProportional);
-        AbsoluteLayout.SetLayoutBounds(stack, new Rect(positionX, positionY, stackWidth, 30));
+        AbsoluteLayout.SetLayoutFlags(stack, AbsoluteLayoutFlags.None);
+        AbsoluteLayout.SetLayoutBounds(stack, new Rect(x, y, stackWidth, 30));
         BubbleLayer.Children.Add(stack);
     }
 
@@ -2670,6 +2722,45 @@ public partial class MainMapPage : ContentPage
         return new OverlayInsets(sideInset, topInset, sideInset, bottomInset);
     }
 
+    private void StartOverlaySyncTimer()
+    {
+        if (_overlaySyncTimer is not null || Dispatcher is null)
+        {
+            return;
+        }
+
+        _overlaySyncTimer = Dispatcher.CreateTimer();
+        _overlaySyncTimer.Interval = TimeSpan.FromMilliseconds(OverlaySyncIntervalMs);
+        _overlaySyncTimer.Tick += (_, _) =>
+        {
+            if (NativeMap.VisibleRegion is null)
+            {
+                return;
+            }
+
+            var viewport = GetCurrentViewportOrDefault();
+            if (_lastOverlayViewport is MapViewport previous &&
+                !HasOverlayViewportChanged(viewport, previous))
+            {
+                return;
+            }
+
+            RenderViewportOverlay();
+        };
+        _overlaySyncTimer.Start();
+    }
+
+    private void StopOverlaySyncTimer()
+    {
+        if (_overlaySyncTimer is null)
+        {
+            return;
+        }
+
+        _overlaySyncTimer.Stop();
+        _overlaySyncTimer = null;
+    }
+
     private void ScheduleViewportRefresh()
     {
         CancelPendingViewportRefresh();
@@ -2712,6 +2803,75 @@ public partial class MainMapPage : ContentPage
     private void SuspendViewportRefreshFor(TimeSpan duration)
     {
         _suspendViewportRefreshUntilUtc = DateTimeOffset.UtcNow.Add(duration);
+    }
+
+    private static bool HasOverlayViewportChanged(MapViewport current, MapViewport previous)
+    {
+        var centerLatDelta = Math.Abs(current.CenterLatitude - previous.CenterLatitude);
+        var centerLngDelta = Math.Abs(current.CenterLongitude - previous.CenterLongitude);
+        var latSpanDelta = Math.Abs(current.LatitudeSpan - previous.LatitudeSpan);
+        var lngSpanDelta = Math.Abs(current.LongitudeSpan - previous.LongitudeSpan);
+
+        return centerLatDelta > previous.LatitudeSpan * 0.012d ||
+               centerLngDelta > previous.LongitudeSpan * 0.012d ||
+               latSpanDelta > previous.LatitudeSpan * 0.02d ||
+               lngSpanDelta > previous.LongitudeSpan * 0.02d;
+    }
+
+    private bool TryGetOverlayAnchorPoint(double latitude, double longitude, MapViewport viewport, OverlayInsets insets, out Point anchor)
+    {
+#if IOS
+        if (TryProjectCoordinateToScreenIos(latitude, longitude, out anchor))
+        {
+            var width = GetOverlayLayerWidth();
+            var height = GetOverlayLayerHeight();
+            const double margin = 64d;
+            return anchor.X >= -margin &&
+                   anchor.Y >= -margin &&
+                   anchor.X <= width + margin &&
+                   anchor.Y <= height + margin;
+        }
+#endif
+        anchor = ProjectCoordinateFallback(latitude, longitude, viewport, insets);
+        return true;
+    }
+
+    private Point ProjectCoordinateFallback(double latitude, double longitude, MapViewport viewport, OverlayInsets insets)
+    {
+        var latRange = viewport.LatitudeSpan;
+        var lngRange = viewport.LongitudeSpan;
+        var usableWidth = Math.Max(0.18d, 1d - insets.Left - insets.Right);
+        var usableHeight = Math.Max(0.18d, 1d - insets.Top - insets.Bottom);
+        var normalizedX = (longitude - viewport.MinLongitude) / lngRange;
+        var normalizedY = (latitude - viewport.MinLatitude) / latRange;
+        var proportionalX = Math.Clamp(insets.Left + normalizedX * usableWidth, 0d, 1d);
+        var proportionalY = Math.Clamp(1d - insets.Bottom - normalizedY * usableHeight, 0d, 1d);
+        return new Point(proportionalX * GetOverlayLayerWidth(), proportionalY * GetOverlayLayerHeight());
+    }
+
+    private double GetOverlayLayerWidth()
+    {
+        return BubbleLayer.Width > 1 ? BubbleLayer.Width : Math.Max(Width, 390d);
+    }
+
+    private double GetOverlayLayerHeight()
+    {
+        return BubbleLayer.Height > 1 ? BubbleLayer.Height : Math.Max(Height, 844d);
+    }
+
+    private static Rect BuildClusterBubbleBounds(VenueOverlayCluster cluster)
+    {
+        var x = cluster.X - cluster.LayoutWidth / 2d;
+        var y = cluster.Y - cluster.LayoutHeight + (cluster.IsCluster ? 10d : 8d);
+        return new Rect(x, y, cluster.LayoutWidth, cluster.LayoutHeight);
+    }
+
+    private void SetMapStatus(string message, bool isError)
+    {
+        _viewModel.StatusColor = isError
+            ? Color.FromArgb("#B91C1C")
+            : Color.FromArgb("#1D4ED8");
+        _viewModel.StatusMessage = message;
     }
 
     private static Microsoft.Maui.Controls.Maps.Polygon CreateHexagon(double latitude, double longitude, double radiusMeters, Color fillColor, Color strokeColor, float strokeWidth)

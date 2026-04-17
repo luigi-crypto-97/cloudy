@@ -104,18 +104,19 @@ public static class SocialEndpoints
                     db.Users.AsNoTracking(),
                     tuple => tuple.Table.HostUserId,
                     host => host.Id,
-                    (tuple, host) => new SocialTableInviteDto(
-                        tuple.Table.Id,
-                        tuple.Table.Title,
-                        tuple.Table.StartsAtUtc,
-                        tuple.Venue.Name,
-                        tuple.Venue.Category,
-                        host.Id,
-                        host.Nickname,
-                        host.DisplayName,
-                        host.AvatarUrl))
-                .Where(x => !blockedUserIds.Contains(x.HostUserId))
-                .OrderBy(x => x.StartsAtUtc)
+                    (tuple, host) => new { tuple.Table, tuple.Venue, HostUser = host })
+                .Where(x => !blockedUserIds.Contains(x.HostUser.Id))
+                .OrderBy(x => x.Table.StartsAtUtc)
+                .Select(x => new SocialTableInviteDto(
+                    x.Table.Id,
+                    x.Table.Title,
+                    x.Table.StartsAtUtc,
+                    x.Venue.Name,
+                    x.Venue.Category,
+                    x.HostUser.Id,
+                    x.HostUser.Nickname,
+                    x.HostUser.DisplayName,
+                    x.HostUser.AvatarUrl))
                 .ToListAsync(ct);
 
             return Results.Ok(new SocialHubDto(friends, incoming, outgoing, tableInvites));

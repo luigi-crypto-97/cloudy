@@ -8,8 +8,28 @@ DESIRED_URLS="${ASPNETCORE_URLS:-http://127.0.0.1:8080}"
 DB_HOST="${FRIENDMAP_DB_HOST:-127.0.0.1}"
 DB_PORT="${FRIENDMAP_DB_PORT:-5432}"
 
+is_db_reachable() {
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -h "$DB_HOST" -p "$DB_PORT" -q >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if command -v nc >/dev/null 2>&1 && nc -z "$DB_HOST" "$DB_PORT" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ "$DB_PORT" == "5432" ]] &&
+     [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]] &&
+     command -v docker >/dev/null 2>&1 &&
+     docker info >/dev/null 2>&1 &&
+     docker ps --format '{{.Names}} {{.Ports}}' | grep -Eq '^friendmap-postgres .*0\.0\.0\.0:5432->5432/tcp'; then
+    return 0
+  fi
+
+  return 1
+}
+
 if [[ "${SKIP_DB_PREFLIGHT:-0}" != "1" ]]; then
-  if command -v nc >/dev/null 2>&1 && ! nc -z "$DB_HOST" "$DB_PORT" >/dev/null 2>&1; then
+  if ! is_db_reachable; then
     echo "PostgreSQL is not reachable at ${DB_HOST}:${DB_PORT}." >&2
     echo >&2
 

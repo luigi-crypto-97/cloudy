@@ -15,10 +15,10 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<ApiClient>();
         builder.Services.AddSingleton<IDevicePermissionService, DevicePermissionService>();
-        builder.Services.AddSingleton<LoginViewModel>();
-        builder.Services.AddSingleton<LoginPage>();
-        builder.Services.AddSingleton<MainMapViewModel>();
-        builder.Services.AddSingleton<MainMapPage>();
+        builder.Services.AddTransient<LoginViewModel>();
+        builder.Services.AddTransient<LoginPage>();
+        builder.Services.AddTransient<MainMapViewModel>();
+        builder.Services.AddTransient<MainMapPage>();
 
         return builder.Build();
     }

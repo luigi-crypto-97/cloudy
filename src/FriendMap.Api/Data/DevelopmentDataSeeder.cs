@@ -13,6 +13,7 @@ public static class DevelopmentDataSeeder
     public static readonly Guid BreraVenueId = Guid.Parse("20000000-0000-0000-0000-000000000001");
     public static readonly Guid NavigliVenueId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     public static readonly Guid PortaRomanaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000003");
+    public static readonly Guid FolkPubVenueId = Guid.Parse("20000000-0000-0000-0000-000000000004");
 
     public static readonly Guid BreraTableId = Guid.Parse("30000000-0000-0000-0000-000000000001");
     public static readonly Guid DemoReportId = Guid.Parse("40000000-0000-0000-0000-000000000001");
@@ -59,6 +60,8 @@ public static class DevelopmentDataSeeder
 
                 await db.SaveChangesAsync(ct);
             }
+
+            await EnsureTradateVenueSeedAsync(db, ct);
 
             return;
         }
@@ -114,6 +117,17 @@ public static class DevelopmentDataSeeder
                 AddressLine = "Corso di Porta Romana 88",
                 City = "Milano",
                 Location = CreatePoint(9.2024, 45.4527)
+            },
+            new Venue
+            {
+                Id = FolkPubVenueId,
+                ExternalProviderId = "dev-tradate-001",
+                Name = "Folk Pub",
+                Category = "pub",
+                AddressLine = "Corso Paolo Bernacchi 130",
+                City = "Tradate",
+                CountryCode = "IT",
+                Location = CreatePoint(8.9062790, 45.7123131)
             });
 
         db.VenueCheckIns.AddRange(
@@ -149,9 +163,49 @@ public static class DevelopmentDataSeeder
         db.VenueAffluenceSnapshots.AddRange(
             CreateSnapshot(BreraVenueId, bucketStart, 2),
             CreateSnapshot(NavigliVenueId, bucketStart, 2),
-            CreateSnapshot(PortaRomanaVenueId, bucketStart, 1));
+            CreateSnapshot(PortaRomanaVenueId, bucketStart, 1),
+            CreateSnapshot(FolkPubVenueId, bucketStart, 3));
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureTradateVenueSeedAsync(AppDbContext db, CancellationToken ct)
+    {
+        var venue = await db.Venues.FirstOrDefaultAsync(x => x.Id == FolkPubVenueId, ct);
+        var changed = false;
+
+        if (venue is null)
+        {
+            venue = new Venue
+            {
+                Id = FolkPubVenueId,
+                ExternalProviderId = "dev-tradate-001",
+                Name = "Folk Pub",
+                Category = "pub",
+                AddressLine = "Corso Paolo Bernacchi 130",
+                City = "Tradate",
+                CountryCode = "IT",
+                Location = CreatePoint(8.9062790, 45.7123131)
+            };
+            db.Venues.Add(venue);
+            changed = true;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
+        var snapshot = await db.VenueAffluenceSnapshots
+            .FirstOrDefaultAsync(x => x.VenueId == FolkPubVenueId && x.BucketStartUtc == bucketStart, ct);
+
+        if (snapshot is null)
+        {
+            db.VenueAffluenceSnapshots.Add(CreateSnapshot(FolkPubVenueId, bucketStart, 3));
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     private static Point CreatePoint(double longitude, double latitude)

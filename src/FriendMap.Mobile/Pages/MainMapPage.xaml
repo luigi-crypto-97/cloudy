@@ -193,6 +193,23 @@
             </ImageButton.Shadow>
         </ImageButton>
 
+        <ImageButton Source="icon-location-blue.svg"
+                     WidthRequest="52"
+                     HeightRequest="52"
+                     MinimumHeightRequest="52"
+                     Padding="14"
+                     Clicked="OnCenterUserLocationClicked"
+                     HorizontalOptions="End"
+                     VerticalOptions="End"
+                     Margin="0,0,18,126"
+                     BackgroundColor="#F8FBFF"
+                     BorderWidth="0"
+                     CornerRadius="26">
+            <ImageButton.Shadow>
+                <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
+            </ImageButton.Shadow>
+        </ImageButton>
+
         <Border Padding="18"
                 Margin="28"
                 BackgroundColor="#FDFEFF"
