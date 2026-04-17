@@ -40,7 +40,7 @@
                        TextColor="White" />
             </Border>
 
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                 <Border Padding="16,13"
                         BackgroundColor="#EAF7FFFF"
                         Stroke="#DDE7F5"
@@ -62,35 +62,23 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <VerticalStackLayout Grid.Column="1"
-                                     Spacing="10">
-                    <ImageButton Source="icon-sliders-blue.svg"
-                                 WidthRequest="54"
-                                 HeightRequest="54"
-                                 MinimumHeightRequest="54"
-                                 Padding="15"
-                                 Clicked="OnServerClicked"
-                                 BackgroundColor="#F8FBFF"
-                                 BorderWidth="0"
-                                 CornerRadius="27">
-                        <ImageButton.Shadow>
-                            <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
-                        </ImageButton.Shadow>
-                    </ImageButton>
-                    <ImageButton Source="icon-refresh-white.svg"
-                                 WidthRequest="54"
-                                 HeightRequest="54"
-                                 MinimumHeightRequest="54"
-                                 Padding="15"
-                                 Clicked="OnRefreshClicked"
-                                 BackgroundColor="{StaticResource PrimaryColor}"
-                                 BorderWidth="0"
-                                 CornerRadius="27">
-                        <ImageButton.Shadow>
-                            <Shadow Brush="#222563EB" Offset="0,10" Radius="22" Opacity="0.24" />
-                        </ImageButton.Shadow>
-                    </ImageButton>
-                </VerticalStackLayout>
+                <Button Grid.Column="1"
+                        Text="Server"
+                        Clicked="OnServerClicked"
+                        MinimumHeightRequest="48"
+                        Padding="14,10"
+                        FontSize="13"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        VerticalOptions="Center" />
+
+                <Button Grid.Column="2"
+                        Text="Aggiorna"
+                        Clicked="OnRefreshClicked"
+                        MinimumHeightRequest="48"
+                        Padding="16,10"
+                        FontSize="13"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        VerticalOptions="Center" />
             </Grid>
 
             <Border Padding="12,9"
@@ -176,39 +164,55 @@
             </Border>
         </VerticalStackLayout>
 
-        <ImageButton Source="icon-focus-blue.svg"
-                     WidthRequest="52"
-                     HeightRequest="52"
-                     MinimumHeightRequest="52"
-                     Padding="14"
-                     Clicked="OnFocusMarkersClicked"
-                     HorizontalOptions="Start"
-                     VerticalOptions="End"
-                     Margin="18,0,0,126"
-                     BackgroundColor="#F8FBFF"
-                     BorderWidth="0"
-                     CornerRadius="26">
-            <ImageButton.Shadow>
-                <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
-            </ImageButton.Shadow>
-        </ImageButton>
+        <HorizontalStackLayout Margin="18,0,18,126"
+                               HorizontalOptions="Fill"
+                               VerticalOptions="End"
+                               Spacing="10"
+                               InputTransparent="False">
+            <VerticalStackLayout Spacing="6"
+                                 HorizontalOptions="Start">
+                <ImageButton Source="icon-location-blue.svg"
+                             WidthRequest="52"
+                             HeightRequest="52"
+                             MinimumHeightRequest="52"
+                             Padding="14"
+                             Clicked="OnFocusMarkersClicked"
+                             BackgroundColor="#F8FBFF"
+                             BorderWidth="0"
+                             CornerRadius="26">
+                    <ImageButton.Shadow>
+                        <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
+                    </ImageButton.Shadow>
+                </ImageButton>
+                <Label Text="Locali"
+                       FontSize="11"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
 
-        <ImageButton Source="icon-location-blue.svg"
-                     WidthRequest="52"
-                     HeightRequest="52"
-                     MinimumHeightRequest="52"
-                     Padding="14"
-                     Clicked="OnCenterUserLocationClicked"
-                     HorizontalOptions="End"
-                     VerticalOptions="End"
-                     Margin="0,0,18,126"
-                     BackgroundColor="#F8FBFF"
-                     BorderWidth="0"
-                     CornerRadius="26">
-            <ImageButton.Shadow>
-                <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
-            </ImageButton.Shadow>
-        </ImageButton>
+            <Grid HorizontalOptions="FillAndExpand" />
+
+            <VerticalStackLayout Spacing="6"
+                                 HorizontalOptions="End">
+                <ImageButton Source="icon-focus-blue.svg"
+                             WidthRequest="52"
+                             HeightRequest="52"
+                             MinimumHeightRequest="52"
+                             Padding="14"
+                             Clicked="OnCenterUserLocationClicked"
+                             BackgroundColor="#F8FBFF"
+                             BorderWidth="0"
+                             CornerRadius="26">
+                    <ImageButton.Shadow>
+                        <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.18" />
+                    </ImageButton.Shadow>
+                </ImageButton>
+                <Label Text="Posizione"
+                       FontSize="11"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
+        </HorizontalStackLayout>
 
         <Border Padding="18"
                 Margin="28"
@@ -422,12 +426,233 @@
                             Style="{StaticResource SecondaryButtonStyle}" />
                 </Grid>
 
+                <Button Text="Apri scheda locale"
+                        Clicked="OnOpenVenueDetailsClicked"
+                        MinimumHeightRequest="40"
+                        Padding="10,10"
+                        FontSize="13"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+
                 <Label Text="{Binding ActionMessage}"
                        FontSize="12"
                        TextColor="{StaticResource PrimaryColorDark}"
                        IsVisible="{Binding HasActionMessage}" />
             </VerticalStackLayout>
         </Border>
+
+        <Grid x:Name="VenueDetailOverlay"
+              IsVisible="False"
+              InputTransparent="False">
+            <BoxView BackgroundColor="#260F172A">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnVenueDetailOverlayBackdropTapped" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+
+            <Border x:Name="VenueDetailSheet"
+                    Margin="14,0,14,88"
+                    Padding="0"
+                    VerticalOptions="End"
+                    BackgroundColor="#FCFEFF"
+                    Stroke="#DDE7F5"
+                    StrokeThickness="1"
+                    TranslationY="540">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="32" />
+                </Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="#1A0F172A" Offset="0,14" Radius="30" Opacity="0.18" />
+                </Border.Shadow>
+                <Grid RowDefinitions="220,Auto">
+                    <Grid HeightRequest="220"
+                          BackgroundColor="#E9F2FF"
+                          IsClippedToBounds="True">
+                        <Image x:Name="VenueDetailCoverImage"
+                               Aspect="AspectFill"
+                               Opacity="0.92" />
+                        <BoxView BackgroundColor="#5E0F172A" />
+                        <Grid Padding="16,16,16,18"
+                              RowDefinitions="Auto,*,Auto">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Border Padding="10,6"
+                                        BackgroundColor="#F4F8FF33"
+                                        StrokeThickness="0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="14" />
+                                    </Border.StrokeShape>
+                                    <Label x:Name="VenueDetailCategoryPillLabel"
+                                           Text="Locale"
+                                           FontSize="11"
+                                           FontAttributes="Bold"
+                                           TextColor="White" />
+                                </Border>
+
+                                <ImageButton Grid.Column="1"
+                                             Source="icon-close-blue.svg"
+                                             WidthRequest="34"
+                                             HeightRequest="34"
+                                             MinimumHeightRequest="34"
+                                             Padding="9"
+                                             Clicked="OnVenueDetailOverlayCloseClicked"
+                                             BackgroundColor="#F8FBFF"
+                                             BorderWidth="0"
+                                             CornerRadius="17" />
+                            </Grid>
+
+                            <VerticalStackLayout Grid.Row="2"
+                                                 Spacing="4">
+                                <Label x:Name="VenueDetailNameLabel"
+                                       Text="Venue"
+                                       FontSize="24"
+                                       FontAttributes="Bold"
+                                       TextColor="White" />
+                                <Label x:Name="VenueDetailAddressLabel"
+                                       Text="Indirizzo"
+                                       FontSize="13"
+                                       TextColor="#F8FAFC" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Grid>
+
+                    <ScrollView Grid.Row="1"
+                                MaximumHeightRequest="480">
+                        <VerticalStackLayout Padding="16,16,16,18"
+                                             Spacing="14">
+                            <Label x:Name="VenueDetailDescriptionLabel"
+                                   Text=""
+                                   FontSize="14"
+                                   TextColor="{StaticResource TextColor}"
+                                   IsVisible="False" />
+
+                            <FlexLayout x:Name="VenueDetailTagsLayout"
+                                        Wrap="Wrap"
+                                        Direction="Row"
+                                        JustifyContent="Start"
+                                        AlignItems="Start"
+                                        IsVisible="False" />
+
+                            <Grid ColumnDefinitions="*,*,*"
+                                  ColumnSpacing="8">
+                                <Border Padding="12,10"
+                                        BackgroundColor="#EEF8FF"
+                                        StrokeThickness="0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="16" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="Persone"
+                                               FontSize="11"
+                                               TextColor="{StaticResource MutedTextColor}" />
+                                        <Label x:Name="VenueDetailPeopleLabel"
+                                               Text="0"
+                                               FontSize="18"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextColor}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                                <Border Grid.Column="1"
+                                        Padding="12,10"
+                                        BackgroundColor="#F6F9FD"
+                                        StrokeThickness="0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="16" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="Affluenza"
+                                               FontSize="11"
+                                               TextColor="{StaticResource MutedTextColor}" />
+                                        <Label x:Name="VenueDetailDensityLabel"
+                                               Text="bassa"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextColor}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                                <Border Grid.Column="2"
+                                        Padding="12,10"
+                                        BackgroundColor="#F6F9FD"
+                                        StrokeThickness="0">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="16" />
+                                    </Border.StrokeShape>
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="Tavoli"
+                                               FontSize="11"
+                                               TextColor="{StaticResource MutedTextColor}" />
+                                        <Label x:Name="VenueDetailTablesLabel"
+                                               Text="0"
+                                               FontSize="18"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextColor}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </Grid>
+
+                            <VerticalStackLayout Spacing="8">
+                                <Label x:Name="VenueDetailHoursLabel"
+                                       Text=""
+                                       FontSize="13"
+                                       TextColor="{StaticResource MutedTextColor}"
+                                       IsVisible="False" />
+                                <Label x:Name="VenueDetailPhoneLabel"
+                                       Text=""
+                                       FontSize="13"
+                                       TextColor="{StaticResource MutedTextColor}"
+                                       IsVisible="False" />
+                                <Label x:Name="VenueDetailWebsiteLabel"
+                                       Text=""
+                                       FontSize="13"
+                                       TextColor="{StaticResource MutedTextColor}"
+                                       IsVisible="False" />
+                            </VerticalStackLayout>
+
+                            <Grid ColumnDefinitions="*,*,*"
+                                  ColumnSpacing="8">
+                                <Button Text="Check-in"
+                                        Command="{Binding CheckInCommand}"
+                                        MinimumHeightRequest="42"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource PrimaryButtonStyle}" />
+                                <Button Grid.Column="1"
+                                        Text="Ci vado"
+                                        Command="{Binding PlanIntentionCommand}"
+                                        MinimumHeightRequest="42"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                <Button Grid.Column="2"
+                                        Text="Tavolo"
+                                        Command="{Binding CreateTableCommand}"
+                                        MinimumHeightRequest="42"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,*"
+                                  ColumnSpacing="8">
+                                <Button Text="Chiama"
+                                        Clicked="OnSelectedVenueCallClicked"
+                                        MinimumHeightRequest="40"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        IsVisible="{Binding HasSelectedPhone}" />
+                                <Button Grid.Column="1"
+                                        Text="Sito"
+                                        Clicked="OnSelectedVenueWebsiteClicked"
+                                        MinimumHeightRequest="40"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        IsVisible="{Binding HasSelectedWebsite}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Border>
+        </Grid>
 
         <Border x:Name="AreaSelectionCard"
                 Margin="16,0,16,116"
@@ -1199,7 +1424,7 @@
             <Border.Shadow>
                 <Shadow Brush="#1A0F172A" Offset="0,14" Radius="28" Opacity="0.18" />
             </Border.Shadow>
-            <Grid ColumnDefinitions="*,*,*"
+            <Grid ColumnDefinitions="*,*"
                   ColumnSpacing="8">
                 <VerticalStackLayout Spacing="6"
                                      HorizontalOptions="Center">
@@ -1241,22 +1466,6 @@
                            TextColor="{StaticResource MutedTextColor}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Grid.Column="2"
-                                     Spacing="6"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-sliders-blue.svg"
-                                 WidthRequest="54"
-                                 HeightRequest="54"
-                                 MinimumHeightRequest="54"
-                                 Padding="15"
-                                 Clicked="OnServerClicked"
-                                 BackgroundColor="#ECF2FF"
-                                 BorderWidth="0"
-                                 CornerRadius="27" />
-                    <Label Text="Server"
-                           FontSize="11"
-                           TextColor="{StaticResource MutedTextColor}" />
-                </VerticalStackLayout>
             </Grid>
         </Border>
     </Grid>

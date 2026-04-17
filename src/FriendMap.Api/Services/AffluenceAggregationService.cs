@@ -208,6 +208,12 @@ public class AffluenceAggregationService
                 venue.Category,
                 venue.AddressLine,
                 venue.City,
+                venue.PhoneNumber,
+                venue.WebsiteUrl,
+                venue.HoursSummary,
+                venue.CoverImageUrl,
+                venue.Description,
+                ParseVenueTags(venue.TagsCsv),
                 venue.Location?.Y ?? 0,
                 venue.Location?.X ?? 0,
                 IsVenueOpenNow(venue, DateTimeOffset.Now),
@@ -284,13 +290,16 @@ public class AffluenceAggregationService
             .Where(x => tables.Select(t => t.Id).Contains(x.SocialTableId))
             .ToListAsync(ct);
 
-        var intentions = await _db.VenueIntentions
+        var upcomingIntentions = await _db.VenueIntentions
             .Where(x => x.VenueId == venueId && x.EndsAtUtc >= DateTimeOffset.UtcNow)
+            .ToListAsync(ct);
+
+        var intentions = upcomingIntentions
             .GroupBy(x => new { x.StartsAtUtc, x.EndsAtUtc })
             .Select(g => new IntentionCountDto(g.Key.StartsAtUtc, g.Key.EndsAtUtc, g.Count()))
             .OrderBy(x => x.StartsAtUtc)
             .Take(12)
-            .ToListAsync(ct);
+            .ToList();
 
         object? ages = null;
         object? genders = null;
@@ -308,6 +317,12 @@ public class AffluenceAggregationService
             venue.Category,
             venue.AddressLine,
             venue.City,
+            venue.PhoneNumber,
+            venue.WebsiteUrl,
+            venue.HoursSummary,
+            venue.CoverImageUrl,
+            venue.Description,
+            ParseVenueTags(venue.TagsCsv),
             latestSnapshot?.DensityLevel ?? "unknown",
             latestSnapshot?.ActiveUsersEstimated ?? 0,
             showDemographics,
@@ -327,6 +342,19 @@ public class AffluenceAggregationService
                     t.Status);
             }),
             intentions);
+    }
+
+    private static IReadOnlyList<string> ParseVenueTags(string? tagsCsv)
+    {
+        if (string.IsNullOrWhiteSpace(tagsCsv))
+        {
+            return Array.Empty<string>();
+        }
+
+        return tagsCsv
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public async Task RebuildVenueSnapshotAsync(Guid venueId, CancellationToken ct)

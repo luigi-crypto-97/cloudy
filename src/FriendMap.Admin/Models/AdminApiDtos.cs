@@ -24,6 +24,12 @@ public record AdminVenueDto(
     string AddressLine,
     string City,
     string CountryCode,
+    string? PhoneNumber,
+    string? WebsiteUrl,
+    string? HoursSummary,
+    string? CoverImageUrl,
+    string? Description,
+    string? TagsCsv,
     double? Latitude,
     double? Longitude,
     bool IsClaimed,
@@ -38,6 +44,12 @@ public class VenueEditModel
     public string AddressLine { get; set; } = string.Empty;
     public string City { get; set; } = "Milano";
     public string CountryCode { get; set; } = "IT";
+    public string? PhoneNumber { get; set; }
+    public string? WebsiteUrl { get; set; }
+    public string? HoursSummary { get; set; }
+    public string? CoverImageUrl { get; set; }
+    public string? Description { get; set; }
+    public string? TagsCsv { get; set; }
     public double Latitude { get; set; } = 45.4642;
     public double Longitude { get; set; } = 9.1900;
     public bool IsClaimed { get; set; }
@@ -54,6 +66,12 @@ public class VenueEditModel
             AddressLine = dto.AddressLine,
             City = dto.City,
             CountryCode = dto.CountryCode,
+            PhoneNumber = dto.PhoneNumber,
+            WebsiteUrl = dto.WebsiteUrl,
+            HoursSummary = dto.HoursSummary,
+            CoverImageUrl = dto.CoverImageUrl,
+            Description = dto.Description,
+            TagsCsv = dto.TagsCsv,
             Latitude = dto.Latitude ?? 45.4642,
             Longitude = dto.Longitude ?? 9.1900,
             IsClaimed = dto.IsClaimed,

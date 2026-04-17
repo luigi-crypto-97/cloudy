@@ -101,6 +101,12 @@ public static class AdminEndpoints
             venue.AddressLine,
             venue.City,
             venue.CountryCode,
+            venue.PhoneNumber,
+            venue.WebsiteUrl,
+            venue.HoursSummary,
+            venue.CoverImageUrl,
+            venue.Description,
+            venue.TagsCsv,
             venue.Location?.Y,
             venue.Location?.X,
             venue.IsClaimed,
@@ -115,6 +121,12 @@ public static class AdminEndpoints
         venue.AddressLine = request.AddressLine.Trim();
         venue.City = request.City.Trim();
         venue.CountryCode = string.IsNullOrWhiteSpace(request.CountryCode) ? "IT" : request.CountryCode.Trim().ToUpperInvariant();
+        venue.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
+        venue.WebsiteUrl = string.IsNullOrWhiteSpace(request.WebsiteUrl) ? null : request.WebsiteUrl.Trim();
+        venue.HoursSummary = string.IsNullOrWhiteSpace(request.HoursSummary) ? null : request.HoursSummary.Trim();
+        venue.CoverImageUrl = string.IsNullOrWhiteSpace(request.CoverImageUrl) ? null : request.CoverImageUrl.Trim();
+        venue.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        venue.TagsCsv = string.IsNullOrWhiteSpace(request.TagsCsv) ? null : request.TagsCsv.Trim();
         venue.Location = new Point(request.Longitude, request.Latitude) { SRID = 4326 };
         venue.IsClaimed = request.IsClaimed;
         venue.VisibilityStatus = string.IsNullOrWhiteSpace(request.VisibilityStatus) ? "public" : request.VisibilityStatus.Trim();

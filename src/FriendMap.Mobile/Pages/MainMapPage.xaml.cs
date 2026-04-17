@@ -35,6 +35,7 @@ public partial class MainMapPage : ContentPage
     private VenueOverlayCluster? _activeAreaCluster;
     private PresencePreview? _activeProfilePreview;
     private UserProfile? _activeProfile;
+    private VenueDetails? _activeVenueDetails;
     private string? _selectedAreaClusterKey;
     private bool _isSocialBusy;
     private bool _isSocialLoading;
@@ -121,6 +122,7 @@ public partial class MainMapPage : ContentPage
         _loginViewModel.PauseAutoRestoreOnce();
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
         await HideSocialOverlayAsync(animated: false);
         await HideTableOverlayAsync(animated: false);
         await HideEditProfileOverlayAsync(animated: false);
@@ -193,6 +195,7 @@ public partial class MainMapPage : ContentPage
         _viewModel.ClearSelection();
         _ = HidePresenceOverlayAsync(animated: true);
         _ = HideProfileOverlayAsync(animated: true);
+        _ = HideVenueDetailOverlayAsync(animated: true);
         ClearAreaSelection();
         RenderViewportOverlay();
     }
@@ -251,6 +254,48 @@ public partial class MainMapPage : ContentPage
         }
     }
 
+    private async void OnSelectedVenueCallClicked(object? sender, EventArgs e)
+    {
+        var phoneNumber = _viewModel.SelectedMarker?.PhoneNumber?.Trim();
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            return;
+        }
+
+        try
+        {
+            var normalized = phoneNumber.Replace(" ", string.Empty);
+            await Launcher.Default.OpenAsync(new Uri($"tel:{normalized}"));
+        }
+        catch (Exception ex)
+        {
+            SetMapStatus($"Impossibile aprire il numero: {ex.Message}", true);
+        }
+    }
+
+    private async void OnSelectedVenueWebsiteClicked(object? sender, EventArgs e)
+    {
+        var websiteUrl = _viewModel.SelectedMarker?.WebsiteUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(websiteUrl))
+        {
+            return;
+        }
+
+        try
+        {
+            if (!Uri.TryCreate(websiteUrl, UriKind.Absolute, out var uri))
+            {
+                uri = new Uri($"https://{websiteUrl}");
+            }
+
+            await Launcher.Default.OpenAsync(uri);
+        }
+        catch (Exception ex)
+        {
+            SetMapStatus($"Impossibile aprire il sito: {ex.Message}", true);
+        }
+    }
+
     private async void OnVenueSheetPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
         if (!_viewModel.HasSelectedMarker)
@@ -300,11 +345,32 @@ public partial class MainMapPage : ContentPage
         {
             await HidePresenceOverlayAsync(animated: false);
             await HideProfileOverlayAsync(animated: false);
+            await HideVenueDetailOverlayAsync(animated: false);
             ClearAreaSelection();
             RenderSelectedPresencePreview();
             RenderViewportOverlay();
             await SyncVenueSheetAsync(animated: true);
         }
+    }
+
+    private async void OnOpenVenueDetailsClicked(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedMarker is null)
+        {
+            return;
+        }
+
+        await ShowVenueDetailOverlayAsync(_viewModel.SelectedMarker);
+    }
+
+    private void OnVenueDetailOverlayBackdropTapped(object? sender, TappedEventArgs e)
+    {
+        _ = HideVenueDetailOverlayAsync(animated: true);
+    }
+
+    private void OnVenueDetailOverlayCloseClicked(object? sender, EventArgs e)
+    {
+        _ = HideVenueDetailOverlayAsync(animated: true);
     }
 
     private void OnNativeMapPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -894,7 +960,7 @@ public partial class MainMapPage : ContentPage
     private List<VenueOverlayCluster> BuildOverlayAreas(List<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
     {
         var markerMap = markers.ToDictionary(x => x.VenueId);
-        var zoomScale = Math.Clamp(0.09d / viewport.LatitudeSpan, 0.84d, 1.24d);
+        var zoomScale = ResolveBubbleZoomScale(viewport);
 
         return _viewModel.Areas
             .Where(x => viewport.Contains(x.CentroidLatitude, x.CentroidLongitude))
@@ -915,7 +981,7 @@ public partial class MainMapPage : ContentPage
                     return null;
                 }
 
-                var size = Math.Clamp((44 + Math.Min(30, area.BubbleIntensity / 3.1)) * zoomScale * (area.IsCluster ? 1.05d : 1d), 46, 88);
+                var size = Math.Clamp((34 + Math.Min(18, area.BubbleIntensity / 4.0)) * zoomScale * (area.IsCluster ? 1.06d : 1d), 34, 68);
 
                 return new VenueOverlayCluster(
                     area.AreaId,
@@ -944,7 +1010,7 @@ public partial class MainMapPage : ContentPage
         var lngRange = viewport.LongitudeSpan;
         var usableWidth = Math.Max(0.18d, 1d - insets.Left - insets.Right);
         var usableHeight = Math.Max(0.18d, 1d - insets.Top - insets.Bottom);
-        var zoomScale = Math.Clamp(0.09d / viewport.LatitudeSpan, 0.84d, 1.22d);
+        var zoomScale = ResolveBubbleZoomScale(viewport);
 
         var projected = markers.Select(marker =>
         {
@@ -952,7 +1018,7 @@ public partial class MainMapPage : ContentPage
             var normalizedY = (marker.Latitude - viewport.MinLatitude) / latRange;
             var x = Math.Clamp(insets.Left + normalizedX * usableWidth, insets.Left + 0.03d, 1d - insets.Right - 0.03d);
             var y = Math.Clamp(1d - insets.Bottom - normalizedY * usableHeight, insets.Top + 0.04d, 1d - insets.Bottom - 0.04d);
-            var size = (42 + Math.Min(28, marker.BubbleIntensity / 3.2)) * zoomScale;
+            var size = Math.Clamp((30 + Math.Min(16, marker.BubbleIntensity / 4.2)) * zoomScale, 28, 60);
             return new OverlayMarkerProjection(marker, x, y, size);
         }).ToList();
 
@@ -997,7 +1063,7 @@ public partial class MainMapPage : ContentPage
                     areaLabel,
                     group.Average(x => x.X),
                     group.Average(x => x.Y),
-                    Math.Clamp(group.Max(x => x.Size) + 12, 62, 82),
+                    Math.Clamp(group.Max(x => x.Size) + 8, 42, 70),
                     ResolveClusterColor(groupedMarkers),
                     true,
                     groupedMarkers.Average(x => x.Latitude),
@@ -1015,6 +1081,12 @@ public partial class MainMapPage : ContentPage
             < 0.085d => 0.13d,
             _ => 0.17d
         };
+    }
+
+    private static double ResolveBubbleZoomScale(MapViewport viewport)
+    {
+        var normalized = 0.035d / Math.Max(0.006d, viewport.LatitudeSpan);
+        return Math.Clamp(Math.Pow(normalized, 0.24d), 0.58d, 1.18d);
     }
 
     private View CreateClusterBubble(VenueOverlayCluster cluster)
@@ -1141,6 +1213,7 @@ public partial class MainMapPage : ContentPage
     {
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
 
         if (!cluster.IsCluster || cluster.Markers.Count == 1)
         {
@@ -1231,6 +1304,140 @@ public partial class MainMapPage : ContentPage
         PresenceListStack.Children.Clear();
     }
 
+    private async Task ShowVenueDetailOverlayAsync(VenueMarker marker)
+    {
+        await HidePresenceOverlayAsync(animated: false);
+        await HideProfileOverlayAsync(animated: false);
+        await HideSocialOverlayAsync(animated: false);
+        await HideTableOverlayAsync(animated: false);
+
+        VenueDetailOverlay.IsVisible = true;
+        VenueDetailSheet.TranslationY = 540;
+        PopulateVenueDetailOverlay(null, marker);
+
+        try
+        {
+            _activeVenueDetails = await _apiClient.GetVenueDetailsAsync(marker.VenueId);
+            PopulateVenueDetailOverlay(_activeVenueDetails, marker);
+        }
+        catch (Exception ex)
+        {
+            SetMapStatus(_apiClient.DescribeException(ex), true);
+        }
+
+        await VenueDetailSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+    }
+
+    private async Task HideVenueDetailOverlayAsync(bool animated)
+    {
+        if (!VenueDetailOverlay.IsVisible)
+        {
+            return;
+        }
+
+        _activeVenueDetails = null;
+        if (animated)
+        {
+            await VenueDetailSheet.TranslateTo(0, 540, 180, Easing.CubicIn);
+        }
+        else
+        {
+            VenueDetailSheet.TranslationY = 540;
+        }
+
+        VenueDetailOverlay.IsVisible = false;
+        VenueDetailTagsLayout.Children.Clear();
+    }
+
+    private void PopulateVenueDetailOverlay(VenueDetails? details, VenueMarker marker)
+    {
+        VenueDetailNameLabel.Text = marker.Name;
+        VenueDetailCategoryPillLabel.Text = FormatVenueCategory(marker.Category);
+        VenueDetailAddressLabel.Text = $"{marker.AddressLine}, {marker.City}";
+        VenueDetailDescriptionLabel.Text = details?.Description ?? marker.Description ?? string.Empty;
+        VenueDetailDescriptionLabel.IsVisible = !string.IsNullOrWhiteSpace(VenueDetailDescriptionLabel.Text);
+        VenueDetailPeopleLabel.Text = marker.PeopleEstimate.ToString();
+        VenueDetailDensityLabel.Text = FormatDensityLabel(marker.DensityLevel);
+        VenueDetailTablesLabel.Text = marker.OpenTables.ToString();
+        VenueDetailHoursLabel.Text = details?.HoursSummary ?? marker.HoursSummary ?? string.Empty;
+        VenueDetailHoursLabel.IsVisible = !string.IsNullOrWhiteSpace(VenueDetailHoursLabel.Text);
+        VenueDetailPhoneLabel.Text = details?.PhoneNumber ?? marker.PhoneNumber ?? string.Empty;
+        VenueDetailPhoneLabel.IsVisible = !string.IsNullOrWhiteSpace(VenueDetailPhoneLabel.Text);
+        VenueDetailWebsiteLabel.Text = details?.WebsiteUrl ?? marker.WebsiteUrl ?? string.Empty;
+        VenueDetailWebsiteLabel.IsVisible = !string.IsNullOrWhiteSpace(VenueDetailWebsiteLabel.Text);
+        VenueDetailCoverImage.Source = ResolveVenueCoverSource(details?.CoverImageUrl ?? marker.CoverImageUrl, marker);
+        RenderVenueTags(details?.Tags ?? marker.Tags);
+    }
+
+    private void RenderVenueTags(IEnumerable<string> tags)
+    {
+        VenueDetailTagsLayout.Children.Clear();
+        var distinctTags = tags
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        VenueDetailTagsLayout.IsVisible = distinctTags.Count > 0;
+        foreach (var tag in distinctTags)
+        {
+            VenueDetailTagsLayout.Children.Add(new Border
+            {
+                Padding = new Thickness(10, 6),
+                Margin = new Thickness(0, 0, 8, 8),
+                BackgroundColor = Color.FromArgb("#EEF4FF"),
+                StrokeThickness = 0,
+                StrokeShape = new RoundRectangle { CornerRadius = 14 },
+                Content = new Label
+                {
+                    Text = tag.Trim(),
+                    FontSize = 12,
+                    FontAttributes = FontAttributes.Bold,
+                    TextColor = Color.FromArgb("#1D4ED8")
+                }
+            });
+        }
+    }
+
+    private static string FormatVenueCategory(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+        {
+            return "Locale";
+        }
+
+        return category.Trim().ToLowerInvariant() switch
+        {
+            "cocktail-bar" => "Cocktail bar",
+            "pizza-bar" => "Pizza bar",
+            _ => category.Trim()
+        };
+    }
+
+    private static string FormatDensityLabel(string densityLevel)
+    {
+        return densityLevel?.Trim().ToLowerInvariant() switch
+        {
+            "very_low" => "Molto bassa",
+            "low" => "Bassa",
+            "medium" => "Media",
+            "high" => "Alta",
+            "full" => "Quasi pieno",
+            _ => "Stimata"
+        };
+    }
+
+    private static ImageSource ResolveVenueCoverSource(string? source, VenueMarker marker)
+    {
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            return ImageSource.FromUri(new Uri(source));
+        }
+
+        var seed = Uri.EscapeDataString($"{marker.Name}-{marker.Category}-{marker.City}".ToLowerInvariant());
+        return ImageSource.FromUri(new Uri($"https://picsum.photos/seed/{seed}/960/640"));
+    }
+
     private View CreatePresenceListRow(PresencePreview preview)
     {
         var grid = new Grid
@@ -1289,6 +1496,7 @@ public partial class MainMapPage : ContentPage
     private async Task ShowUserProfileAsync(PresencePreview preview)
     {
         await HideDirectMessageOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
         _activeProfilePreview = preview;
         _activeProfile = null;
         ProfileOverlay.IsVisible = true;
@@ -1391,6 +1599,7 @@ public partial class MainMapPage : ContentPage
     {
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
         await HideTableOverlayAsync(animated: false);
 
         SocialOverlay.IsVisible = true;
@@ -1883,6 +2092,7 @@ public partial class MainMapPage : ContentPage
     {
         await HidePresenceOverlayAsync(animated: false);
         await HideProfileOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
 
         _activeTableSummary = table;
         _activeTableThread = null;
@@ -2699,6 +2909,10 @@ public partial class MainMapPage : ContentPage
         if (ProfileOverlay.IsVisible)
         {
             bottomChrome = Math.Max(bottomChrome, Math.Max(320d, ProfileSheet.Height * 0.86d + 78d));
+        }
+        if (VenueDetailOverlay.IsVisible)
+        {
+            bottomChrome = Math.Max(bottomChrome, Math.Max(380d, VenueDetailSheet.Height * 0.90d + 72d));
         }
         if (SocialOverlay.IsVisible)
         {

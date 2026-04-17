@@ -64,6 +64,12 @@ public class MainMapViewModel : BindableObject
             OnPropertyChanged(nameof(SelectedAddressLabel));
             OnPropertyChanged(nameof(SelectedOpenNowLabel));
             OnPropertyChanged(nameof(HasSelectedPresencePreview));
+            OnPropertyChanged(nameof(SelectedPhoneLabel));
+            OnPropertyChanged(nameof(SelectedWebsiteLabel));
+            OnPropertyChanged(nameof(SelectedHoursLabel));
+            OnPropertyChanged(nameof(HasSelectedPhone));
+            OnPropertyChanged(nameof(HasSelectedWebsite));
+            OnPropertyChanged(nameof(HasSelectedHours));
         }
     }
 
@@ -188,11 +194,22 @@ public class MainMapViewModel : BindableObject
         ? string.Empty
         : $"{SelectedMarker.AddressLine}, {SelectedMarker.City}";
 
+    public string SelectedPhoneLabel => SelectedMarker?.PhoneNumber ?? string.Empty;
+
+    public string SelectedWebsiteLabel => SelectedMarker is null
+        ? string.Empty
+        : FormatWebsiteLabel(SelectedMarker.WebsiteUrl);
+
+    public string SelectedHoursLabel => SelectedMarker?.HoursSummary ?? string.Empty;
+
     public string SelectedOpenNowLabel => SelectedMarker is null
         ? string.Empty
         : SelectedMarker.IsOpenNow ? "Open now" : "Orari stimati";
 
     public bool HasSelectedPresencePreview => SelectedMarker?.PresencePreview?.Count > 0;
+    public bool HasSelectedPhone => !string.IsNullOrWhiteSpace(SelectedMarker?.PhoneNumber);
+    public bool HasSelectedWebsite => !string.IsNullOrWhiteSpace(SelectedMarker?.WebsiteUrl);
+    public bool HasSelectedHours => !string.IsNullOrWhiteSpace(SelectedMarker?.HoursSummary);
 
     public ICommand RefreshCommand { get; }
     public ICommand CheckInCommand { get; }
@@ -411,5 +428,20 @@ public class MainMapViewModel : BindableObject
             "full" => "Quasi pieno",
             _ => "Affluenza stimata"
         };
+    }
+
+    private static string FormatWebsiteLabel(string? websiteUrl)
+    {
+        if (string.IsNullOrWhiteSpace(websiteUrl))
+        {
+            return string.Empty;
+        }
+
+        if (!Uri.TryCreate(websiteUrl, UriKind.Absolute, out var uri))
+        {
+            return websiteUrl;
+        }
+
+        return uri.Host.Replace("www.", string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -3,6 +3,7 @@ using System;
 using FriendMap.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FriendMap.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260417081849_AddVenueContactMetadata")]
+    partial class AddVenueContactMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -628,17 +631,9 @@ namespace FriendMap.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("country_code");
 
-                    b.Property<string>("CoverImageUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("cover_image_url");
-
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
 
                     b.Property<string>("ExternalProviderId")
                         .IsRequired()
@@ -665,10 +660,6 @@ namespace FriendMap.Api.Data.Migrations
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text")
                         .HasColumnName("phone_number");
-
-                    b.Property<string>("TagsCsv")
-                        .HasColumnType("text")
-                        .HasColumnName("tags_csv");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")

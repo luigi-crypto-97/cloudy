@@ -14,6 +14,17 @@ public static class DevelopmentDataSeeder
     public static readonly Guid NavigliVenueId = Guid.Parse("20000000-0000-0000-0000-000000000002");
     public static readonly Guid PortaRomanaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000003");
     public static readonly Guid FolkPubVenueId = Guid.Parse("20000000-0000-0000-0000-000000000004");
+    public static readonly Guid ConvivioVenueId = Guid.Parse("20000000-0000-0000-0000-000000000005");
+    public static readonly Guid FanariVenueId = Guid.Parse("20000000-0000-0000-0000-000000000006");
+    public static readonly Guid MoodCafeVenueId = Guid.Parse("20000000-0000-0000-0000-000000000007");
+    public static readonly Guid NonnaAdelmaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000008");
+    public static readonly Guid InOutVenueId = Guid.Parse("20000000-0000-0000-0000-000000000009");
+    public static readonly Guid StreetTasteVenueId = Guid.Parse("20000000-0000-0000-0000-000000000010");
+    public static readonly Guid RaricaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000011");
+    public static readonly Guid LaCucina42VenueId = Guid.Parse("20000000-0000-0000-0000-000000000012");
+    public static readonly Guid LoveItVenueId = Guid.Parse("20000000-0000-0000-0000-000000000013");
+    public static readonly Guid MurneeVenueId = Guid.Parse("20000000-0000-0000-0000-000000000014");
+    public static readonly Guid LArmonicaVenueId = Guid.Parse("20000000-0000-0000-0000-000000000015");
 
     public static readonly Guid BreraTableId = Guid.Parse("30000000-0000-0000-0000-000000000001");
     public static readonly Guid DemoReportId = Guid.Parse("40000000-0000-0000-0000-000000000001");
@@ -117,18 +128,12 @@ public static class DevelopmentDataSeeder
                 AddressLine = "Corso di Porta Romana 88",
                 City = "Milano",
                 Location = CreatePoint(9.2024, 45.4527)
-            },
-            new Venue
-            {
-                Id = FolkPubVenueId,
-                ExternalProviderId = "dev-tradate-001",
-                Name = "Folk Pub",
-                Category = "pub",
-                AddressLine = "Corso Paolo Bernacchi 130",
-                City = "Tradate",
-                CountryCode = "IT",
-                Location = CreatePoint(8.9062790, 45.7123131)
             });
+
+        foreach (var seedVenue in GetTradateSeedVenues())
+        {
+            db.Venues.Add(CreateVenue(seedVenue));
+        }
 
         db.VenueCheckIns.AddRange(
             new VenueCheckIn { UserId = GiuliaUserId, VenueId = BreraVenueId, ExpiresAtUtc = now.AddHours(2) },
@@ -164,48 +169,384 @@ public static class DevelopmentDataSeeder
             CreateSnapshot(BreraVenueId, bucketStart, 2),
             CreateSnapshot(NavigliVenueId, bucketStart, 2),
             CreateSnapshot(PortaRomanaVenueId, bucketStart, 1),
-            CreateSnapshot(FolkPubVenueId, bucketStart, 3));
+            CreateSnapshot(FolkPubVenueId, bucketStart, 7),
+            CreateSnapshot(ConvivioVenueId, bucketStart, 9),
+            CreateSnapshot(FanariVenueId, bucketStart, 5),
+            CreateSnapshot(MoodCafeVenueId, bucketStart, 4),
+            CreateSnapshot(NonnaAdelmaVenueId, bucketStart, 6),
+            CreateSnapshot(InOutVenueId, bucketStart, 12),
+            CreateSnapshot(StreetTasteVenueId, bucketStart, 10),
+            CreateSnapshot(RaricaVenueId, bucketStart, 6),
+            CreateSnapshot(LaCucina42VenueId, bucketStart, 7),
+            CreateSnapshot(LoveItVenueId, bucketStart, 8),
+            CreateSnapshot(MurneeVenueId, bucketStart, 6),
+            CreateSnapshot(LArmonicaVenueId, bucketStart, 9));
 
         await db.SaveChangesAsync(ct);
     }
 
     private static async Task EnsureTradateVenueSeedAsync(AppDbContext db, CancellationToken ct)
     {
-        var venue = await db.Venues.FirstOrDefaultAsync(x => x.Id == FolkPubVenueId, ct);
         var changed = false;
+        var seedVenues = GetTradateSeedVenues();
 
-        if (venue is null)
+        foreach (var seedVenue in seedVenues)
         {
-            venue = new Venue
+            var venue = await db.Venues.FirstOrDefaultAsync(x => x.Id == seedVenue.Id, ct);
+            if (venue is null)
             {
-                Id = FolkPubVenueId,
-                ExternalProviderId = "dev-tradate-001",
-                Name = "Folk Pub",
-                Category = "pub",
-                AddressLine = "Corso Paolo Bernacchi 130",
-                City = "Tradate",
-                CountryCode = "IT",
-                Location = CreatePoint(8.9062790, 45.7123131)
-            };
-            db.Venues.Add(venue);
-            changed = true;
+                db.Venues.Add(CreateVenue(seedVenue));
+                changed = true;
+                continue;
+            }
+
+            changed |= ApplySeedVenue(venue, seedVenue);
         }
 
         var now = DateTimeOffset.UtcNow;
         var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
-        var snapshot = await db.VenueAffluenceSnapshots
-            .FirstOrDefaultAsync(x => x.VenueId == FolkPubVenueId && x.BucketStartUtc == bucketStart, ct);
 
-        if (snapshot is null)
+        foreach (var seedVenue in seedVenues)
         {
-            db.VenueAffluenceSnapshots.Add(CreateSnapshot(FolkPubVenueId, bucketStart, 3));
-            changed = true;
+            var snapshot = await db.VenueAffluenceSnapshots
+                .FirstOrDefaultAsync(x => x.VenueId == seedVenue.Id && x.BucketStartUtc == bucketStart, ct);
+
+            if (snapshot is null)
+            {
+                db.VenueAffluenceSnapshots.Add(CreateSnapshot(seedVenue.Id, bucketStart, seedVenue.SeedPeopleCount));
+                changed = true;
+            }
         }
 
         if (changed)
         {
             await db.SaveChangesAsync(ct);
         }
+    }
+
+    private static IReadOnlyList<SeedVenueDefinition> GetTradateSeedVenues()
+    {
+        return new[]
+        {
+            new SeedVenueDefinition(
+                FolkPubVenueId,
+                "dev-tradate-001",
+                "Folk Pub",
+                "pub",
+                "Corso Paolo Bernacchi 130",
+                "Tradate",
+                "IT",
+                "+39 339 328 8827",
+                "https://www.folkpub.it/",
+                "Lun-Sab 18:00-01:00 • Dom chiuso",
+                BuildSeedCoverUrl("folk-pub-tradate"),
+                "Pub storico di Tradate per birre, aperitivi serali e tavoli informali tra amici.",
+                "pub,birra,aperitivo,prenotazione",
+                45.7123131,
+                8.9062790,
+                7),
+            new SeedVenueDefinition(
+                ConvivioVenueId,
+                "dev-tradate-002",
+                "Convivio Cafe Bistrot",
+                "cafe",
+                "Corso Paolo Bernacchi 92",
+                "Tradate",
+                "IT",
+                "+39 346 374 2240",
+                "http://www.conviviotradate.it",
+                "Lun-Gio 07:30-22:00 • Ven 07:30-24:00 • Sab 08:30-24:00",
+                BuildSeedCoverUrl("convivio-tradate"),
+                "Cafe bistrot centrale per colazioni, pranzi veloci, aperitivi e wine bar.",
+                "colazione,bistrot,wine bar,aperitivo",
+                45.7129500,
+                8.9057500,
+                9),
+            new SeedVenueDefinition(
+                FanariVenueId,
+                "dev-tradate-003",
+                "Fanari Pub",
+                "pub",
+                "Via Crocefisso 33",
+                "Tradate",
+                "IT",
+                "+39 340 729 7256",
+                null,
+                "Lun-Gio 09:00-24:00 • Ven 09:00-01:00 • Sab 10:00-01:00",
+                BuildSeedCoverUrl("fanari-tradate"),
+                "Pub con servizio pranzo e cena, tavoli all'aperto e orario lungo fino a notte.",
+                "pub,cena,pranzo,tavoli all'aperto",
+                45.7126775,
+                8.9043286,
+                5),
+            new SeedVenueDefinition(
+                MoodCafeVenueId,
+                "dev-tradate-004",
+                "Mood Cafe",
+                "cafe",
+                "Via Bruno Passerini 16",
+                "Tradate",
+                "IT",
+                "+39 375 631 5767",
+                "https://www.facebook.com/moodcafetradate/",
+                "Lun-Sab 06:30-20:30 • Dom chiuso",
+                BuildSeedCoverUrl("mood-cafe-tradate"),
+                "Cafe contemporaneo per colazioni, pranzi leggeri e pausa pomeridiana in centro.",
+                "cafe,brunch,colazione,lunch",
+                45.7099140,
+                8.9005528,
+                4),
+            new SeedVenueDefinition(
+                NonnaAdelmaVenueId,
+                "dev-tradate-005",
+                "Trattoria Nonna Adelma",
+                "restaurant",
+                "Via Alessandro Manzoni 32",
+                "Tradate",
+                "IT",
+                "+39 0331 841800",
+                "https://trattorianonnaadelma.eatbu.com/?lang=en",
+                "Lun-Mar 11:30-15:00 • Mer-Sab 11:30-15:00, 18:30-23:00",
+                BuildSeedCoverUrl("nonna-adelma-tradate"),
+                "Trattoria classica per pranzo e cena con formula più rilassata da tavolo.",
+                "cena,trattoria,prenotazione,italiano",
+                45.7162781,
+                8.9038220,
+                6),
+            new SeedVenueDefinition(
+                InOutVenueId,
+                "dev-tradate-006",
+                "In & Out",
+                "restaurant",
+                "Via Gradisca 14",
+                "Tradate",
+                "IT",
+                "+39 0331 852209",
+                "https://www.inouttradate.it/",
+                "Tutti i giorni 07:00-23:30",
+                BuildSeedCoverUrl("inout-tradate"),
+                "Food and drink con colazioni, aperitivi, pizza serale e spazio eventi.",
+                "aperitivo,pizza,cena,eventi,prenotazione",
+                45.7089973,
+                8.9110745,
+                12),
+            new SeedVenueDefinition(
+                StreetTasteVenueId,
+                "dev-tradate-007",
+                "Street Taste",
+                "cocktail-bar",
+                "Via Monte Grappa 75A",
+                "Tradate",
+                "IT",
+                "+39 0331 848247",
+                "https://www.streettradate.it/",
+                "Lun 18:00-23:00 • Mar chiuso • Mer 18:00-23:00 • Gio 18:00-24:00 • Ven 18:00-01:00 • Sab 12:00-15:00, 18:00-01:30 • Dom 18:00-24:00",
+                BuildSeedCoverUrl("street-taste-tradate"),
+                "Cocktail bar con grill, aperitivi e serate più dinamiche rispetto ai locali del centro.",
+                "cocktail,aperitivo,grill,musica,prenotazione",
+                45.7235108,
+                8.8922930,
+                10),
+            new SeedVenueDefinition(
+                RaricaVenueId,
+                "dev-tradate-008",
+                "Rarica",
+                "bakery",
+                "Via Monte Grappa 69",
+                "Tradate",
+                "IT",
+                "+39 0331 841771",
+                "https://www.rarica.it/",
+                "Mar-Dom 08:00-14:00, 16:00-20:00 • Lun chiuso",
+                BuildSeedCoverUrl("rarica-tradate"),
+                "Pasticceria e rosticceria palermitana, ideale per merenda, take-away e pranzi veloci.",
+                "dolci,rosticceria,asporto,colazione",
+                45.7171810,
+                8.8984499,
+                6),
+            new SeedVenueDefinition(
+                LaCucina42VenueId,
+                "dev-tradate-009",
+                "La Cucina del Quarantadue",
+                "restaurant",
+                "Corso Giacomo Matteotti 42",
+                "Tradate",
+                "IT",
+                "+39 0331 852530",
+                null,
+                "Mar-Sab 12:00-15:00, 19:30-24:00 • Dom-Lun chiuso",
+                BuildSeedCoverUrl("cucina-quarantadue-tradate"),
+                "Ristorante per pranzi e cene con taglio più classico, adatto anche a prenotazioni tranquille.",
+                "cena,ristorante,pranzo,prenotazione",
+                45.7150224,
+                8.9033736,
+                7),
+            new SeedVenueDefinition(
+                LoveItVenueId,
+                "dev-tradate-010",
+                "Love It",
+                "pizza-bar",
+                "Corso Paolo Bernacchi 146",
+                "Tradate",
+                "IT",
+                "+39 0331 1838775",
+                null,
+                "Mar-Mer 09:00-15:00, 17:00-23:00 • Gio 09:00-15:00, 17:00-23:30 • Ven 09:00-15:00, 17:00-24:00 • Sab 09:00-24:00 • Dom 17:00-23:30",
+                BuildSeedCoverUrl("love-it-tradate"),
+                "Locale più pop con pizza, poke, brunch e aperitivo in fascia stazione/centro.",
+                "pizza,brunch,aperitivo,poke",
+                45.7131500,
+                8.9067800,
+                8),
+            new SeedVenueDefinition(
+                MurneeVenueId,
+                "dev-tradate-011",
+                "Murnee Bistrot",
+                "bistrot",
+                "Via Sopranzi 18",
+                "Tradate",
+                "IT",
+                "+39 0331 849358",
+                "https://www.facebook.com/100083594131328",
+                "Sun-Mon 18:00-24:00 • Tue-Thu 07:00-15:00, 18:00-24:00 • Fri-Sab 07:00-15:00, 18:00-01:30",
+                BuildSeedCoverUrl("murnee-tradate"),
+                "Bistrot con doppia anima: caffetteria di giorno e cena/drink la sera.",
+                "bistrot,cena,drink,colazione",
+                45.7154953,
+                8.9070174,
+                6),
+            new SeedVenueDefinition(
+                LArmonicaVenueId,
+                "dev-tradate-012",
+                "L'Armonica",
+                "restaurant",
+                "Via Vincenzo Monti 6",
+                "Tradate",
+                "IT",
+                "+39 331 161 1851",
+                "https://www.ristorantelarmonica.it/",
+                "Dom 12:30-15:00 • servizio cena e menu mediterraneo/vegetariano",
+                BuildSeedCoverUrl("larmonica-tradate"),
+                "Ristorante mediterraneo più curato, adatto a cena con prenotazione e occasioni più calme.",
+                "cena,mediterraneo,vegetariano,prenotazione",
+                45.7167202,
+                8.9058848,
+                9)
+        };
+    }
+
+    private static Venue CreateVenue(SeedVenueDefinition seedVenue)
+    {
+        return new Venue
+        {
+            Id = seedVenue.Id,
+            ExternalProviderId = seedVenue.ExternalProviderId,
+            Name = seedVenue.Name,
+            Category = seedVenue.Category,
+            AddressLine = seedVenue.AddressLine,
+            City = seedVenue.City,
+            CountryCode = seedVenue.CountryCode,
+            PhoneNumber = seedVenue.PhoneNumber,
+            WebsiteUrl = seedVenue.WebsiteUrl,
+            HoursSummary = seedVenue.HoursSummary,
+            CoverImageUrl = seedVenue.CoverImageUrl,
+            Description = seedVenue.Description,
+            TagsCsv = seedVenue.TagsCsv,
+            Location = CreatePoint(seedVenue.Longitude, seedVenue.Latitude)
+        };
+    }
+
+    private static bool ApplySeedVenue(Venue venue, SeedVenueDefinition seedVenue)
+    {
+        var changed = false;
+
+        if (!string.Equals(venue.ExternalProviderId, seedVenue.ExternalProviderId, StringComparison.Ordinal))
+        {
+            venue.ExternalProviderId = seedVenue.ExternalProviderId;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.Name, seedVenue.Name, StringComparison.Ordinal))
+        {
+            venue.Name = seedVenue.Name;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.Category, seedVenue.Category, StringComparison.Ordinal))
+        {
+            venue.Category = seedVenue.Category;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.AddressLine, seedVenue.AddressLine, StringComparison.Ordinal))
+        {
+            venue.AddressLine = seedVenue.AddressLine;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.City, seedVenue.City, StringComparison.Ordinal))
+        {
+            venue.City = seedVenue.City;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.CountryCode, seedVenue.CountryCode, StringComparison.Ordinal))
+        {
+            venue.CountryCode = seedVenue.CountryCode;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.PhoneNumber, seedVenue.PhoneNumber, StringComparison.Ordinal))
+        {
+            venue.PhoneNumber = seedVenue.PhoneNumber;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.WebsiteUrl, seedVenue.WebsiteUrl, StringComparison.Ordinal))
+        {
+            venue.WebsiteUrl = seedVenue.WebsiteUrl;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.HoursSummary, seedVenue.HoursSummary, StringComparison.Ordinal))
+        {
+            venue.HoursSummary = seedVenue.HoursSummary;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.CoverImageUrl, seedVenue.CoverImageUrl, StringComparison.Ordinal))
+        {
+            venue.CoverImageUrl = seedVenue.CoverImageUrl;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.Description, seedVenue.Description, StringComparison.Ordinal))
+        {
+            venue.Description = seedVenue.Description;
+            changed = true;
+        }
+
+        if (!string.Equals(venue.TagsCsv, seedVenue.TagsCsv, StringComparison.Ordinal))
+        {
+            venue.TagsCsv = seedVenue.TagsCsv;
+            changed = true;
+        }
+
+        var currentLatitude = venue.Location?.Y ?? 0d;
+        var currentLongitude = venue.Location?.X ?? 0d;
+        if (Math.Abs(currentLatitude - seedVenue.Latitude) > 0.000001d ||
+            Math.Abs(currentLongitude - seedVenue.Longitude) > 0.000001d)
+        {
+            venue.Location = CreatePoint(seedVenue.Longitude, seedVenue.Latitude);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            venue.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        return changed;
     }
 
     private static Point CreatePoint(double longitude, double latitude)
@@ -229,6 +570,11 @@ public static class DevelopmentDataSeeder
         };
     }
 
+    private static string BuildSeedCoverUrl(string slug)
+    {
+        return $"https://picsum.photos/seed/{Uri.EscapeDataString($"friendmap-{slug}")}/960/640";
+    }
+
     private static VenueAffluenceSnapshot CreateSnapshot(Guid venueId, DateTimeOffset bucketStart, int activeUsers)
     {
         return new VenueAffluenceSnapshot
@@ -248,4 +594,22 @@ public static class DevelopmentDataSeeder
             IsSuppressedForPrivacy = true
         };
     }
+
+    private sealed record SeedVenueDefinition(
+        Guid Id,
+        string ExternalProviderId,
+        string Name,
+        string Category,
+        string AddressLine,
+        string City,
+        string CountryCode,
+        string? PhoneNumber,
+        string? WebsiteUrl,
+        string? HoursSummary,
+        string? CoverImageUrl,
+        string? Description,
+        string? TagsCsv,
+        double Latitude,
+        double Longitude,
+        int SeedPeopleCount);
 }

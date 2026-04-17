@@ -143,6 +143,14 @@ public class ApiClient
             ?? new VenueMapLayer();
     }
 
+    public async Task<VenueDetails> GetVenueDetailsAsync(Guid venueId)
+    {
+        var response = await _httpClient.GetAsync($"api/venues/{venueId}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<VenueDetails>()
+            ?? throw new InvalidOperationException("Scheda venue non disponibile.");
+    }
+
     public async Task<UserProfile> GetUserProfileAsync(Guid userId)
     {
         var response = await _httpClient.GetAsync($"api/users/{userId}");
