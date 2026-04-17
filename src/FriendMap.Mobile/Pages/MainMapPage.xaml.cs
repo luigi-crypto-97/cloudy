@@ -12,6 +12,7 @@ namespace FriendMap.Mobile.Pages;
 
 public partial class MainMapPage : ContentPage
 {
+    private const bool EnableNativeIosCloudAnnotations = false;
     private const double HiddenSheetPadding = 28;
     private const double MinimumTeaserVisibleHeight = 116;
     private const double MinimumCollapsedVisibleHeight = 288;
@@ -813,17 +814,27 @@ public partial class MainMapPage : ContentPage
             RenderPresenceOverlay(cluster, insets);
         }
 
-        RenderNativeCloudAnnotations(clusters);
-
-#if !IOS
-        foreach (var cluster in clusters)
-        {
-            var bubble = CreateClusterBubble(cluster);
-            AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.PositionProportional);
-            AbsoluteLayout.SetLayoutBounds(bubble, new Rect(cluster.X, cluster.Y, cluster.LayoutWidth, cluster.LayoutHeight));
-            BubbleLayer.Children.Add(bubble);
-        }
+        var useNativeCloudAnnotations =
+#if IOS
+            EnableNativeIosCloudAnnotations;
+#else
+            false;
 #endif
+
+        if (useNativeCloudAnnotations)
+        {
+            RenderNativeCloudAnnotations(clusters);
+        }
+        else
+        {
+            foreach (var cluster in clusters)
+            {
+                var bubble = CreateClusterBubble(cluster);
+                AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.PositionProportional);
+                AbsoluteLayout.SetLayoutBounds(bubble, new Rect(cluster.X, cluster.Y, cluster.LayoutWidth, cluster.LayoutHeight));
+                BubbleLayer.Children.Add(bubble);
+            }
+        }
 
         RenderAreaSelectionState();
     }
