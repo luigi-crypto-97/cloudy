@@ -18,6 +18,7 @@ public partial class MainMapPage : ContentPage
     private const double MinimumCollapsedVisibleHeight = 288;
     private const int ViewportRefreshDelayMs = 420;
     private const int OverlaySyncIntervalMs = 120;
+    private static readonly TimeSpan CurrentUserLocationCacheDuration = TimeSpan.FromSeconds(20);
 
     private readonly MainMapViewModel _viewModel;
     private readonly LoginViewModel _loginViewModel;
@@ -38,6 +39,8 @@ public partial class MainMapPage : ContentPage
     private VenueDetails? _activeVenueDetails;
     private string? _selectedAreaClusterKey;
     private bool _isQuickActionRailOpen;
+    private bool _isLegendPanelOpen;
+    private bool _isContrastModeEnabled;
     private bool _isSocialBusy;
     private bool _isSocialLoading;
     private bool _isTableBusy;
@@ -45,9 +48,12 @@ public partial class MainMapPage : ContentPage
     private bool _permissionsRequested;
     private bool _isProfileActionBusy;
     private bool _shouldAutoFocusOnNextRender = true;
+    private bool _isRefreshingCurrentUserLocation;
     private double _sheetPanStartY;
     private MapViewport? _lastRequestedViewport;
     private MapViewport? _lastOverlayViewport;
+    private Location? _currentUserLocation;
+    private DateTimeOffset _lastCurrentUserLocationRefreshUtc = DateTimeOffset.MinValue;
     private DateTimeOffset _suspendViewportRefreshUntilUtc = DateTimeOffset.MinValue;
     private VenueSheetSnapState _sheetSnapState = VenueSheetSnapState.Teaser;
     private IDispatcherTimer? _overlaySyncTimer;
@@ -67,6 +73,7 @@ public partial class MainMapPage : ContentPage
         SizeChanged += OnPageSizeChanged;
         EditGenderPicker.ItemsSource = new[] { "undisclosed", "female", "male", "non-binary" };
         UpdateDiscoveryFilterVisualState();
+        ApplyMapMood();
 #if FRIENDMAP_APNS_ENABLED
         ApnsDeviceTokenStore.TokenChanged += OnApnsDeviceTokenChanged;
 #endif
@@ -86,6 +93,7 @@ public partial class MainMapPage : ContentPage
             }
 
             EnsureInitialMapRegion();
+            _ = WarmPersonalMapContextAsync();
             await Task.Delay(250);
             await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: true);
             await SyncVenueSheetAsync(animated: false);
@@ -152,6 +160,7 @@ public partial class MainMapPage : ContentPage
 
     private async void OnQuickFiltersToggleClicked(object? sender, EventArgs e)
     {
+        DiscoveryChromePanel.IsVisible = true;
         DiscoveryFiltersPanel.IsVisible = !DiscoveryFiltersPanel.IsVisible;
 
         if (DiscoveryFiltersPanel.IsVisible)
@@ -161,6 +170,10 @@ public partial class MainMapPage : ContentPage
         else
         {
             SetMapStatus(string.Empty, false);
+            if (string.IsNullOrWhiteSpace(DiscoverySearchEntry.Text))
+            {
+                DiscoveryChromePanel.IsVisible = false;
+            }
         }
 
         await HideQuickActionRailAsync(animated: true);
@@ -168,8 +181,57 @@ public partial class MainMapPage : ContentPage
         RenderViewportOverlay();
     }
 
+    private async void OnQuickSearchToggleClicked(object? sender, EventArgs e)
+    {
+        var shouldOpen = !DiscoveryChromePanel.IsVisible;
+        DiscoveryChromePanel.IsVisible = shouldOpen;
+        if (!shouldOpen)
+        {
+            DiscoveryFiltersPanel.IsVisible = false;
+            await HideQuickActionRailAsync(animated: true);
+            _lastOverlayViewport = null;
+            RenderViewportOverlay();
+            return;
+        }
+
+        await HideQuickActionRailAsync(animated: true);
+        await Task.Delay(60);
+        DiscoverySearchEntry.Focus();
+        _lastOverlayViewport = null;
+        RenderViewportOverlay();
+    }
+
+    private async void OnLegendToggleClicked(object? sender, EventArgs e)
+    {
+        if (_isLegendPanelOpen)
+        {
+            await HideLegendPanelAsync(animated: true);
+            await HideQuickActionRailAsync(animated: true);
+            return;
+        }
+
+        DiscoveryFiltersPanel.IsVisible = false;
+        if (string.IsNullOrWhiteSpace(DiscoverySearchEntry.Text))
+        {
+            DiscoveryChromePanel.IsVisible = false;
+        }
+
+        await HideQuickActionRailAsync(animated: true);
+        await ShowLegendPanelAsync();
+    }
+
+    private async void OnContrastModeToggleClicked(object? sender, EventArgs e)
+    {
+        _isContrastModeEnabled = !_isContrastModeEnabled;
+        ApplyMapMood();
+        await HideQuickActionRailAsync(animated: true);
+        _lastOverlayViewport = null;
+        RenderViewportOverlay();
+    }
+
     private void OnDiscoverySearchChanged(object? sender, TextChangedEventArgs e)
     {
+        DiscoveryChromePanel.IsVisible = !string.IsNullOrWhiteSpace(e.NewTextValue) || DiscoveryFiltersPanel.IsVisible;
         ApplyDiscoveryFilters(
             e.NewTextValue ?? string.Empty,
             _viewModel.SelectedCategory,
@@ -226,6 +288,12 @@ public partial class MainMapPage : ContentPage
     {
         _viewModel.ClearSelection();
         _ = HideQuickActionRailAsync(animated: true);
+        _ = HideLegendPanelAsync(animated: true);
+        DiscoveryFiltersPanel.IsVisible = false;
+        if (string.IsNullOrWhiteSpace(DiscoverySearchEntry.Text))
+        {
+            DiscoveryChromePanel.IsVisible = false;
+        }
         _ = HidePresenceOverlayAsync(animated: true);
         _ = HideProfileOverlayAsync(animated: true);
         _ = HideVenueDetailOverlayAsync(animated: true);
@@ -246,45 +314,7 @@ public partial class MainMapPage : ContentPage
 
     private async void OnCenterUserLocationClicked(object sender, EventArgs e)
     {
-        try
-        {
-            var permission = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-            if (permission != PermissionStatus.Granted)
-            {
-                permission = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
-
-            if (permission != PermissionStatus.Granted)
-            {
-                SetMapStatus("Permesso posizione non concesso.", true);
-                return;
-            }
-
-            var location = await Geolocation.Default.GetLastKnownLocationAsync();
-            location ??= await Geolocation.Default.GetLocationAsync(
-                new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8)));
-
-            if (location is null)
-            {
-                SetMapStatus("Posizione non disponibile sul dispositivo.", true);
-                return;
-            }
-
-            SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(1200));
-            _lastOverlayViewport = null;
-            NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
-                new Location(location.Latitude, location.Longitude),
-                Distance.FromKilometers(1.2)));
-            SetMapStatus("Mappa centrata sulla tua posizione.", false);
-        }
-        catch (FeatureNotSupportedException)
-        {
-            SetMapStatus("Geolocalizzazione non supportata su questo device.", true);
-        }
-        catch (Exception ex)
-        {
-            SetMapStatus(_apiClient.DescribeException(ex), true);
-        }
+        await RefreshCurrentUserLocationAsync(showErrors: true, centerMap: true, force: true);
     }
 
     private async void OnSelectedVenueCallClicked(object? sender, EventArgs e)
@@ -725,6 +755,44 @@ public partial class MainMapPage : ContentPage
         QuickMenuButton.BackgroundColor = Colors.Transparent;
     }
 
+    private async Task ShowLegendPanelAsync()
+    {
+        if (_isLegendPanelOpen)
+        {
+            return;
+        }
+
+        LegendPanel.IsVisible = true;
+        LegendPanel.TranslationY = -6;
+        await Task.WhenAll(
+            LegendPanel.FadeTo(1, 160, Easing.CubicOut),
+            LegendPanel.TranslateTo(0, 0, 160, Easing.CubicOut));
+        _isLegendPanelOpen = true;
+    }
+
+    private async Task HideLegendPanelAsync(bool animated)
+    {
+        if (!_isLegendPanelOpen && !LegendPanel.IsVisible)
+        {
+            return;
+        }
+
+        if (animated)
+        {
+            await Task.WhenAll(
+                LegendPanel.FadeTo(0, 120, Easing.CubicIn),
+                LegendPanel.TranslateTo(0, -6, 120, Easing.CubicIn));
+        }
+        else
+        {
+            LegendPanel.Opacity = 0;
+            LegendPanel.TranslationY = -6;
+        }
+
+        LegendPanel.IsVisible = false;
+        _isLegendPanelOpen = false;
+    }
+
     private void UpdateDiscoveryFilterVisualState()
     {
         SetFilterButtonState(FilterAllButton, _viewModel.SelectedCategory == "all");
@@ -946,13 +1014,18 @@ public partial class MainMapPage : ContentPage
             return;
         }
 
+        var markerLookup = _viewModel.Markers.ToDictionary(x => x.VenueId);
         foreach (var area in areas.Where(x => x.Polygon.Count >= 3))
         {
             var baseColor = ResolveAreaColor(area);
             var polygon = new Microsoft.Maui.Controls.Maps.Polygon
             {
-                FillColor = baseColor.WithAlpha(area.IsCluster ? 0.11f : 0.07f),
-                StrokeColor = baseColor.WithAlpha(area.IsCluster ? 0.44f : 0.30f),
+                FillColor = baseColor.WithAlpha(_isContrastModeEnabled
+                    ? (area.IsCluster ? 0.18f : 0.12f)
+                    : (area.IsCluster ? 0.11f : 0.07f)),
+                StrokeColor = baseColor.WithAlpha(_isContrastModeEnabled
+                    ? (area.IsCluster ? 0.58f : 0.42f)
+                    : (area.IsCluster ? 0.44f : 0.30f)),
                 StrokeWidth = area.IsCluster ? 2.2f : 1.4f
             };
 
@@ -962,70 +1035,126 @@ public partial class MainMapPage : ContentPage
             }
 
             NativeMap.MapElements.Add(polygon);
+
+            var coreRadius = Math.Clamp(120 + area.BubbleIntensity * 6, 130, 520);
+            NativeMap.MapElements.Add(new Circle
+            {
+                Center = new Location(area.CentroidLatitude, area.CentroidLongitude),
+                Radius = Distance.FromMeters(coreRadius),
+                StrokeColor = Colors.Transparent,
+                StrokeWidth = 0,
+                FillColor = baseColor.WithAlpha(_isContrastModeEnabled ? 0.16f : 0.10f)
+            });
+
+            var bloomRadius = Math.Clamp(coreRadius * 1.9, 220, 920);
+            NativeMap.MapElements.Add(new Circle
+            {
+                Center = new Location(area.CentroidLatitude, area.CentroidLongitude),
+                Radius = Distance.FromMeters(bloomRadius),
+                StrokeColor = Colors.Transparent,
+                StrokeWidth = 0,
+                FillColor = baseColor.WithAlpha(_isContrastModeEnabled ? 0.08f : 0.05f)
+            });
+
+            foreach (var marker in area.VenueIds
+                         .Where(markerLookup.ContainsKey)
+                         .Select(id => markerLookup[id])
+                         .OrderByDescending(x => x.BubbleIntensity)
+                         .Take(4))
+            {
+                var venueRadius = Math.Clamp(70 + marker.BubbleIntensity * 3.4, 82, 260);
+                NativeMap.MapElements.Add(new Circle
+                {
+                    Center = new Location(marker.Latitude, marker.Longitude),
+                    Radius = Distance.FromMeters(venueRadius),
+                    StrokeColor = Colors.Transparent,
+                    StrokeWidth = 0,
+                    FillColor = ResolveSignalColor(marker).WithAlpha(_isContrastModeEnabled ? 0.12f : 0.07f)
+                });
+            }
         }
     }
 
     private void RenderViewportOverlay()
     {
         BubbleLayer.Children.Clear();
-
-        var markers = GetRenderableMarkers();
-        if (markers.Count == 0)
-        {
-            return;
-        }
-
         var viewport = GetCurrentViewportOrDefault().Expand(0.04d).Normalize();
         _lastOverlayViewport = viewport;
-        var visibleMarkers = markers
-            .Where(x => viewport.Contains(x.Latitude, x.Longitude))
-            .ToList();
-
-        if (visibleMarkers.Count == 0 || _viewModel.Areas.Count == 0)
-        {
-            return;
-        }
-
         var insets = GetOverlayInsets();
-        var clusters = BuildOverlayAreas(visibleMarkers, viewport, insets);
-        if (_selectedAreaClusterKey is not null)
+
+        var markers = GetRenderableMarkers();
+        if (markers.Count > 0)
         {
-            _activeAreaCluster = clusters.FirstOrDefault(x => x.Key == _selectedAreaClusterKey);
-            if (_activeAreaCluster is null)
+            var visibleMarkers = markers
+                .Where(x => viewport.Contains(x.Latitude, x.Longitude))
+                .ToList();
+
+            if (visibleMarkers.Count > 0 && _viewModel.Areas.Count > 0)
+            {
+                var clusters = BuildOverlayAreas(visibleMarkers, viewport, insets);
+                if (_selectedAreaClusterKey is not null)
+                {
+                    _activeAreaCluster = clusters.FirstOrDefault(x => x.Key == _selectedAreaClusterKey);
+                    if (_activeAreaCluster is null)
+                    {
+                        ClearAreaSelection();
+                    }
+                }
+
+                var useNativeCloudAnnotations =
+#if IOS
+                    EnableNativeIosCloudAnnotations;
+#else
+                    false;
+#endif
+
+                if (useNativeCloudAnnotations)
+                {
+                    RenderNativeCloudAnnotations(clusters);
+                }
+                else
+                {
+                    foreach (var link in BuildFogLinks(clusters))
+                    {
+                        var ribbon = CreateFogLink(link);
+                        AbsoluteLayout.SetLayoutFlags(ribbon, AbsoluteLayoutFlags.None);
+                        AbsoluteLayout.SetLayoutBounds(ribbon, link.Bounds);
+                        BubbleLayer.Children.Add(ribbon);
+                    }
+
+                    foreach (var cluster in clusters)
+                    {
+                        var bubble = CreateClusterBubble(cluster);
+                        AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.None);
+                        AbsoluteLayout.SetLayoutBounds(bubble, BuildClusterBubbleBounds(cluster));
+                        BubbleLayer.Children.Add(bubble);
+                    }
+                }
+            }
+            else if (_selectedAreaClusterKey is not null)
             {
                 ClearAreaSelection();
             }
         }
 
-        foreach (var cluster in clusters)
-        {
-            RenderAreaBadge(cluster);
-            RenderPresenceOverlay(cluster);
-        }
+        RenderCurrentUserOverlay(viewport, insets);
+        RenderAreaSelectionState();
+    }
 
-        var useNativeCloudAnnotations =
-#if IOS
-            EnableNativeIosCloudAnnotations;
-#else
-            false;
-#endif
-
-        if (useNativeCloudAnnotations)
+    private void ApplyMapMood()
+    {
+        if (_isContrastModeEnabled)
         {
-            RenderNativeCloudAnnotations(clusters);
+            MapMoodOverlay.BackgroundColor = Color.FromArgb("#8A0F172A");
+            QuickModeLabel.Text = "Giorno";
+            LegendModeLabel.Text = "Modalità notte";
         }
         else
         {
-            foreach (var cluster in clusters)
-            {
-                var bubble = CreateClusterBubble(cluster);
-                AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.None);
-                AbsoluteLayout.SetLayoutBounds(bubble, BuildClusterBubbleBounds(cluster));
-                BubbleLayer.Children.Add(bubble);
-            }
+            MapMoodOverlay.BackgroundColor = Color.FromArgb("#2CEEF4FF");
+            QuickModeLabel.Text = "Notte";
+            LegendModeLabel.Text = "Modalità giorno";
         }
-
-        RenderAreaSelectionState();
     }
 
     private List<VenueOverlayCluster> BuildOverlayAreas(List<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
@@ -1052,7 +1181,7 @@ public partial class MainMapPage : ContentPage
                     return null;
                 }
 
-                var size = Math.Clamp((34 + Math.Min(18, area.BubbleIntensity / 4.0)) * zoomScale * (area.IsCluster ? 1.06d : 1d), 34, 68);
+                var size = Math.Clamp((58 + Math.Min(34, area.BubbleIntensity / 2.9)) * zoomScale * (area.IsCluster ? 1.16d : 1.10d), 54, 132);
 
                 return new VenueOverlayCluster(
                     area.AreaId,
@@ -1065,6 +1194,7 @@ public partial class MainMapPage : ContentPage
                     anchor.X,
                     anchor.Y,
                     size,
+                    zoomScale,
                     ResolveAreaColor(area),
                     area.IsCluster,
                     area.CentroidLatitude,
@@ -1134,7 +1264,8 @@ public partial class MainMapPage : ContentPage
                     areaLabel,
                     group.Average(x => x.X),
                     group.Average(x => x.Y),
-                    Math.Clamp(group.Max(x => x.Size) + 8, 42, 70),
+                    Math.Clamp(group.Max(x => x.Size) + 12, 48, 104),
+                    zoomScale,
                     ResolveClusterColor(groupedMarkers),
                     true,
                     groupedMarkers.Average(x => x.Latitude),
@@ -1157,13 +1288,57 @@ public partial class MainMapPage : ContentPage
     private static double ResolveBubbleZoomScale(MapViewport viewport)
     {
         var normalized = 0.035d / Math.Max(0.006d, viewport.LatitudeSpan);
-        return Math.Clamp(Math.Pow(normalized, 0.24d), 0.58d, 1.18d);
+        return Math.Clamp(Math.Pow(normalized, 0.25d), 0.36d, 1.20d);
+    }
+
+    private List<FogLink> BuildFogLinks(IReadOnlyList<VenueOverlayCluster> clusters)
+    {
+        var links = new List<FogLink>();
+        for (var i = 0; i < clusters.Count; i++)
+        {
+            for (var j = i + 1; j < clusters.Count; j++)
+            {
+                var first = clusters[i];
+                var second = clusters[j];
+                var dx = second.X - first.X;
+                var dy = second.Y - first.Y;
+                var distance = Math.Sqrt(dx * dx + dy * dy);
+                var maxDistance = Math.Max(110d, (first.Size + second.Size) * 1.45d);
+                if (distance < 24d || distance > maxDistance)
+                {
+                    continue;
+                }
+
+                var width = distance + Math.Max(first.Size, second.Size) * 0.95d;
+                var height = Math.Max(30d, (first.Size + second.Size) * 0.42d);
+                var centerX = (first.X + second.X) / 2d;
+                var centerY = (first.Y + second.Y) / 2d - 6d;
+                var angle = Math.Atan2(dy, dx) * 180d / Math.PI;
+                var intensity = Math.Clamp((first.PeopleCount + second.PeopleCount) / 18d, 0.42d, 1d);
+                var color = first.PeopleCount >= second.PeopleCount ? first.Color : second.Color;
+                var bodyAlpha = _isContrastModeEnabled ? 0.24f : 0.18f;
+                var glowAlpha = _isContrastModeEnabled ? 0.16f : 0.10f;
+                links.Add(new FogLink(
+                    new Rect(centerX - width / 2d, centerY - height / 2d, width, height),
+                    angle,
+                    height,
+                    color.WithAlpha(bodyAlpha),
+                    color.WithAlpha(glowAlpha),
+                    intensity));
+            }
+        }
+
+        return links
+            .OrderByDescending(x => x.Intensity)
+            .Take(18)
+            .ToList();
     }
 
     private View CreateClusterBubble(VenueOverlayCluster cluster)
     {
         var isSelectedArea = _selectedAreaClusterKey == cluster.Key;
-        var shadowOpacity = isSelectedArea ? 0.24f : 0.16f;
+        var shadowOpacity = isSelectedArea ? 0.16f : 0.08f;
+        var contrastBoost = _isContrastModeEnabled ? 1.18d : 1d;
         var cloud = new AbsoluteLayout
         {
             WidthRequest = cluster.LayoutWidth,
@@ -1172,112 +1347,140 @@ public partial class MainMapPage : ContentPage
             Shadow = new Shadow
             {
                 Brush = new SolidColorBrush(Colors.Black),
-                Radius = isSelectedArea ? 22 : 18,
-                Offset = new Point(0, 8),
+                Radius = isSelectedArea ? 26 : 20,
+                Offset = new Point(0, 10),
                 Opacity = shadowOpacity
             }
         };
 
-        var fill = CreateCloudBrush(cluster.Color, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.38, cluster.Size * 0.38, cluster.Size * 0.08, cluster.CloudYOffset + cluster.Size * 0.20, fill, cluster.Color, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.50, cluster.Size * 0.50, cluster.Size * 0.23, cluster.CloudYOffset + cluster.Size * 0.02, fill, cluster.Color, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.42, cluster.Size * 0.42, cluster.Size * 0.53, cluster.CloudYOffset + cluster.Size * 0.16, fill, cluster.Color, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.62, cluster.Size * 0.34, cluster.Size * 0.18, cluster.CloudYOffset + cluster.Size * 0.34, fill, cluster.Color, isSelectedArea);
-
-        AddCloudHighlight(cloud, cluster.Size * 0.18, cluster.Size * 0.09, cluster.Size * 0.28, cluster.CloudYOffset + cluster.Size * 0.13);
-        AddCloudHighlight(cloud, cluster.Size * 0.15, cluster.Size * 0.08, cluster.Size * 0.47, cluster.CloudYOffset + cluster.Size * 0.24);
-
-        var countLabel = new Label
+        var farField = new Border
         {
-            Text = cluster.PeopleCount.ToString(),
-            TextColor = cluster.Color,
-            FontAttributes = FontAttributes.Bold,
-            FontSize = cluster.Size >= 64 ? 17 : 15,
-            HorizontalTextAlignment = TextAlignment.Center,
-            VerticalTextAlignment = TextAlignment.Center
+            WidthRequest = cluster.Size * (2.35 * contrastBoost),
+            HeightRequest = cluster.Size * (1.66 * contrastBoost),
+            Background = CreateFogFieldBrush(cluster.Color, isSelectedArea),
+            StrokeThickness = 0,
+            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.94 : 0.86) : (_isContrastModeEnabled ? 0.80 : 0.72),
+            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.90 }
         };
-        AbsoluteLayout.SetLayoutBounds(countLabel, new Rect(0, cluster.CloudYOffset + cluster.Size * 0.11, cluster.LayoutWidth, cluster.Size * 0.62));
-        cloud.Children.Add(countLabel);
+        AbsoluteLayout.SetLayoutBounds(farField, new Rect(cluster.LayoutWidth * -0.18, cluster.CloudYOffset - cluster.Size * 0.06, cluster.Size * (2.35 * contrastBoost), cluster.Size * (1.66 * contrastBoost)));
+        cloud.Children.Add(farField);
+
+        var outerAura = new Border
+        {
+            WidthRequest = cluster.Size * 2.02,
+            HeightRequest = cluster.Size * 1.28,
+            Background = CreateCloudHaloBrush(cluster.Color),
+            StrokeThickness = 0,
+            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.94 : 0.88) : (_isContrastModeEnabled ? 0.82 : 0.76),
+            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.72 }
+        };
+        AbsoluteLayout.SetLayoutBounds(outerAura, new Rect(cluster.LayoutWidth * -0.04, cluster.CloudYOffset + cluster.Size * 0.04, cluster.Size * 2.02, cluster.Size * 1.28));
+        cloud.Children.Add(outerAura);
+
+        var aura = new Border
+        {
+            WidthRequest = cluster.Size * 1.46,
+            HeightRequest = cluster.Size * 0.96,
+            Background = CreateCloudAuraBrush(cluster.Color, isSelectedArea),
+            StrokeThickness = 0,
+            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.97 : 0.94) : (_isContrastModeEnabled ? 0.90 : 0.86),
+            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.56 }
+        };
+        AbsoluteLayout.SetLayoutBounds(aura, new Rect(cluster.LayoutWidth * 0.08, cluster.CloudYOffset + cluster.Size * 0.18, cluster.Size * 1.46, cluster.Size * 0.96));
+        cloud.Children.Add(aura);
+
+        var fill = CreateCloudBrush(cluster.Color, isSelectedArea);
+        AddCloudPuff(cloud, cluster.Size * 1.08, cluster.Size * 0.64, cluster.LayoutWidth * 0.04, cluster.CloudYOffset + cluster.Size * 0.34, fill, Colors.Transparent, isSelectedArea);
+        AddCloudPuff(cloud, cluster.Size * 1.22, cluster.Size * 0.88, cluster.LayoutWidth * 0.16, cluster.CloudYOffset + cluster.Size * 0.04, fill, Colors.Transparent, isSelectedArea);
+        AddCloudPuff(cloud, cluster.Size * 1.08, cluster.Size * 0.72, cluster.LayoutWidth * 0.54, cluster.CloudYOffset + cluster.Size * 0.22, fill, Colors.Transparent, isSelectedArea);
+        AddCloudPuff(cloud, cluster.Size * 0.84, cluster.Size * 0.52, cluster.LayoutWidth * 0.34, cluster.CloudYOffset + cluster.Size * 0.46, fill, Colors.Transparent, isSelectedArea);
+        AddCloudPuff(cloud, cluster.Size * 0.74, cluster.Size * 0.44, cluster.LayoutWidth * 0.78, cluster.CloudYOffset + cluster.Size * 0.42, fill, Colors.Transparent, isSelectedArea);
+        AddCloudHighlight(cloud, cluster.Size * 0.30, cluster.Size * 0.11, cluster.LayoutWidth * 0.34, cluster.CloudYOffset + cluster.Size * 0.16);
+        AddCloudHighlight(cloud, cluster.Size * 0.26, cluster.Size * 0.10, cluster.LayoutWidth * 0.68, cluster.CloudYOffset + cluster.Size * 0.26);
+
+        if (viewportOrDefaultForCount(cluster))
+        {
+            var countPill = new Border
+            {
+                Padding = new Thickness(8, 3),
+                BackgroundColor = Colors.White.WithAlpha(isSelectedArea ? 0.92f : 0.82f),
+                StrokeThickness = 0,
+                StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                Content = new Label
+                {
+                    Text = cluster.PeopleCount.ToString(),
+                    TextColor = Color.FromArgb("#0F172A"),
+                    FontAttributes = FontAttributes.Bold,
+                    FontSize = 11,
+                    HorizontalTextAlignment = TextAlignment.Center,
+                    VerticalTextAlignment = TextAlignment.Center
+                }
+            };
+            var pillWidth = Math.Max(30d, 18d + cluster.PeopleCount.ToString().Length * 7d);
+            AbsoluteLayout.SetLayoutBounds(countPill, new Rect((cluster.LayoutWidth - pillWidth) / 2d, cluster.CloudYOffset + cluster.Size * 0.74, pillWidth, 24));
+            cloud.Children.Add(countPill);
+        }
 
         cloud.GestureRecognizers.Add(new TapGestureRecognizer
         {
             Command = new Command(async () => await OnClusterTappedAsync(cluster))
         });
 
+        StartCloudPulse(cloud, cluster.BubbleScaleHint);
+
         return cloud;
     }
 
-    private void RenderAreaBadge(VenueOverlayCluster cluster)
+    private View CreateFogLink(FogLink link)
     {
-        if (!cluster.IsCluster)
+        var host = new Grid
         {
-            return;
-        }
-
-        var badge = new Border
-        {
-            Padding = new Thickness(10, 6),
-            BackgroundColor = _selectedAreaClusterKey == cluster.Key
-                ? cluster.Color.WithAlpha(0.18f)
-                : Color.FromArgb("#F8FBFF"),
-            Stroke = _selectedAreaClusterKey == cluster.Key ? cluster.Color.WithAlpha(0.45f) : Color.FromArgb("#E3EBF5"),
-            StrokeThickness = 1,
-            StrokeShape = new RoundRectangle { CornerRadius = 14 },
-            Content = new Label
-            {
-                Text = $"{cluster.AreaLabel} • {cluster.PeopleCount}",
-                FontSize = 11,
-                FontAttributes = FontAttributes.Bold,
-                TextColor = _selectedAreaClusterKey == cluster.Key ? cluster.Color : Color.FromArgb("#0F172A")
-            }
+            WidthRequest = link.Bounds.Width,
+            HeightRequest = link.Bounds.Height,
+            Rotation = link.Angle,
+            InputTransparent = true,
+            Opacity = link.Intensity
         };
 
-        var badgeWidth = Math.Min(172d, Math.Max(112d, 52d + cluster.AreaLabel.Length * 6.4d));
-        var badgeHeight = 30d;
-        var layerWidth = GetOverlayLayerWidth();
-        var x = Math.Clamp(cluster.X - badgeWidth / 2d, 10d, Math.Max(10d, layerWidth - badgeWidth - 10d));
-        var y = Math.Max(8d, cluster.Y - cluster.LayoutHeight - 18d);
-        AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
-        AbsoluteLayout.SetLayoutBounds(badge, new Rect(x, y, badgeWidth, badgeHeight));
-        BubbleLayer.Children.Add(badge);
-    }
-
-    private void RenderPresenceOverlay(VenueOverlayCluster cluster)
-    {
-        if (cluster.PresencePreview.Count == 0)
+        var bloom = new Border
         {
-            return;
-        }
-
-        var stack = new HorizontalStackLayout
-        {
-            Spacing = -8,
-            InputTransparent = false
+            WidthRequest = link.Bounds.Width * 1.05,
+            HeightRequest = link.Bounds.Height * 1.55,
+            Background = new RadialGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(link.GlowColor, 0f),
+                    new GradientStop(link.GlowColor.WithAlpha(link.GlowColor.Alpha * 0.55f), 0.48f),
+                    new GradientStop(link.GlowColor.WithAlpha(0f), 1f)
+                },
+                new Point(0.5, 0.5),
+                1f),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = link.Height }
         };
 
-        foreach (var preview in cluster.PresencePreview.Take(3))
+        var haze = new Border
         {
-            stack.Children.Add(CreateAvatarBadge(preview, 28));
-        }
+            WidthRequest = link.Bounds.Width,
+            HeightRequest = link.Bounds.Height,
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(link.Color.WithAlpha(0f), 0f),
+                    new GradientStop(link.Color, 0.30f),
+                    new GradientStop(link.Color.WithAlpha(Math.Min(0.30f, link.Color.Alpha)), 0.50f),
+                    new GradientStop(link.Color, 0.70f),
+                    new GradientStop(link.Color.WithAlpha(0f), 1f)
+                },
+                new Point(0, 0.5),
+                new Point(1, 0.5)),
+            StrokeThickness = 0,
+            StrokeShape = new RoundRectangle { CornerRadius = link.Height / 2d }
+        };
 
-        if (cluster.TotalPresenceCount > 3)
-        {
-            stack.Children.Add(CreateOverflowAvatar(cluster.TotalPresenceCount - 3, 28));
-        }
-
-        stack.GestureRecognizers.Add(new TapGestureRecognizer
-        {
-            Command = new Command(async () => await ShowPresenceOverlayAsync(cluster))
-        });
-
-        var stackWidth = 34 + Math.Min(Math.Max(cluster.TotalPresenceCount, 1) - 1, 2) * 20;
-        var layerWidth = GetOverlayLayerWidth();
-        var x = Math.Clamp(cluster.X + cluster.LayoutWidth * 0.16d, 8d, Math.Max(8d, layerWidth - stackWidth - 8d));
-        var y = Math.Max(8d, cluster.Y - cluster.LayoutHeight + 18d);
-
-        AbsoluteLayout.SetLayoutFlags(stack, AbsoluteLayoutFlags.None);
-        AbsoluteLayout.SetLayoutBounds(stack, new Rect(x, y, stackWidth, 30));
-        BubbleLayer.Children.Add(stack);
+        host.Children.Add(bloom);
+        host.Children.Add(haze);
+        return host;
     }
 
     private async Task OnClusterTappedAsync(VenueOverlayCluster cluster)
@@ -2783,17 +2986,59 @@ public partial class MainMapPage : ContentPage
 
     private static Brush CreateCloudBrush(Color signalColor, bool isSelectedArea)
     {
-        var topColor = Colors.White;
+        var topColor = Colors.White.WithAlpha(isSelectedArea ? 0.62f : 0.48f);
+        var middleColor = signalColor.WithAlpha(isSelectedArea ? 0.24f : 0.18f);
         var bottomColor = signalColor.WithAlpha(isSelectedArea ? 0.30f : 0.22f);
-        return new LinearGradientBrush(
+        return new RadialGradientBrush(
             new GradientStopCollection
             {
                 new GradientStop(topColor, 0f),
-                new GradientStop(Color.FromArgb("#FDFEFF"), 0.38f),
+                new GradientStop(middleColor, 0.52f),
                 new GradientStop(bottomColor, 1f)
             },
-            new Point(0.2, 0),
-            new Point(0.8, 1));
+            new Point(0.46, 0.34),
+            0.92f);
+    }
+
+    private static Brush CreateFogFieldBrush(Color signalColor, bool isSelectedArea)
+    {
+        return new RadialGradientBrush(
+            new GradientStopCollection
+            {
+                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.24f : 0.18f), 0f),
+                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.16f : 0.11f), 0.34f),
+                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.09f : 0.06f), 0.68f),
+                new GradientStop(signalColor.WithAlpha(0f), 1f)
+            },
+            new Point(0.5, 0.5),
+            1.05f);
+    }
+
+    private static Brush CreateCloudAuraBrush(Color signalColor, bool isSelectedArea)
+    {
+        return new RadialGradientBrush(
+            new GradientStopCollection
+            {
+                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.22f : 0.16f), 0f),
+                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.14f : 0.09f), 0.50f),
+                new GradientStop(signalColor.WithAlpha(0.02f), 1f)
+            },
+            new Point(0.5, 0.5),
+            0.92f);
+    }
+
+    private static Brush CreateCloudHaloBrush(Color signalColor)
+    {
+        return new RadialGradientBrush(
+            new GradientStopCollection
+            {
+                new GradientStop(signalColor.WithAlpha(0.18f), 0f),
+                new GradientStop(signalColor.WithAlpha(0.10f), 0.42f),
+                new GradientStop(signalColor.WithAlpha(0.04f), 0.74f),
+                new GradientStop(signalColor.WithAlpha(0.00f), 1f)
+            },
+            new Point(0.5, 0.5),
+            1f);
     }
 
     private static void AddCloudPuff(AbsoluteLayout host, double width, double height, double x, double y, Brush fill, Color stroke, bool isSelectedArea)
@@ -2803,8 +3048,8 @@ public partial class MainMapPage : ContentPage
             WidthRequest = width,
             HeightRequest = height,
             Background = fill,
-            Stroke = stroke.WithAlpha(isSelectedArea ? 0.78f : 0.58f),
-            StrokeThickness = isSelectedArea ? 2.8 : 2.3,
+            Stroke = stroke,
+            StrokeThickness = stroke == Colors.Transparent ? 0 : (isSelectedArea ? 1.2 : 0.6),
             StrokeShape = new RoundRectangle { CornerRadius = Math.Min(width, height) / 2d }
         };
 
@@ -2825,6 +3070,27 @@ public partial class MainMapPage : ContentPage
 
         AbsoluteLayout.SetLayoutBounds(highlight, new Rect(x, y, width, height));
         host.Children.Add(highlight);
+    }
+
+    private void StartCloudPulse(VisualElement cloud, double pulseHint)
+    {
+        cloud.AbortAnimation("cloud-pulse");
+        var targetScale = 1 + Math.Min(0.085, pulseHint * 0.032);
+        var targetOpacity = 0.95 - Math.Min(0.12, pulseHint * 0.04);
+        var animation = new Animation
+        {
+            { 0, 0.5, new Animation(v => cloud.Scale = v, 0.99, targetScale, Easing.SinInOut) },
+            { 0.5, 1, new Animation(v => cloud.Scale = v, targetScale, 0.99, Easing.SinInOut) },
+            { 0, 0.5, new Animation(v => cloud.Opacity = v, 0.94, targetOpacity, Easing.SinInOut) },
+            { 0.5, 1, new Animation(v => cloud.Opacity = v, targetOpacity, 0.94, Easing.SinInOut) }
+        };
+        animation.Commit(cloud, "cloud-pulse", 16, 3100, repeat: () => cloud.Parent is not null);
+    }
+
+    private bool viewportOrDefaultForCount(VenueOverlayCluster cluster)
+    {
+        var viewport = _lastOverlayViewport ?? GetCurrentViewportOrDefault();
+        return _selectedAreaClusterKey == cluster.Key || !cluster.IsCluster || viewport.LatitudeSpan < 0.030d;
     }
 
     private async Task SyncVenueSheetAsync(bool animated)
@@ -2968,7 +3234,8 @@ public partial class MainMapPage : ContentPage
     {
         var pageHeight = Height <= 0 ? 844d : Height;
         var pageWidth = Width <= 0 ? 390d : Width;
-        var topInset = Math.Clamp(136d / pageHeight, 0.13d, 0.22d);
+        var topChromeHeight = DiscoveryChromePanel.IsVisible ? 132d : 72d;
+        var topInset = Math.Clamp(topChromeHeight / pageHeight, 0.08d, 0.22d);
 
         var sheetVisibleHeight = VenueSheet.IsVisible
             ? Math.Max(0d, VenueSheet.Height - VenueSheet.TranslationY)
@@ -3009,7 +3276,7 @@ public partial class MainMapPage : ContentPage
 
         var bottomInset = Math.Clamp(bottomChrome / pageHeight, 0.16d, 0.62d);
         var leftInset = Math.Clamp(24d / pageWidth, 0.05d, 0.10d);
-        var rightInset = Math.Clamp((_isQuickActionRailOpen ? 88d : 24d) / pageWidth, 0.05d, 0.24d);
+        var rightInset = Math.Clamp((_isQuickActionRailOpen ? 164d : 24d) / pageWidth, 0.05d, 0.34d);
         return new OverlayInsets(leftInset, topInset, rightInset, bottomInset);
     }
 
@@ -3153,8 +3420,221 @@ public partial class MainMapPage : ContentPage
     private static Rect BuildClusterBubbleBounds(VenueOverlayCluster cluster)
     {
         var x = cluster.X - cluster.LayoutWidth / 2d;
-        var y = cluster.Y - cluster.LayoutHeight + (cluster.IsCluster ? 10d : 8d);
+        var y = cluster.Y - cluster.AnchorYOffset;
         return new Rect(x, y, cluster.LayoutWidth, cluster.LayoutHeight);
+    }
+
+    private async Task WarmPersonalMapContextAsync()
+    {
+        try
+        {
+            if (_myProfile is null)
+            {
+                _myProfile = await _apiClient.GetMyProfileAsync();
+            }
+        }
+        catch
+        {
+            // Personal context is best-effort; the map still works without it.
+        }
+
+        await RefreshCurrentUserLocationAsync(showErrors: false, centerMap: false, force: true);
+    }
+
+    private async Task RefreshCurrentUserLocationAsync(bool showErrors, bool centerMap, bool force)
+    {
+        if (_isRefreshingCurrentUserLocation)
+        {
+            return;
+        }
+
+        if (!force &&
+            _currentUserLocation is not null &&
+            DateTimeOffset.UtcNow - _lastCurrentUserLocationRefreshUtc < CurrentUserLocationCacheDuration)
+        {
+            if (centerMap)
+            {
+                MoveMapToUserLocation(_currentUserLocation, "Mappa centrata sulla tua posizione.");
+            }
+
+            return;
+        }
+
+        try
+        {
+            _isRefreshingCurrentUserLocation = true;
+            var permission = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+            if (permission != PermissionStatus.Granted)
+            {
+                if (!showErrors)
+                {
+                    return;
+                }
+
+                permission = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+            }
+
+            if (permission != PermissionStatus.Granted)
+            {
+                if (showErrors)
+                {
+                    SetMapStatus("Permesso posizione non concesso.", true);
+                }
+
+                return;
+            }
+
+            var location = await Geolocation.Default.GetLastKnownLocationAsync();
+            location ??= await Geolocation.Default.GetLocationAsync(
+                new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8)));
+
+            if (location is null)
+            {
+                if (showErrors)
+                {
+                    SetMapStatus("Posizione non disponibile sul dispositivo.", true);
+                }
+
+                return;
+            }
+
+            _currentUserLocation = new Location(location.Latitude, location.Longitude);
+            _lastCurrentUserLocationRefreshUtc = DateTimeOffset.UtcNow;
+            _lastOverlayViewport = null;
+
+            if (centerMap)
+            {
+                MoveMapToUserLocation(_currentUserLocation, "Mappa centrata sulla tua posizione.");
+            }
+            else
+            {
+                MainThread.BeginInvokeOnMainThread(RenderViewportOverlay);
+            }
+        }
+        catch (FeatureNotSupportedException)
+        {
+            if (showErrors)
+            {
+                SetMapStatus("Geolocalizzazione non supportata su questo device.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (showErrors)
+            {
+                SetMapStatus(_apiClient.DescribeException(ex), true);
+            }
+        }
+        finally
+        {
+            _isRefreshingCurrentUserLocation = false;
+        }
+    }
+
+    private void MoveMapToUserLocation(Location location, string statusMessage)
+    {
+        SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(1200));
+        _lastOverlayViewport = null;
+        NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(location, Distance.FromKilometers(1.2)));
+        SetMapStatus(statusMessage, false);
+        MainThread.BeginInvokeOnMainThread(RenderViewportOverlay);
+    }
+
+    private void RenderCurrentUserOverlay(MapViewport viewport, OverlayInsets insets)
+    {
+        if (_currentUserLocation is null)
+        {
+            return;
+        }
+
+        if (!viewport.Contains(_currentUserLocation.Latitude, _currentUserLocation.Longitude))
+        {
+            return;
+        }
+
+        if (!TryGetOverlayAnchorPoint(_currentUserLocation.Latitude, _currentUserLocation.Longitude, viewport, insets, out var anchor))
+        {
+            return;
+        }
+
+        var badge = CreateCurrentUserMapBadge();
+        AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
+        AbsoluteLayout.SetLayoutBounds(badge, new Rect(anchor.X - 34d, anchor.Y - 76d, 68d, 76d));
+        BubbleLayer.Children.Add(badge);
+    }
+
+    private View CreateCurrentUserMapBadge()
+    {
+        var nickname = _myProfile?.Nickname ?? _loginViewModel.Nickname;
+        var displayName = string.IsNullOrWhiteSpace(_myProfile?.DisplayName) ? nickname : _myProfile!.DisplayName!;
+        var preview = new PresencePreview
+        {
+            UserId = _myProfile?.UserId ?? Guid.Empty,
+            DisplayName = displayName,
+            Nickname = nickname,
+            AvatarUrl = _myProfile?.AvatarUrl
+        };
+
+        var host = new Grid
+        {
+            WidthRequest = 68,
+            HeightRequest = 76,
+            InputTransparent = true
+        };
+
+        var glow = new Border
+        {
+            WidthRequest = 58,
+            HeightRequest = 58,
+            Background = new RadialGradientBrush(
+                new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb("#5B9BFF").WithAlpha(0.30f), 0f),
+                    new GradientStop(Color.FromArgb("#3B82F6").WithAlpha(0.14f), 0.58f),
+                    new GradientStop(Color.FromArgb("#2563EB").WithAlpha(0f), 1f)
+                },
+                new Point(0.5, 0.5),
+                1f),
+            StrokeThickness = 0,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(0, 2, 0, 0),
+            StrokeShape = new RoundRectangle { CornerRadius = 29 }
+        };
+
+        var avatar = CreateAvatarBadge(preview, 44);
+        avatar.HorizontalOptions = LayoutOptions.Center;
+        avatar.VerticalOptions = LayoutOptions.Start;
+        avatar.Margin = new Thickness(0, 8, 0, 0);
+        avatar.Stroke = Color.FromArgb("#FFFFFF");
+        avatar.StrokeThickness = 3;
+        avatar.Shadow = new Shadow
+        {
+            Brush = new SolidColorBrush(Colors.Black),
+            Radius = 18,
+            Offset = new Point(0, 8),
+            Opacity = 0.16f
+        };
+
+        var pointer = new Border
+        {
+            WidthRequest = 12,
+            HeightRequest = 12,
+            Rotation = 45,
+            BackgroundColor = Colors.White,
+            Stroke = Color.FromArgb("#D5E4FF"),
+            StrokeThickness = 1,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(0, 46, 0, 0),
+            StrokeShape = new RoundRectangle { CornerRadius = 4 }
+        };
+
+        host.Children.Add(glow);
+        host.Children.Add(pointer);
+        host.Children.Add(avatar);
+        StartCloudPulse(glow, 0.9d);
+        return host;
     }
 
     private void SetMapStatus(string message, bool isError)
@@ -3260,6 +3740,7 @@ public partial class MainMapPage : ContentPage
             x,
             y,
             size,
+            1d,
             ResolveSignalColorStatic(marker),
             false,
             marker.Latitude,
@@ -3311,6 +3792,7 @@ public partial class MainMapPage : ContentPage
 
     private readonly record struct OverlayInsets(double Left, double Top, double Right, double Bottom);
     private readonly record struct OverlayMarkerProjection(VenueMarker Marker, double X, double Y, double Size);
+    private readonly record struct FogLink(Rect Bounds, double Angle, double Height, Color Color, Color GlowColor, double Intensity);
     private sealed record VenueOverlayCluster(
         string Key,
         List<VenueMarker> Markers,
@@ -3322,14 +3804,16 @@ public partial class MainMapPage : ContentPage
         double X,
         double Y,
         double Size,
+        double BubbleScaleHint,
         Color Color,
         bool IsCluster,
         double Latitude,
         double Longitude)
     {
-        public double LayoutWidth => Size;
-        public double LayoutHeight => IsCluster ? Size + 26 : Size;
-        public double CloudYOffset => IsCluster ? 22 : 0;
+        public double LayoutWidth => Size * 1.86d;
+        public double LayoutHeight => Size * 1.54d + (IsCluster ? 28d : 16d);
+        public double AnchorYOffset => IsCluster ? 54d : 42d;
+        public double CloudYOffset => IsCluster ? 24d : 16d;
     }
 
     private enum VenueSheetSnapState

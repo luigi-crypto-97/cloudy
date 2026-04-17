@@ -55,6 +55,7 @@ public partial class MainMapPage
             _myProfile = updated;
             SetEditProfileStatus("Profilo aggiornato.", false);
             await RefreshSocialOverlayAsync();
+            await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
         }
         catch (Exception ex)
         {
@@ -91,6 +92,7 @@ public partial class MainMapPage
             PopulateEditProfileForm(updated);
             SetEditProfileStatus("Immagine profilo aggiornata.", false);
             await RefreshSocialOverlayAsync();
+            await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
         }
         catch (FeatureNotSupportedException)
         {

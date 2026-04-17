@@ -36,7 +36,6 @@ public static class UserEndpoints
             }
 
             var user = await db.Users
-                .Include(x => x.Interests)
                 .FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
 
             if (user is null)
@@ -94,18 +93,21 @@ public static class UserEndpoints
                 .Take(12)
                 .ToList();
 
-            db.UserInterests.RemoveRange(user.Interests);
-            user.Interests.Clear();
-            foreach (var interest in normalizedInterests)
+            await db.SaveChangesAsync(ct);
+
+            await db.UserInterests
+                .Where(x => x.UserId == user.Id)
+                .ExecuteDeleteAsync(ct);
+
+            if (normalizedInterests.Count > 0)
             {
-                user.Interests.Add(new UserInterest
+                db.UserInterests.AddRange(normalizedInterests.Select(interest => new UserInterest
                 {
                     UserId = user.Id,
                     Tag = interest
-                });
+                }));
+                await db.SaveChangesAsync(ct);
             }
-
-            await db.SaveChangesAsync(ct);
 
             return Results.Ok(new EditableUserProfileDto(
                 user.Id,

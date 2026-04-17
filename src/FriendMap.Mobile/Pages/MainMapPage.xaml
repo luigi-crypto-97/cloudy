@@ -12,10 +12,12 @@
 
     <Grid>
         <maps:Map x:Name="NativeMap"
-                  IsShowingUser="True"
+                  IsShowingUser="False"
                   MapType="Street" />
 
-        <BoxView BackgroundColor="#33EEF4FF" InputTransparent="True" />
+        <BoxView x:Name="MapMoodOverlay"
+                 BackgroundColor="#2CEEF4FF"
+                 InputTransparent="True" />
 
         <AbsoluteLayout x:Name="BubbleLayer"
                         CascadeInputTransparent="False"
@@ -46,7 +48,8 @@
                         Padding="14,10"
                         BackgroundColor="#F8FCFF"
                         Stroke="#DDE7F5"
-                        StrokeThickness="1">
+                        StrokeThickness="1"
+                        IsVisible="False">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="20" />
                     </Border.StrokeShape>
@@ -85,28 +88,28 @@
                 </Border>
 
                 <Border Grid.Column="2"
-                        WidthRequest="48"
-                        HeightRequest="48"
+                        WidthRequest="52"
+                        HeightRequest="52"
                         Padding="0"
-                        BackgroundColor="#F8FBFF"
-                        Stroke="#DDE7F5"
+                        BackgroundColor="#EEF4FF"
+                        Stroke="#D5E4FF"
                         StrokeThickness="1">
                     <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="24" />
+                        <RoundRectangle CornerRadius="18" />
                     </Border.StrokeShape>
                     <Border.Shadow>
                         <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.16" />
                     </Border.Shadow>
                     <ImageButton x:Name="QuickMenuButton"
                              Source="icon-compass-blue.svg"
-                             WidthRequest="48"
-                             HeightRequest="48"
-                             MinimumHeightRequest="48"
-                             Padding="13"
+                             WidthRequest="52"
+                             HeightRequest="52"
+                             MinimumHeightRequest="52"
+                             Padding="14"
                              Clicked="OnQuickMenuToggleClicked"
                              BackgroundColor="Transparent"
                              BorderWidth="0"
-                             CornerRadius="24" />
+                             CornerRadius="18" />
                 </Border>
             </Grid>
 
@@ -126,10 +129,12 @@
                        TextColor="{Binding StatusColor}" />
             </Border>
 
-            <Border Padding="12,10"
+            <Border x:Name="DiscoveryChromePanel"
+                    Padding="12,10"
                     BackgroundColor="#FCFEFF"
                     Stroke="#E3EBF5"
-                    StrokeThickness="1">
+                    StrokeThickness="1"
+                    IsVisible="False">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="18" />
                 </Border.StrokeShape>
@@ -200,7 +205,7 @@
 
         <Border x:Name="QuickActionRail"
                 Margin="0,86,12,0"
-                Padding="8"
+                Padding="10"
                 HorizontalOptions="End"
                 VerticalOptions="Start"
                 BackgroundColor="#FCFEFF"
@@ -215,97 +220,369 @@
             <Border.Shadow>
                 <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.18" />
             </Border.Shadow>
+            <VerticalStackLayout Spacing="8">
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-search-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnQuickSearchToggleClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Cerca"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-sliders-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnQuickFiltersToggleClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Filtri"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-cloud-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnLegendToggleClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Live"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-moon-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnContrastModeToggleClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label x:Name="QuickModeLabel"
+                               Grid.Column="1"
+                               Text="Notte"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-refresh-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnRefreshClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Aggiorna"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-focus-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnFocusMarkersClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Locali"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-location-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnCenterUserLocationClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Posizione"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-users-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnSocialClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Social"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+                <Border Padding="8,6"
+                        BackgroundColor="#F5F8FF"
+                        StrokeThickness="0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="18" />
+                    </Border.StrokeShape>
+                    <Grid ColumnDefinitions="38,Auto"
+                          ColumnSpacing="10">
+                        <Border WidthRequest="38"
+                                HeightRequest="38"
+                                BackgroundColor="#E6EEFF"
+                                StrokeThickness="0">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <ImageButton Source="icon-server-blue.svg"
+                                         WidthRequest="38"
+                                         HeightRequest="38"
+                                         Padding="9"
+                                         Clicked="OnServerClicked"
+                                         BackgroundColor="Transparent"
+                                         BorderWidth="0"
+                                         CornerRadius="12" />
+                        </Border>
+                        <Label Grid.Column="1"
+                               Text="Server"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               VerticalTextAlignment="Center"
+                               TextColor="{StaticResource TextColor}" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+        </Border>
+
+        <Border x:Name="LegendPanel"
+                Margin="16,76,84,0"
+                Padding="12"
+                HorizontalOptions="Start"
+                VerticalOptions="Start"
+                BackgroundColor="#FDFEFF"
+                Stroke="#DDE7F5"
+                StrokeThickness="1"
+                IsVisible="False"
+                Opacity="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="20" />
+            </Border.StrokeShape>
+            <Border.Shadow>
+                <Shadow Brush="#180F172A" Offset="0,10" Radius="22" Opacity="0.14" />
+            </Border.Shadow>
             <VerticalStackLayout Spacing="10">
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-sliders-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnQuickFiltersToggleClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Filtri"
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
+                <Label Text="Live map"
+                       FontSize="13"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource TextColor}" />
+                <Label x:Name="LegendModeLabel"
+                       Text="Modalità giorno"
+                       FontSize="11"
+                       TextColor="{StaticResource MutedTextColor}" />
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10">
+                    <Border WidthRequest="18"
+                            HeightRequest="18"
+                            BackgroundColor="#DCEEFF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="9" />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Label Grid.Column="1"
+                           Text="Calma"
+                           FontSize="12"
                            TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-refresh-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnRefreshClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Agg."
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10">
+                    <Border WidthRequest="18"
+                            HeightRequest="18"
+                            BackgroundColor="#78B7FF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="9" />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Label Grid.Column="1"
+                           Text="Movimento"
+                           FontSize="12"
                            TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-focus-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnFocusMarkersClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Locali"
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="10">
+                    <Border WidthRequest="18"
+                            HeightRequest="18"
+                            BackgroundColor="#215BFF"
+                            StrokeThickness="0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="9" />
+                        </Border.StrokeShape>
+                    </Border>
+                    <Label Grid.Column="1"
+                           Text="Hot spot"
+                           FontSize="12"
                            TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-location-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnCenterUserLocationClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Tu"
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
-                           TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-users-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnSocialClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Social"
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
-                           TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Spacing="4"
-                                     HorizontalOptions="Center">
-                    <ImageButton Source="icon-close-blue.svg"
-                                 WidthRequest="44"
-                                 HeightRequest="44"
-                                 Padding="11"
-                                 Clicked="OnServerClicked"
-                                 BackgroundColor="#EEF4FF"
-                                 BorderWidth="0"
-                                 CornerRadius="22" />
-                    <Label Text="Server"
-                           FontSize="10"
-                           HorizontalTextAlignment="Center"
-                           TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
+                </Grid>
             </VerticalStackLayout>
         </Border>
 
@@ -401,14 +678,8 @@
 
                     <ImageButton Grid.Column="2"
                                  Source="icon-close-blue.svg"
-                                 WidthRequest="34"
-                                 HeightRequest="34"
-                                 MinimumHeightRequest="34"
-                                 Padding="9"
                                  Command="{Binding DismissSelectionCommand}"
-                                 BackgroundColor="#EEF2F7"
-                                 BorderWidth="0"
-                                 CornerRadius="17" />
+                                 Style="{StaticResource OverlayCloseButtonStyle}" />
                 </Grid>
 
                 <HorizontalStackLayout Spacing="8">
@@ -498,6 +769,8 @@
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                     <Button Text="Check-in"
                             Command="{Binding CheckInCommand}"
+                            ImageSource="icon-checkin-white.svg"
+                            ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
                             Padding="10,10"
@@ -506,6 +779,8 @@
                     <Button Grid.Column="1"
                             Text="Ci vado"
                             Command="{Binding PlanIntentionCommand}"
+                            ImageSource="icon-intention-blue.svg"
+                            ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
                             Padding="10,10"
@@ -514,6 +789,8 @@
                     <Button Grid.Column="2"
                             Text="Tavolo"
                             Command="{Binding CreateTableCommand}"
+                            ImageSource="icon-table-blue.svg"
+                            ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
                             Padding="10,10"
@@ -584,14 +861,8 @@
 
                                 <ImageButton Grid.Column="1"
                                              Source="icon-close-blue.svg"
-                                             WidthRequest="34"
-                                             HeightRequest="34"
-                                             MinimumHeightRequest="34"
-                                             Padding="9"
                                              Clicked="OnVenueDetailOverlayCloseClicked"
-                                             BackgroundColor="#F8FBFF"
-                                             BorderWidth="0"
-                                             CornerRadius="17" />
+                                             Style="{StaticResource OverlayCloseButtonStyle}" />
                             </Grid>
 
                             <VerticalStackLayout Grid.Row="2"
@@ -705,6 +976,8 @@
                                   ColumnSpacing="8">
                                 <Button Text="Check-in"
                                         Command="{Binding CheckInCommand}"
+                                        ImageSource="icon-checkin-white.svg"
+                                        ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
                                         FontSize="13"
@@ -712,6 +985,8 @@
                                 <Button Grid.Column="1"
                                         Text="Ci vado"
                                         Command="{Binding PlanIntentionCommand}"
+                                        ImageSource="icon-intention-blue.svg"
+                                        ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
                                         FontSize="13"
@@ -719,6 +994,8 @@
                                 <Button Grid.Column="2"
                                         Text="Tavolo"
                                         Command="{Binding CreateTableCommand}"
+                                        ImageSource="icon-table-blue.svg"
+                                        ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
                                         FontSize="13"
@@ -779,14 +1056,8 @@
 
                     <ImageButton Grid.Column="1"
                                  Source="icon-close-blue.svg"
-                                 WidthRequest="34"
-                                 HeightRequest="34"
-                                 MinimumHeightRequest="34"
-                                 Padding="9"
                                  Clicked="OnAreaDismissClicked"
-                                 BackgroundColor="#EEF2F7"
-                                 BorderWidth="0"
-                                 CornerRadius="17" />
+                                 Style="{StaticResource OverlayCloseButtonStyle}" />
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -846,14 +1117,8 @@
 
                         <ImageButton Grid.Column="1"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnPresenceOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <ScrollView MaximumHeightRequest="260">
@@ -909,14 +1174,8 @@
 
                         <ImageButton Grid.Column="2"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnProfileOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <Label x:Name="ProfileStatusLabel"
@@ -1016,6 +1275,8 @@
                         <Button x:Name="ProfileMessageActionButton"
                                 Text="Chat"
                                 Clicked="OnProfileMessageClicked"
+                                ImageSource="icon-chat-blue.svg"
+                                ContentLayout="Left,8"
                                 MinimumHeightRequest="42"
                                 Padding="10,10"
                                 FontSize="13"
@@ -1033,6 +1294,8 @@
                     <Button x:Name="ProfileReportActionButton"
                             Text="Segnala"
                             Clicked="OnProfileReportClicked"
+                            ImageSource="icon-flag-blue.svg"
+                            ContentLayout="Left,8"
                             MinimumHeightRequest="40"
                             Padding="10,10"
                             FontSize="13"
@@ -1090,14 +1353,8 @@
 
                         <ImageButton Grid.Column="1"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnSocialOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <ActivityIndicator x:Name="SocialLoadingIndicator"
@@ -1305,14 +1562,8 @@
 
                         <ImageButton Grid.Column="1"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnTableOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <Label x:Name="TableStatusLabel"
@@ -1411,14 +1662,8 @@
 
                         <ImageButton Grid.Column="1"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnEditProfileOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <ScrollView MaximumHeightRequest="420">
@@ -1542,14 +1787,8 @@
 
                         <ImageButton Grid.Column="1"
                                      Source="icon-close-blue.svg"
-                                     WidthRequest="34"
-                                     HeightRequest="34"
-                                     MinimumHeightRequest="34"
-                                     Padding="9"
                                      Clicked="OnDirectMessageOverlayCloseClicked"
-                                     BackgroundColor="#EEF2F7"
-                                     BorderWidth="0"
-                                     CornerRadius="17" />
+                                     Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
 
                     <Label x:Name="DirectMessageStatusLabel"
@@ -1584,7 +1823,8 @@
                 VerticalOptions="End"
                 BackgroundColor="#F7FBFF"
                 Stroke="#DDE7F5"
-                StrokeThickness="1">
+                StrokeThickness="1"
+                IsVisible="False">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="30" />
             </Border.StrokeShape>
