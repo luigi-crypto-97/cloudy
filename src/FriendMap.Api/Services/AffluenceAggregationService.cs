@@ -59,7 +59,7 @@ public class AffluenceAggregationService
             {
                 if (!string.IsNullOrWhiteSpace(normalizedQuery))
                 {
-                    var haystack = $"{venue.Name} {venue.Category} {venue.AddressLine} {venue.City}";
+                    var haystack = $"{venue.Name} {venue.Category} {venue.AddressLine} {venue.City} {venue.TagsCsv}";
                     if (!haystack.Contains(normalizedQuery, StringComparison.OrdinalIgnoreCase))
                     {
                         return false;
@@ -92,6 +92,7 @@ public class AffluenceAggregationService
         var venueIds = venues.Select(x => x.Id).ToList();
 
         var latestSnapshots = await _db.VenueAffluenceSnapshots
+            .Where(x => venueIds.Contains(x.VenueId))
             .GroupBy(x => x.VenueId)
             .Select(g => g.OrderByDescending(x => x.BucketStartUtc).First())
             .ToListAsync(ct);

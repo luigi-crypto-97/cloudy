@@ -81,7 +81,3 @@ public record SocialTableThreadDto(
 
 public record SendSocialTableMessageRequest(
     string Body);
-
-public record ReportUserRequest(
-    string Reason,
-    string? Details);

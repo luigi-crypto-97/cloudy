@@ -69,21 +69,35 @@ public static class SocialEndpoints
             var friendSet = friendIds.ToHashSet();
             var presence = await LoadPresenceByUserAsync(db, connectionIds, ct);
 
+            var connectionFriendRelations = connectionIds.Count == 0
+                ? new List<FriendRelation>()
+                : await db.FriendRelations
+                    .AsNoTracking()
+                    .Where(x => (connectionIds.Contains(x.RequesterId) || connectionIds.Contains(x.AddresseeId)) && x.Status == "accepted")
+                    .ToListAsync(ct);
+
+            var connectionFriendSets = connectionIds.ToDictionary(
+                id => id,
+                id => connectionFriendRelations
+                    .Where(x => x.RequesterId == id || x.AddresseeId == id)
+                    .Select(x => x.RequesterId == id ? x.AddresseeId : x.RequesterId)
+                    .ToHashSet());
+
             var friends = friendIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "friend", friendSet, currentUserId, presence))
+                .Select(id => BuildConnectionDto(users[id], "friend", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var incoming = incomingRequestIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "pending_received", friendSet, currentUserId, presence))
+                .Select(id => BuildConnectionDto(users[id], "pending_received", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var outgoing = outgoingRequestIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "pending_sent", friendSet, currentUserId, presence))
+                .Select(id => BuildConnectionDto(users[id], "pending_sent", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -1012,49 +1026,6 @@ public static class SocialEndpoints
             return Results.Ok(new SocialActionResultDto("unblocked", "Utente sbloccato."));
         });
 
-        group.MapPost("/users/{targetUserId:guid}/report", async (
-            Guid targetUserId,
-            ReportUserRequest request,
-            AppDbContext db,
-            ClaimsPrincipal user,
-            CancellationToken ct) =>
-        {
-            var currentUserId = CurrentUser.GetUserId(user);
-            if (currentUserId == Guid.Empty)
-            {
-                return Results.Forbid();
-            }
-
-            if (targetUserId == Guid.Empty || targetUserId == currentUserId)
-            {
-                return Results.BadRequest("Non puoi segnalare te stesso.");
-            }
-
-            var targetExists = await db.Users.AnyAsync(x => x.Id == targetUserId, ct);
-            if (!targetExists)
-            {
-                return Results.NotFound("Utente non trovato.");
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Reason))
-            {
-                return Results.BadRequest("Motivo della segnalazione richiesto.");
-            }
-
-            var report = new UserReport
-            {
-                ReporterUserId = currentUserId,
-                ReportedUserId = targetUserId,
-                Reason = request.Reason.Trim(),
-                Details = request.Details?.Trim()
-            };
-
-            db.UserReports.Add(report);
-            await db.SaveChangesAsync(ct);
-
-            return Results.Ok(new SocialActionResultDto("reported", "Segnalazione inviata."));
-        });
-
         return group;
     }
 
@@ -1208,9 +1179,12 @@ public static class SocialEndpoints
         string relationshipStatus,
         HashSet<Guid> currentFriendIds,
         Guid currentUserId,
-        Dictionary<Guid, PresenceSnapshot> presence)
+        Dictionary<Guid, PresenceSnapshot> presence,
+        Dictionary<Guid, HashSet<Guid>> connectionFriendSets)
     {
-        var mutualFriendsCount = currentFriendIds.Contains(user.Id) ? 0 : 0;
+        var mutualFriendsCount = connectionFriendSets.TryGetValue(user.Id, out var targetFriends)
+            ? targetFriends.Intersect(currentFriendIds).Count(x => x != user.Id && x != currentUserId)
+            : 0;
         presence.TryGetValue(user.Id, out var snapshot);
         snapshot ??= new PresenceSnapshot("idle", "Nessuna presenza live", null, null);
 

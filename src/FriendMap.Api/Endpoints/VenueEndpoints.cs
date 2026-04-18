@@ -91,11 +91,12 @@ public static class VenueEndpoints
             CreateIntentionRequest request,
             ClaimsPrincipal user,
             AppDbContext db,
+            AffluenceAggregationService service,
             CancellationToken ct) =>
         {
             var userId = CurrentUser.GetUserId(user);
             if (userId != request.UserId)
-                return Results.Unauthorized();
+                return Results.Forbid();
 
             var intention = new VenueIntention
             {
@@ -109,6 +110,7 @@ public static class VenueEndpoints
 
             db.VenueIntentions.Add(intention);
             await db.SaveChangesAsync(ct);
+            await service.RebuildVenueSnapshotAsync(venueId, ct);
 
             return Results.Created($"/api/venues/{venueId}/intentions/{intention.Id}", intention);
         });
@@ -118,11 +120,12 @@ public static class VenueEndpoints
             CreateCheckInRequest request,
             ClaimsPrincipal user,
             AppDbContext db,
+            AffluenceAggregationService service,
             CancellationToken ct) =>
         {
             var userId = CurrentUser.GetUserId(user);
             if (userId != request.UserId)
-                return Results.Unauthorized();
+                return Results.Forbid();
 
             var checkIn = new VenueCheckIn
             {
@@ -135,6 +138,7 @@ public static class VenueEndpoints
 
             db.VenueCheckIns.Add(checkIn);
             await db.SaveChangesAsync(ct);
+            await service.RebuildVenueSnapshotAsync(venueId, ct);
 
             return Results.Created($"/api/venues/{venueId}/checkins/{checkIn.Id}", checkIn);
         });
@@ -146,6 +150,8 @@ public static class VenueEndpoints
             CancellationToken ct) =>
         {
             var userId = CurrentUser.GetUserId(user);
+            if (userId == Guid.Empty)
+                return Results.Forbid();
 
             var checkIn = await db.VenueCheckIns
                 .FirstOrDefaultAsync(c => c.UserId == userId && c.VenueId == venueId && c.ExpiresAtUtc > DateTimeOffset.UtcNow, ct);
@@ -168,7 +174,7 @@ public static class VenueEndpoints
         {
             var userId = CurrentUser.GetUserId(user);
             if (userId != request.HostUserId)
-                return Results.Unauthorized();
+                return Results.Forbid();
 
             var table = new SocialTable
             {

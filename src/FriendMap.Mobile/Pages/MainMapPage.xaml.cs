@@ -51,6 +51,7 @@ public partial class MainMapPage : ContentPage
     private bool _isProfileActionBusy;
     private bool _shouldAutoFocusOnNextRender = true;
     private bool _isRefreshingCurrentUserLocation;
+    private string? _activeInterestFilter;
     private double _sheetPanStartY;
     private MapViewport? _lastRequestedViewport;
     private MapViewport? _lastOverlayViewport;
@@ -235,6 +236,7 @@ public partial class MainMapPage : ContentPage
 
     private void OnDiscoverySearchChanged(object? sender, TextChangedEventArgs e)
     {
+        _activeInterestFilter = null;
         DiscoveryChromePanel.IsVisible = !string.IsNullOrWhiteSpace(e.NewTextValue) || DiscoveryFiltersPanel.IsVisible;
         ApplyDiscoveryFilters(
             e.NewTextValue ?? string.Empty,
@@ -288,14 +290,31 @@ public partial class MainMapPage : ContentPage
             _viewModel.MaxDistanceKm);
     }
 
-    private void OnInterestsFilterClicked(object? sender, EventArgs e)
+    private async void OnInterestsFilterClicked(object? sender, EventArgs e)
     {
-        // TODO: Show interests picker
-        ApplyDiscoveryFilters(
-            DiscoverySearchEntry.Text ?? string.Empty,
-            _viewModel.SelectedCategory,
-            _viewModel.OpenNowOnly,
-            _viewModel.MaxDistanceKm);
+        var interests = _myProfile?.Interests;
+        if (interests is null || interests.Count == 0)
+        {
+            await DisplayAlert("Nessun interesse", "Aggiungi i tuoi interessi nel profilo per usare questo filtro.", "OK");
+            return;
+        }
+
+        var options = interests.Concat(new[] { "Tutti" }).ToArray();
+        var picked = await DisplayActionSheet("Filtra per interesse", "Annulla", null, options);
+        if (picked is null || picked == "Annulla")
+        {
+            return;
+        }
+
+        if (picked == "Tutti")
+        {
+            _activeInterestFilter = null;
+            ApplyDiscoveryFilters(string.Empty, _viewModel.SelectedCategory, _viewModel.OpenNowOnly, _viewModel.MaxDistanceKm);
+            return;
+        }
+
+        _activeInterestFilter = picked;
+        ApplyDiscoveryFilters(picked, _viewModel.SelectedCategory, _viewModel.OpenNowOnly, _viewModel.MaxDistanceKm);
     }
 
     private void OnOpenNowToggleClicked(object? sender, EventArgs e)
@@ -833,6 +852,8 @@ public partial class MainMapPage : ContentPage
         SetFilterButtonState(FilterFoodButton, _viewModel.SelectedCategory == "food");
         SetFilterButtonState(FilterCafeButton, _viewModel.SelectedCategory == "cafe");
         SetFilterButtonState(FilterNightlifeButton, _viewModel.SelectedCategory == "nightlife");
+        SetFilterButtonState(FilterInterestsButton, _activeInterestFilter is not null);
+        FilterInterestsButton.Text = _activeInterestFilter ?? "Interessi";
         SetFilterButtonState(FilterOpenNowButton, _viewModel.OpenNowOnly);
         SetFilterButtonState(FilterDistanceButton, _viewModel.MaxDistanceKm is not null);
         FilterDistanceButton.Text = FormatDistanceFilter(_viewModel.MaxDistanceKm);
