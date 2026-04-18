@@ -171,7 +171,7 @@ public class LoginViewModel : BindableObject
             }
 
             await _apiClient.DevLoginAsync(Nickname, Nickname);
-            await Shell.Current.GoToAsync(nameof(MainMapPage));
+            await Shell.Current.GoToAsync("//main");
         }
         catch (Exception ex)
         {

@@ -15,6 +15,7 @@ public partial class MainMapPage
     private CancellationTokenSource? _userSearchCts;
     private bool _isEditProfileBusy;
     private bool _isDirectMessageBusy;
+    private DateTimeOffset _socialOverlayLastRefreshUtc = DateTimeOffset.MinValue;
 
     private async void OnOpenEditProfileClicked(object? sender, EventArgs e)
     {
@@ -286,6 +287,91 @@ public partial class MainMapPage
         EditBioEditor.Text = profile.Bio;
         EditInterestsEditor.Text = string.Join(", ", profile.Interests);
         UpdateEditProfileAvatarPreview(profile.AvatarUrl, profile.Nickname);
+    }
+
+    private Task ShowProfileForPreviewAsync(PresencePreview preview)
+    {
+        return ShowUserProfileAsync(preview);
+    }
+
+    private async Task ShowUserProfileAsync(PresencePreview preview)
+    {
+        await HideQuickActionRailAsync(animated: false);
+        await HideDirectMessageOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
+        _activeProfilePreview = preview;
+        _activeProfile = null;
+        ProfileOverlay.IsVisible = true;
+        ProfileSheet.TranslationY = 460;
+        ProfileActionMessageLabel.IsVisible = false;
+        ProfileLoadingIndicator.IsVisible = true;
+        ProfileLoadingIndicator.IsRunning = true;
+        PopulateProfileOverlay(null, preview);
+        await ProfileSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+
+        try
+        {
+            var profile = await _apiClient.GetUserProfileAsync(preview.UserId);
+            _activeProfile = profile;
+            PopulateProfileOverlay(profile, preview);
+        }
+        catch (Exception ex)
+        {
+            ProfileStatusLabel.Text = _apiClient.DescribeException(ex);
+            UpdateProfileActionState(null, preview);
+        }
+        finally
+        {
+            ProfileLoadingIndicator.IsVisible = false;
+            ProfileLoadingIndicator.IsRunning = false;
+        }
+    }
+
+    private void PopulateProfileOverlay(UserProfile? profile, PresencePreview fallback)
+    {
+        var displayName = profile?.DisplayName;
+        var nickname = string.IsNullOrWhiteSpace(profile?.Nickname) ? fallback.Nickname : profile!.Nickname;
+        var avatarUrl = string.IsNullOrWhiteSpace(profile?.AvatarUrl) ? fallback.AvatarUrl : profile!.AvatarUrl;
+
+        ProfileAvatarHost.Children.Clear();
+        ProfileAvatarHost.Children.Add(CreateAvatarBadge(new PresencePreview
+        {
+            UserId = fallback.UserId,
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? fallback.DisplayName : displayName,
+            Nickname = nickname,
+            AvatarUrl = avatarUrl
+        }, 72));
+
+        ProfileNameLabel.Text = string.IsNullOrWhiteSpace(displayName) ? fallback.DisplayName : displayName;
+        ProfileHandleLabel.Text = $"@{nickname}";
+        ProfileStatusLabel.Text = profile?.StatusLabel ?? "Caricamento profilo...";
+        ProfileRelationChipLabel.Text = profile?.RelationshipStatus switch
+        {
+            null => "Profilo",
+            "friend" => "Amico",
+            "pending_sent" => "In attesa",
+            "pending_received" => "Ti ha aggiunto",
+            "self" => "Tu",
+            _ => "Non amico"
+        };
+        ProfileFriendsChipLabel.Text = profile is null
+            ? "--"
+            : profile.MutualFriendsCount > 0
+                ? $"{profile.MutualFriendsCount} in comune"
+                : $"{profile.FriendsCount} amici";
+        ProfileMetaChipLabel.Text = BuildProfileMeta(profile);
+        ProfileBioLabel.Text = profile?.Bio ?? string.Empty;
+        ProfileBioLabel.IsVisible = !string.IsNullOrWhiteSpace(profile?.Bio);
+        ProfileInterestsLabel.Text = profile?.Interests.Count > 0
+            ? string.Join(" • ", profile.Interests)
+            : string.Empty;
+        ProfileInterestsLabel.IsVisible = profile?.Interests.Count > 0;
+        ProfileVenueLabel.Text = string.IsNullOrWhiteSpace(profile?.CurrentVenueName)
+            ? "Nessuna venue live"
+            : profile.CurrentVenueCategory is null
+                ? profile.CurrentVenueName
+                : $"{profile.CurrentVenueName} • {profile.CurrentVenueCategory}";
+        UpdateProfileActionState(profile, fallback);
     }
 
     private async Task ShowDirectMessageOverlayAsync(UserProfile profile)

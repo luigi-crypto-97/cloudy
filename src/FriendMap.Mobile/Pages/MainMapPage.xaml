@@ -183,6 +183,27 @@
                                     Padding="12,8"
                                     FontSize="12"
                                     Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterCafeButton"
+                                    Text="Café"
+                                    Clicked="OnCategoryCafeClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterNightlifeButton"
+                                    Text="Nightlife"
+                                    Clicked="OnCategoryNightlifeClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
+                            <Button x:Name="FilterInterestsButton"
+                                    Text="Interessi"
+                                    Clicked="OnInterestsFilterClicked"
+                                    MinimumHeightRequest="34"
+                                    Padding="12,8"
+                                    FontSize="12"
+                                    Style="{StaticResource SecondaryButtonStyle}" />
                             <Button x:Name="FilterOpenNowButton"
                                     Text="Open now"
                                     Clicked="OnOpenNowToggleClicked"
@@ -972,11 +993,168 @@
                                        IsVisible="False" />
                             </VerticalStackLayout>
 
+                            <VerticalStackLayout x:Name="VenueDetailAnalyticsSection"
+                                                 Spacing="12"
+                                                 IsVisible="False">
+                                <Label Text="Analytics"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource TextColor}" />
+
+                                <VerticalStackLayout x:Name="VenueDetailDemographicsSection"
+                                                     Spacing="8"
+                                                     IsVisible="False">
+                                    <Label Text="Demografia"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource TextColor}" />
+                                    <Label x:Name="VenueDetailInsufficientDataLabel"
+                                           Text="Dati insufficienti per mostrare statistiche demografiche."
+                                           FontSize="12"
+                                           TextColor="{StaticResource MutedTextColor}"
+                                           IsVisible="False" />
+                                    <Grid x:Name="VenueDetailAgeGrid"
+                                          ColumnDefinitions="*,*,*,*"
+                                          ColumnSpacing="8"
+                                          IsVisible="False">
+                                        <Border Padding="8,6"
+                                                BackgroundColor="#EEF8FF"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="18-24"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailAge1824Label"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Border Grid.Column="1"
+                                                Padding="8,6"
+                                                BackgroundColor="#F6F9FD"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="25-34"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailAge2534Label"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Border Grid.Column="2"
+                                                Padding="8,6"
+                                                BackgroundColor="#F6F9FD"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="35-44"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailAge3544Label"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Border Grid.Column="3"
+                                                Padding="8,6"
+                                                BackgroundColor="#F6F9FD"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="45+"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailAge45PlusLabel"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </Grid>
+                                    <Grid x:Name="VenueDetailGenderGrid"
+                                          ColumnDefinitions="*,*"
+                                          ColumnSpacing="8"
+                                          IsVisible="False">
+                                        <Border Padding="8,6"
+                                                BackgroundColor="#EEF8FF"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="Uomini"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailMaleLabel"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Border Grid.Column="1"
+                                                Padding="8,6"
+                                                BackgroundColor="#F6F9FD"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="8" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="Donne"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource MutedTextColor}" />
+                                                <Label x:Name="VenueDetailFemaleLabel"
+                                                       Text="0%"
+                                                       FontSize="14"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextColor}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </Grid>
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout x:Name="VenueDetailTrendsSection"
+                                                     Spacing="8">
+                                    <Label Text="Tendenze ultime 24 ore"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource TextColor}" />
+                                    <VerticalStackLayout x:Name="VenueDetailTrendsStack"
+                                                         Spacing="6" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+
+                        <Label x:Name="VenueDetailStatusLabel"
+                               Text=""
+                               FontSize="12"
+                               TextColor="{StaticResource PrimaryColorDark}"
+                               IsVisible="False"
+                               HorizontalTextAlignment="Center"
+                               Margin="0,12,0,0" />
+
                             <Grid ColumnDefinitions="*,*,*"
                                   ColumnSpacing="8">
-                                <Button Text="Check-in"
+                                <Button Text="Sono qui"
                                         Command="{Binding CheckInCommand}"
-                                        ImageSource="icon-checkin-white.svg"
+                                        ImageSource="icon-checkin-blue.svg"
                                         ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
@@ -1025,6 +1203,13 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <ActivityIndicator x:Name="VenueDetailLoadingIndicator"
+                           IsRunning="False"
+                           IsVisible="False"
+                           Color="{StaticResource PrimaryColor}"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
 
         <Border x:Name="AreaSelectionCard"
                 Margin="16,0,16,116"

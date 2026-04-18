@@ -20,7 +20,7 @@ public partial class LoginPage : ContentPage
         {
             if (await _viewModel.TryRestoreAsync())
             {
-                await Shell.Current.GoToAsync(nameof(MainMapPage));
+                await Shell.Current.GoToAsync("//main");
             }
         }
         catch (Exception ex)

@@ -73,7 +73,8 @@ public record VenueDetailsDto(
     object? AgeDistribution,
     object? GenderDistribution,
     IEnumerable<SocialTableDto> UpcomingTables,
-    IEnumerable<IntentionCountDto> IntentionWindows);
+    IEnumerable<IntentionCountDto> IntentionWindows,
+    IEnumerable<AffluenceTrendPointDto> AffluenceTrends);
 
 public record AdminVenueDto(
     Guid Id,
@@ -126,6 +127,14 @@ public record IntentionCountDto(
     DateTimeOffset StartsAtUtc,
     DateTimeOffset EndsAtUtc,
     int Count);
+
+public record AffluenceTrendPointDto(
+    DateTimeOffset BucketStartUtc,
+    int PeopleEstimate,
+    string DensityLevel,
+    int CheckInCount,
+    int IntentionCount,
+    int TableCount);
 
 public record CreateIntentionRequest(
     Guid UserId,

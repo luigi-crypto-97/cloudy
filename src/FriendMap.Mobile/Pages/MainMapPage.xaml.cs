@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using FriendMap.Mobile.Models;
 using FriendMap.Mobile.Services;
 using FriendMap.Mobile.ViewModels;
@@ -16,9 +17,11 @@ public partial class MainMapPage : ContentPage
     private const double HiddenSheetPadding = 28;
     private const double MinimumTeaserVisibleHeight = 116;
     private const double MinimumCollapsedVisibleHeight = 288;
-    private const int ViewportRefreshDelayMs = 420;
-    private const int OverlaySyncIntervalMs = 120;
+    private const int ViewportRefreshDelayMs = 1000;
+    private const int OverlaySyncIntervalMs = 1000;
     private static readonly TimeSpan CurrentUserLocationCacheDuration = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan SocialOverlayCacheDuration = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan MapLayerCacheDuration = TimeSpan.FromMinutes(2);
 
     private readonly MainMapViewModel _viewModel;
     private readonly LoginViewModel _loginViewModel;
@@ -36,7 +39,6 @@ public partial class MainMapPage : ContentPage
     private VenueOverlayCluster? _activeAreaCluster;
     private PresencePreview? _activeProfilePreview;
     private UserProfile? _activeProfile;
-    private VenueDetails? _activeVenueDetails;
     private string? _selectedAreaClusterKey;
     private bool _isQuickActionRailOpen;
     private bool _isLegendPanelOpen;
@@ -54,6 +56,7 @@ public partial class MainMapPage : ContentPage
     private MapViewport? _lastOverlayViewport;
     private Location? _currentUserLocation;
     private DateTimeOffset _lastCurrentUserLocationRefreshUtc = DateTimeOffset.MinValue;
+    private DateTimeOffset _mapLayerLastRefreshUtc = DateTimeOffset.MinValue;
     private DateTimeOffset _suspendViewportRefreshUntilUtc = DateTimeOffset.MinValue;
     private VenueSheetSnapState _sheetSnapState = VenueSheetSnapState.Teaser;
     private IDispatcherTimer? _overlaySyncTimer;
@@ -95,7 +98,8 @@ public partial class MainMapPage : ContentPage
             EnsureInitialMapRegion();
             _ = WarmPersonalMapContextAsync();
             await Task.Delay(250);
-            await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: true);
+            var mapCacheStale = (DateTimeOffset.UtcNow - _mapLayerLastRefreshUtc) > MapLayerCacheDuration;
+            await RefreshForCurrentViewportAsync(force: mapCacheStale || _viewModel.Markers.Count == 0, centerOnMarkers: true);
             await SyncVenueSheetAsync(animated: false);
         }
         catch (Exception ex)
@@ -262,6 +266,34 @@ public partial class MainMapPage : ContentPage
         ApplyDiscoveryFilters(
             DiscoverySearchEntry.Text ?? string.Empty,
             "food",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnCategoryCafeClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            "cafe",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnCategoryNightlifeClicked(object? sender, EventArgs e)
+    {
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            "nightlife",
+            _viewModel.OpenNowOnly,
+            _viewModel.MaxDistanceKm);
+    }
+
+    private void OnInterestsFilterClicked(object? sender, EventArgs e)
+    {
+        // TODO: Show interests picker
+        ApplyDiscoveryFilters(
+            DiscoverySearchEntry.Text ?? string.Empty,
+            _viewModel.SelectedCategory,
             _viewModel.OpenNowOnly,
             _viewModel.MaxDistanceKm);
     }
@@ -708,6 +740,7 @@ public partial class MainMapPage : ContentPage
         _lastRequestedViewport = viewport;
         _shouldAutoFocusOnNextRender = centerOnMarkers;
         await _viewModel.RefreshAsync(viewport);
+        _mapLayerLastRefreshUtc = DateTimeOffset.UtcNow;
     }
 
     private void ApplyDiscoveryFilters(string searchQuery, string category, bool openNowOnly, double? maxDistanceKm)
@@ -798,6 +831,8 @@ public partial class MainMapPage : ContentPage
         SetFilterButtonState(FilterAllButton, _viewModel.SelectedCategory == "all");
         SetFilterButtonState(FilterBarsButton, _viewModel.SelectedCategory == "bar");
         SetFilterButtonState(FilterFoodButton, _viewModel.SelectedCategory == "food");
+        SetFilterButtonState(FilterCafeButton, _viewModel.SelectedCategory == "cafe");
+        SetFilterButtonState(FilterNightlifeButton, _viewModel.SelectedCategory == "nightlife");
         SetFilterButtonState(FilterOpenNowButton, _viewModel.OpenNowOnly);
         SetFilterButtonState(FilterDistanceButton, _viewModel.MaxDistanceKm is not null);
         FilterDistanceButton.Text = FormatDistanceFilter(_viewModel.MaxDistanceKm);
@@ -1578,52 +1613,6 @@ public partial class MainMapPage : ContentPage
         PresenceListStack.Children.Clear();
     }
 
-    private async Task ShowVenueDetailOverlayAsync(VenueMarker marker)
-    {
-        await HideQuickActionRailAsync(animated: false);
-        await HidePresenceOverlayAsync(animated: false);
-        await HideProfileOverlayAsync(animated: false);
-        await HideSocialOverlayAsync(animated: false);
-        await HideTableOverlayAsync(animated: false);
-
-        VenueDetailOverlay.IsVisible = true;
-        VenueDetailSheet.TranslationY = 540;
-        PopulateVenueDetailOverlay(null, marker);
-
-        try
-        {
-            _activeVenueDetails = await _apiClient.GetVenueDetailsAsync(marker.VenueId);
-            PopulateVenueDetailOverlay(_activeVenueDetails, marker);
-        }
-        catch (Exception ex)
-        {
-            SetMapStatus(_apiClient.DescribeException(ex), true);
-        }
-
-        await VenueDetailSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
-    }
-
-    private async Task HideVenueDetailOverlayAsync(bool animated)
-    {
-        if (!VenueDetailOverlay.IsVisible)
-        {
-            return;
-        }
-
-        _activeVenueDetails = null;
-        if (animated)
-        {
-            await VenueDetailSheet.TranslateTo(0, 540, 180, Easing.CubicIn);
-        }
-        else
-        {
-            VenueDetailSheet.TranslationY = 540;
-        }
-
-        VenueDetailOverlay.IsVisible = false;
-        VenueDetailTagsLayout.Children.Clear();
-    }
-
     private void PopulateVenueDetailOverlay(VenueDetails? details, VenueMarker marker)
     {
         VenueDetailNameLabel.Text = marker.Name;
@@ -1762,43 +1751,66 @@ public partial class MainMapPage : ContentPage
 
         row.GestureRecognizers.Add(new TapGestureRecognizer
         {
-            Command = new Command(async () => await ShowUserProfileAsync(preview))
+            Command = new Command(async () => await ShowProfileForPreviewAsync(preview))
         });
 
         return row;
     }
 
-    private async Task ShowUserProfileAsync(PresencePreview preview)
+    private async Task ShowVenueDetailOverlayAsync(VenueMarker marker)
     {
         await HideQuickActionRailAsync(animated: false);
+        await HidePresenceOverlayAsync(animated: false);
+        await HideProfileOverlayAsync(animated: false);
+        await HideSocialOverlayAsync(animated: false);
+        await HideTableOverlayAsync(animated: false);
+        await HideEditProfileOverlayAsync(animated: false);
         await HideDirectMessageOverlayAsync(animated: false);
-        await HideVenueDetailOverlayAsync(animated: false);
-        _activeProfilePreview = preview;
-        _activeProfile = null;
-        ProfileOverlay.IsVisible = true;
-        ProfileSheet.TranslationY = 460;
-        ProfileActionMessageLabel.IsVisible = false;
-        ProfileLoadingIndicator.IsVisible = true;
-        ProfileLoadingIndicator.IsRunning = true;
-        PopulateProfileOverlay(null, preview);
-        await ProfileSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+
+        VenueDetailOverlay.IsVisible = true;
+        VenueDetailSheet.TranslationY = 540;
+        PopulateVenueDetailHeader(marker);
+        VenueDetailAnalyticsSection.IsVisible = false;
+        VenueDetailLoadingIndicator.IsVisible = true;
+        VenueDetailLoadingIndicator.IsRunning = true;
+        await VenueDetailSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
 
         try
         {
-            var profile = await _apiClient.GetUserProfileAsync(preview.UserId);
-            _activeProfile = profile;
-            PopulateProfileOverlay(profile, preview);
+            var details = await _apiClient.GetVenueDetailsAsync(marker.VenueId);
+            PopulateVenueDetailContent(marker, details);
         }
         catch (Exception ex)
         {
-            ProfileStatusLabel.Text = _apiClient.DescribeException(ex);
-            UpdateProfileActionState(null, preview);
+            VenueDetailStatusLabel.Text = _apiClient.DescribeException(ex);
+            VenueDetailStatusLabel.IsVisible = true;
         }
         finally
         {
-            ProfileLoadingIndicator.IsVisible = false;
-            ProfileLoadingIndicator.IsRunning = false;
+            VenueDetailLoadingIndicator.IsVisible = false;
+            VenueDetailLoadingIndicator.IsRunning = false;
         }
+    }
+
+    private async Task HideVenueDetailOverlayAsync(bool animated)
+    {
+        if (!VenueDetailOverlay.IsVisible)
+        {
+            return;
+        }
+
+        if (animated)
+        {
+            await VenueDetailSheet.TranslateTo(0, 540, 180, Easing.CubicIn);
+        }
+        else
+        {
+            VenueDetailSheet.TranslationY = 540;
+        }
+
+        VenueDetailOverlay.IsVisible = false;
+        VenueDetailAnalyticsSection.IsVisible = false;
+        VenueDetailStatusLabel.IsVisible = false;
     }
 
     private async Task HideProfileOverlayAsync(bool animated)
@@ -1824,51 +1836,153 @@ public partial class MainMapPage : ContentPage
         ProfileActionMessageLabel.IsVisible = false;
     }
 
-    private void PopulateProfileOverlay(UserProfile? profile, PresencePreview fallback)
+    private void PopulateVenueDetailHeader(VenueMarker marker)
     {
-        var displayName = profile?.DisplayName;
-        var nickname = string.IsNullOrWhiteSpace(profile?.Nickname) ? fallback.Nickname : profile!.Nickname;
-        var avatarUrl = string.IsNullOrWhiteSpace(profile?.AvatarUrl) ? fallback.AvatarUrl : profile!.AvatarUrl;
+        VenueDetailNameLabel.Text = marker.Name;
+        VenueDetailAddressLabel.Text = $"{marker.AddressLine}, {marker.City}";
+        VenueDetailCategoryPillLabel.Text = marker.Category;
+        VenueDetailCoverImage.Source = string.IsNullOrWhiteSpace(marker.CoverImageUrl)
+            ? null
+            : ImageSource.FromUri(new Uri(marker.CoverImageUrl));
+    }
 
-        ProfileAvatarHost.Children.Clear();
-        ProfileAvatarHost.Children.Add(CreateAvatarBadge(new PresencePreview
-        {
-            UserId = fallback.UserId,
-            DisplayName = string.IsNullOrWhiteSpace(displayName) ? fallback.DisplayName : displayName,
-            Nickname = nickname,
-            AvatarUrl = avatarUrl
-        }, 72));
+    private void PopulateVenueDetailContent(VenueMarker marker, VenueDetails details)
+    {
+        VenueDetailDescriptionLabel.Text = details.Description;
+        VenueDetailDescriptionLabel.IsVisible = !string.IsNullOrWhiteSpace(details.Description);
 
-        ProfileNameLabel.Text = string.IsNullOrWhiteSpace(displayName) ? fallback.DisplayName : displayName;
-        ProfileHandleLabel.Text = $"@{nickname}";
-        ProfileStatusLabel.Text = profile?.StatusLabel ?? "Caricamento profilo...";
-        ProfileRelationChipLabel.Text = profile?.RelationshipStatus switch
+        VenueDetailTagsLayout.Children.Clear();
+        if (details.Tags.Count > 0)
         {
-            null => "Profilo",
-            "friend" => "Amico",
-            "pending_sent" => "In attesa",
-            "pending_received" => "Ti ha aggiunto",
-            "self" => "Tu",
-            _ => "Non amico"
+            foreach (var tag in details.Tags)
+            {
+                var tagBorder = new Border
+                {
+                    Padding = new Thickness(8, 4),
+                    BackgroundColor = Color.FromArgb("#EEF8FF"),
+                    StrokeThickness = 0,
+                    StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                    Content = new Label
+                    {
+                        Text = tag,
+                        FontSize = 12,
+                        TextColor = Color.FromArgb("#1D4ED8")
+                    }
+                };
+                VenueDetailTagsLayout.Children.Add(tagBorder);
+            }
+        }
+        VenueDetailTagsLayout.IsVisible = details.Tags.Count > 0;
+
+        VenueDetailPeopleLabel.Text = details.PeopleEstimate.ToString();
+        VenueDetailDensityLabel.Text = details.DensityLevel switch
+        {
+            "very_low" => "Molto bassa",
+            "low" => "Bassa",
+            "medium" => "Media",
+            "high" => "Alta",
+            "very_high" => "Molto alta",
+            _ => "Stimata"
         };
-        ProfileFriendsChipLabel.Text = profile is null
-            ? "--"
-            : profile.MutualFriendsCount > 0
-                ? $"{profile.MutualFriendsCount} in comune"
-                : $"{profile.FriendsCount} amici";
-        ProfileMetaChipLabel.Text = BuildProfileMeta(profile);
-        ProfileBioLabel.Text = profile?.Bio ?? string.Empty;
-        ProfileBioLabel.IsVisible = !string.IsNullOrWhiteSpace(profile?.Bio);
-        ProfileInterestsLabel.Text = profile?.Interests.Count > 0
-            ? string.Join(" • ", profile.Interests)
-            : string.Empty;
-        ProfileInterestsLabel.IsVisible = profile?.Interests.Count > 0;
-        ProfileVenueLabel.Text = string.IsNullOrWhiteSpace(profile?.CurrentVenueName)
-            ? "Nessuna venue live"
-            : profile.CurrentVenueCategory is null
-                ? profile.CurrentVenueName
-                : $"{profile.CurrentVenueName} • {profile.CurrentVenueCategory}";
-        UpdateProfileActionState(profile, fallback);
+        VenueDetailTablesLabel.Text = details.UpcomingTables.Count.ToString();
+
+        VenueDetailHoursLabel.Text = details.HoursSummary;
+        VenueDetailHoursLabel.IsVisible = !string.IsNullOrWhiteSpace(details.HoursSummary);
+
+        VenueDetailPhoneLabel.Text = details.PhoneNumber;
+        VenueDetailPhoneLabel.IsVisible = !string.IsNullOrWhiteSpace(details.PhoneNumber);
+
+        VenueDetailWebsiteLabel.Text = string.IsNullOrWhiteSpace(details.WebsiteUrl) ? null : new Uri(details.WebsiteUrl).Host.Replace("www.", "");
+        VenueDetailWebsiteLabel.IsVisible = !string.IsNullOrWhiteSpace(details.WebsiteUrl);
+
+        // Analytics
+        VenueDetailAnalyticsSection.IsVisible = true;
+
+        // Demographics
+        VenueDetailDemographicsSection.IsVisible = details.DemographicDataAvailable;
+        if (details.DemographicDataAvailable)
+        {
+            VenueDetailInsufficientDataLabel.IsVisible = false;
+            VenueDetailAgeGrid.IsVisible = true;
+            VenueDetailGenderGrid.IsVisible = true;
+
+            var ageDict = details.AgeDistribution as Dictionary<string, object>;
+            if (ageDict is not null && ageDict.TryGetValue("18-24", out var age1824Obj) && age1824Obj is JsonElement age1824El && age1824El.TryGetInt32(out var age1824))
+                VenueDetailAge1824Label.Text = $"{age1824}%";
+            if (ageDict is not null && ageDict.TryGetValue("25-34", out var age2534Obj) && age2534Obj is JsonElement age2534El && age2534El.TryGetInt32(out var age2534))
+                VenueDetailAge2534Label.Text = $"{age2534}%";
+            if (ageDict is not null && ageDict.TryGetValue("35-44", out var age3544Obj) && age3544Obj is JsonElement age3544El && age3544El.TryGetInt32(out var age3544))
+                VenueDetailAge3544Label.Text = $"{age3544}%";
+            if (ageDict is not null && ageDict.TryGetValue("45+", out var age45PlusObj) && age45PlusObj is JsonElement age45PlusEl && age45PlusEl.TryGetInt32(out var age45Plus))
+                VenueDetailAge45PlusLabel.Text = $"{age45Plus}%";
+
+            var genderDict = details.GenderDistribution as Dictionary<string, object>;
+            if (genderDict is not null && genderDict.TryGetValue("male", out var maleObj) && maleObj is JsonElement maleEl && maleEl.TryGetInt32(out var male))
+                VenueDetailMaleLabel.Text = $"{male}%";
+            if (genderDict is not null && genderDict.TryGetValue("female", out var femaleObj) && femaleObj is JsonElement femaleEl && femaleEl.TryGetInt32(out var female))
+                VenueDetailFemaleLabel.Text = $"{female}%";
+        }
+        else
+        {
+            VenueDetailInsufficientDataLabel.IsVisible = true;
+            VenueDetailAgeGrid.IsVisible = false;
+            VenueDetailGenderGrid.IsVisible = false;
+        }
+
+        // Intentions (feature for future implementation)
+
+        // Trends
+        VenueDetailTrendsStack.Children.Clear();
+        if (details.AffluenceTrends.Count > 0)
+        {
+            // Group by hour and show peak times
+            var hourlyPeaks = details.AffluenceTrends
+                .GroupBy(x => x.BucketStartUtc.Hour)
+                .Select(g => new
+                {
+                    Hour = g.Key,
+                    PeakPeople = g.Max(x => x.PeopleEstimate),
+                    AvgPeople = (int)g.Average(x => x.PeopleEstimate),
+                    DensityLevels = g.Select(x => x.DensityLevel).Distinct().ToList()
+                })
+                .OrderBy(x => x.Hour)
+                .Take(8)
+                .ToList();
+
+            foreach (var peak in hourlyPeaks)
+            {
+                var densityText = string.Join("/", peak.DensityLevels);
+                var trendCard = new Border
+                {
+                    Padding = new Thickness(12, 8),
+                    BackgroundColor = Color.FromArgb("#F8FBFF"),
+                    StrokeThickness = 0,
+                    StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                    Content = new VerticalStackLayout
+                    {
+                        Spacing = 4,
+                        Children =
+                        {
+                            new Label
+                            {
+                                Text = $"{peak.Hour:00}:00 - Picco: {peak.PeakPeople} persone",
+                                FontSize = 13,
+                                FontAttributes = FontAttributes.Bold,
+                                TextColor = Color.FromArgb("#0F172A")
+                            },
+                            new Label
+                            {
+                                Text = $"Media: {peak.AvgPeople} • Affluenza: {densityText}",
+                                FontSize = 11,
+                                TextColor = Color.FromArgb("#64748B")
+                            }
+                        }
+                    }
+                };
+                VenueDetailTrendsStack.Children.Add(trendCard);
+            }
+        }
+        VenueDetailTrendsSection.IsVisible = details.AffluenceTrends.Count > 0;
     }
 
     private async Task ShowSocialOverlayAsync(bool forceRefresh)
@@ -1882,7 +1996,8 @@ public partial class MainMapPage : ContentPage
         SocialOverlay.IsVisible = true;
         SocialSheet.TranslationY = 480;
         await SocialSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
-        if (forceRefresh || _socialHub is null || _socialMeState is null)
+        var socialCacheStale = (DateTimeOffset.UtcNow - _socialOverlayLastRefreshUtc) > SocialOverlayCacheDuration;
+        if (forceRefresh || _socialHub is null || _socialMeState is null || socialCacheStale)
         {
             await RefreshSocialOverlayAsync();
         }
@@ -1932,6 +2047,7 @@ public partial class MainMapPage : ContentPage
             _socialMeState = await meStateTask;
             _socialTables = await tablesTask;
             _messageInbox = await inboxTask;
+            _socialOverlayLastRefreshUtc = DateTimeOffset.UtcNow;
             PopulateSocialOverlay(_socialHub, _socialMeState, _socialTables);
         }
         catch (Exception ex)

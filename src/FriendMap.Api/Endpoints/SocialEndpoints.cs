@@ -911,6 +911,150 @@ public static class SocialEndpoints
             return Results.Ok(participant);
         });
 
+        group.MapPost("/users/{targetUserId:guid}/block", async (
+            Guid targetUserId,
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            if (targetUserId == Guid.Empty || targetUserId == currentUserId)
+            {
+                return Results.BadRequest("Non puoi bloccare te stesso.");
+            }
+
+            var targetExists = await db.Users.AnyAsync(x => x.Id == targetUserId, ct);
+            if (!targetExists)
+            {
+                return Results.NotFound("Utente non trovato.");
+            }
+
+            var existingBlock = await db.UserBlocks
+                .FirstOrDefaultAsync(x =>
+                    (x.BlockerUserId == currentUserId && x.BlockedUserId == targetUserId) ||
+                    (x.BlockerUserId == targetUserId && x.BlockedUserId == currentUserId), ct);
+
+            if (existingBlock is not null)
+            {
+                return Results.Conflict("Relazione già bloccata.");
+            }
+
+            // Remove any friend relations
+            var relations = await db.FriendRelations
+                .Where(x =>
+                    (x.RequesterId == currentUserId && x.AddresseeId == targetUserId) ||
+                    (x.RequesterId == targetUserId && x.AddresseeId == currentUserId))
+                .ToListAsync(ct);
+
+            if (relations.Count > 0)
+            {
+                db.FriendRelations.RemoveRange(relations);
+            }
+
+            // Remove from any shared tables
+            var sharedTables = await db.SocialTableParticipants
+                .Where(x => x.UserId == currentUserId || x.UserId == targetUserId)
+                .GroupBy(x => x.SocialTableId)
+                .Where(g => g.Count() == 2)
+                .Select(g => g.Key)
+                .ToListAsync(ct);
+
+            if (sharedTables.Count > 0)
+            {
+                var participantsToRemove = await db.SocialTableParticipants
+                    .Where(x => sharedTables.Contains(x.SocialTableId) && x.UserId == currentUserId)
+                    .ToListAsync(ct);
+
+                db.SocialTableParticipants.RemoveRange(participantsToRemove);
+            }
+
+            var block = new UserBlock
+            {
+                BlockerUserId = currentUserId,
+                BlockedUserId = targetUserId
+            };
+
+            db.UserBlocks.Add(block);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new SocialActionResultDto("blocked", "Utente bloccato."));
+        });
+
+        group.MapPost("/users/{targetUserId:guid}/unblock", async (
+            Guid targetUserId,
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var block = await db.UserBlocks
+                .FirstOrDefaultAsync(x =>
+                    x.BlockerUserId == currentUserId && x.BlockedUserId == targetUserId, ct);
+
+            if (block is null)
+            {
+                return Results.NotFound("Blocco non trovato.");
+            }
+
+            db.UserBlocks.Remove(block);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new SocialActionResultDto("unblocked", "Utente sbloccato."));
+        });
+
+        group.MapPost("/users/{targetUserId:guid}/report", async (
+            Guid targetUserId,
+            ReportUserRequest request,
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            if (targetUserId == Guid.Empty || targetUserId == currentUserId)
+            {
+                return Results.BadRequest("Non puoi segnalare te stesso.");
+            }
+
+            var targetExists = await db.Users.AnyAsync(x => x.Id == targetUserId, ct);
+            if (!targetExists)
+            {
+                return Results.NotFound("Utente non trovato.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Reason))
+            {
+                return Results.BadRequest("Motivo della segnalazione richiesto.");
+            }
+
+            var report = new UserReport
+            {
+                ReporterUserId = currentUserId,
+                ReportedUserId = targetUserId,
+                Reason = request.Reason.Trim(),
+                Details = request.Details?.Trim()
+            };
+
+            db.UserReports.Add(report);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new SocialActionResultDto("reported", "Segnalazione inviata."));
+        });
+
         return group;
     }
 

@@ -6,4 +6,5 @@
     xmlns:pages="clr-namespace:FriendMap.Mobile.Pages"
     FlyoutBehavior="Disabled">
     <ShellContent Route="login" ContentTemplate="{DataTemplate pages:LoginPage}" />
+    <ShellContent Route="main" ContentTemplate="{DataTemplate pages:MainMapPage}" />
 </Shell>

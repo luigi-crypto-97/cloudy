@@ -317,7 +317,7 @@ public class ApiClient
     {
         await EnsureAuthenticatedAsync();
         var response = await _httpClient.PostAsJsonAsync(
-            "api/social/check-ins",
+            $"api/venues/{venueId}/checkins",
             new CreateCheckInRequest(userId, venueId, ttlMinutes));
 
         await EnsureSuccessAsync(response);
@@ -327,7 +327,7 @@ public class ApiClient
     {
         await EnsureAuthenticatedAsync();
         var response = await _httpClient.PostAsJsonAsync(
-            "api/social/intentions",
+            $"api/venues/{venueId}/intentions",
             new CreateIntentionRequest(userId, venueId, startsAtUtc, endsAtUtc, note));
 
         await EnsureSuccessAsync(response);
@@ -337,7 +337,7 @@ public class ApiClient
     {
         await EnsureAuthenticatedAsync();
         var response = await _httpClient.PostAsJsonAsync(
-            "api/social/tables",
+            $"api/venues/{venueId}/tables",
             new CreateSocialTableRequest(hostUserId, venueId, title, description, startsAtUtc, capacity, joinPolicy));
 
         await EnsureSuccessAsync(response);

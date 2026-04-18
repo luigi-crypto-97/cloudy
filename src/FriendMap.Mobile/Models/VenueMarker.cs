@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FriendMap.Mobile.Models;
 
 public class VenueMarker
@@ -42,13 +44,26 @@ public class VenueDetails
     public string DensityLevel { get; set; } = "unknown";
     public int PeopleEstimate { get; set; }
     public bool DemographicDataAvailable { get; set; }
+    public object? AgeDistribution { get; set; }
+    public object? GenderDistribution { get; set; }
+    public List<IntentionWindow> IntentionWindows { get; set; } = new();
     public List<SocialTableSummary> UpcomingTables { get; set; } = new();
+    public List<AffluenceTrendPoint> AffluenceTrends { get; set; } = new();
 }
 
-public class PresencePreview
+public class IntentionWindow
 {
-    public Guid UserId { get; set; }
-    public string DisplayName { get; set; } = string.Empty;
-    public string Nickname { get; set; } = string.Empty;
-    public string? AvatarUrl { get; set; }
+    public DateTime StartsAtUtc { get; set; }
+    public DateTime EndsAtUtc { get; set; }
+    public int Count { get; set; }
+}
+
+public class AffluenceTrendPoint
+{
+    public DateTime BucketStartUtc { get; set; }
+    public int PeopleEstimate { get; set; }
+    public string DensityLevel { get; set; } = string.Empty;
+    public int CheckInCount { get; set; }
+    public int IntentionCount { get; set; }
+    public int TableCount { get; set; }
 }

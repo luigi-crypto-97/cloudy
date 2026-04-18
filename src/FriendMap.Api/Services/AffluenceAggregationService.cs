@@ -301,6 +301,20 @@ public class AffluenceAggregationService
             .Take(12)
             .ToList();
 
+        // Get last 24 hours of affluence trends (every 15 minutes)
+        var trendsStart = DateTimeOffset.UtcNow.AddHours(-24);
+        var trends = await _db.VenueAffluenceSnapshots
+            .Where(x => x.VenueId == venueId && x.BucketStartUtc >= trendsStart)
+            .OrderBy(x => x.BucketStartUtc)
+            .Select(x => new AffluenceTrendPointDto(
+                x.BucketStartUtc,
+                x.ActiveUsersEstimated,
+                x.DensityLevel,
+                0, // Will be calculated differently if needed
+                0, // Will be calculated differently if needed
+                0)) // Will be calculated differently if needed
+            .ToListAsync(ct);
+
         object? ages = null;
         object? genders = null;
         var showDemographics = latestSnapshot is not null && !latestSnapshot.IsSuppressedForPrivacy;
@@ -341,7 +355,8 @@ public class AffluenceAggregationService
                     t.JoinPolicy,
                     t.Status);
             }),
-            intentions);
+            intentions,
+            trends);
     }
 
     private static IReadOnlyList<string> ParseVenueTags(string? tagsCsv)

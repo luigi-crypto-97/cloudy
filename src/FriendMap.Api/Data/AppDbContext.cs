@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<DirectMessageThread> DirectMessageThreads => Set<DirectMessageThread>();
     public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
     public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+    public DbSet<UserReport> UserReports => Set<UserReport>();
     public DbSet<ModerationReport> ModerationReports => Set<ModerationReport>();
     public DbSet<VenueAffluenceSnapshot> VenueAffluenceSnapshots => Set<VenueAffluenceSnapshot>();
     public DbSet<NotificationDeviceToken> NotificationDeviceTokens => Set<NotificationDeviceToken>();
@@ -40,6 +41,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<DirectMessageThread>().ToTable("direct_message_threads");
         modelBuilder.Entity<DirectMessage>().ToTable("direct_messages");
         modelBuilder.Entity<UserBlock>().ToTable("user_blocks");
+        modelBuilder.Entity<UserReport>().ToTable("user_reports");
         modelBuilder.Entity<ModerationReport>().ToTable("moderation_reports");
         modelBuilder.Entity<VenueAffluenceSnapshot>().ToTable("venue_affluence_snapshots");
         modelBuilder.Entity<NotificationDeviceToken>().ToTable("notification_device_tokens");
