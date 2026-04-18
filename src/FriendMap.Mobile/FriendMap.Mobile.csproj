@@ -29,6 +29,7 @@
   <ItemGroup>
     <MauiIcon Include="Resources/AppIcon/cloudy.png" BaseSize="1024,1024" />
     <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#F8FAFC" BaseSize="256,256" />
+    <MauiImage Include="Resources/Images/icon_*.svg" />
   </ItemGroup>
 
   <ItemGroup>

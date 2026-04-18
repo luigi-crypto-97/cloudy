@@ -101,7 +101,7 @@
                         <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.16" />
                     </Border.Shadow>
                     <ImageButton x:Name="QuickMenuButton"
-                             Source="icon-compass-blue.svg"
+                             Source="icon_compass_blue.svg"
                              WidthRequest="52"
                              HeightRequest="52"
                              MinimumHeightRequest="52"
@@ -257,7 +257,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-search-blue.svg"
+                            <ImageButton Source="icon_search_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -289,7 +289,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-sliders-blue.svg"
+                            <ImageButton Source="icon_sliders_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -321,7 +321,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-cloud-blue.svg"
+                            <ImageButton Source="icon_cloud_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -353,7 +353,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-moon-blue.svg"
+                            <ImageButton Source="icon_moon_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -386,7 +386,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-refresh-blue.svg"
+                            <ImageButton Source="icon_refresh_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -418,7 +418,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-focus-blue.svg"
+                            <ImageButton Source="icon_focus_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -450,7 +450,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-location-blue.svg"
+                            <ImageButton Source="icon_location_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -482,7 +482,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-users-blue.svg"
+                            <ImageButton Source="icon_users_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -514,7 +514,7 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon-server-blue.svg"
+                            <ImageButton Source="icon_server_blue.svg"
                                          WidthRequest="38"
                                          HeightRequest="38"
                                          Padding="9"
@@ -698,7 +698,7 @@
                     </Border>
 
                     <ImageButton Grid.Column="2"
-                                 Source="icon-close-blue.svg"
+                                 Source="icon_close_blue.svg"
                                  Command="{Binding DismissSelectionCommand}"
                                  Style="{StaticResource OverlayCloseButtonStyle}" />
                 </Grid>
@@ -790,7 +790,7 @@
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                     <Button Text="Check-in"
                             Command="{Binding CheckInCommand}"
-                            ImageSource="icon-checkin-white.svg"
+                            ImageSource="icon_checkin_white.svg"
                             ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
@@ -800,7 +800,7 @@
                     <Button Grid.Column="1"
                             Text="Ci vado"
                             Command="{Binding PlanIntentionCommand}"
-                            ImageSource="icon-intention-blue.svg"
+                            ImageSource="icon_intention_blue.svg"
                             ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
@@ -810,7 +810,7 @@
                     <Button Grid.Column="2"
                             Text="Tavolo"
                             Command="{Binding CreateTableCommand}"
-                            ImageSource="icon-table-blue.svg"
+                            ImageSource="icon_table_blue.svg"
                             ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
                             MinimumHeightRequest="42"
@@ -881,7 +881,7 @@
                                 </Border>
 
                                 <ImageButton Grid.Column="1"
-                                             Source="icon-close-blue.svg"
+                                             Source="icon_close_blue.svg"
                                              Clicked="OnVenueDetailOverlayCloseClicked"
                                              Style="{StaticResource OverlayCloseButtonStyle}" />
                             </Grid>
@@ -1154,7 +1154,7 @@
                                   ColumnSpacing="8">
                                 <Button Text="Sono qui"
                                         Command="{Binding CheckInCommand}"
-                                        ImageSource="icon-checkin-blue.svg"
+                                        ImageSource="icon_checkin_white.svg"
                                         ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
@@ -1163,7 +1163,7 @@
                                 <Button Grid.Column="1"
                                         Text="Ci vado"
                                         Command="{Binding PlanIntentionCommand}"
-                                        ImageSource="icon-intention-blue.svg"
+                                        ImageSource="icon_intention_blue.svg"
                                         ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
@@ -1172,7 +1172,7 @@
                                 <Button Grid.Column="2"
                                         Text="Tavolo"
                                         Command="{Binding CreateTableCommand}"
-                                        ImageSource="icon-table-blue.svg"
+                                        ImageSource="icon_table_blue.svg"
                                         ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
                                         Padding="10,10"
@@ -1240,7 +1240,7 @@
                     </VerticalStackLayout>
 
                     <ImageButton Grid.Column="1"
-                                 Source="icon-close-blue.svg"
+                                 Source="icon_close_blue.svg"
                                  Clicked="OnAreaDismissClicked"
                                  Style="{StaticResource OverlayCloseButtonStyle}" />
                 </Grid>
@@ -1301,7 +1301,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="1"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnPresenceOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -1358,7 +1358,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="2"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnProfileOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -1460,7 +1460,7 @@
                         <Button x:Name="ProfileMessageActionButton"
                                 Text="Chat"
                                 Clicked="OnProfileMessageClicked"
-                                ImageSource="icon-chat-blue.svg"
+                                ImageSource="icon_chat_blue.svg"
                                 ContentLayout="Left,8"
                                 MinimumHeightRequest="42"
                                 Padding="10,10"
@@ -1479,7 +1479,7 @@
                     <Button x:Name="ProfileReportActionButton"
                             Text="Segnala"
                             Clicked="OnProfileReportClicked"
-                            ImageSource="icon-flag-blue.svg"
+                            ImageSource="icon_flag_blue.svg"
                             ContentLayout="Left,8"
                             MinimumHeightRequest="40"
                             Padding="10,10"
@@ -1537,7 +1537,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="1"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnSocialOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -1746,7 +1746,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="1"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnTableOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -1846,7 +1846,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="1"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnEditProfileOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -1971,7 +1971,7 @@
                         </VerticalStackLayout>
 
                         <ImageButton Grid.Column="1"
-                                     Source="icon-close-blue.svg"
+                                     Source="icon_close_blue.svg"
                                      Clicked="OnDirectMessageOverlayCloseClicked"
                                      Style="{StaticResource OverlayCloseButtonStyle}" />
                     </Grid>
@@ -2030,7 +2030,7 @@
                         <Border.Shadow>
                             <Shadow Brush="#222563EB" Offset="0,10" Radius="22" Opacity="0.24" />
                         </Border.Shadow>
-                        <Image Source="icon-map-white.svg"
+                        <Image Source="icon_map_white.svg"
                                WidthRequest="22"
                                HeightRequest="22"
                                HorizontalOptions="Center"
@@ -2044,7 +2044,7 @@
                 <VerticalStackLayout Grid.Column="1"
                                      Spacing="6"
                                      HorizontalOptions="Center">
-                    <ImageButton Source="icon-users-blue.svg"
+                    <ImageButton Source="icon_users_blue.svg"
                                  WidthRequest="54"
                                  HeightRequest="54"
                                  MinimumHeightRequest="54"
