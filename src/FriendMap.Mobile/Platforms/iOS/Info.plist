@@ -38,6 +38,8 @@
   <string>FriendMap puo salvare o aggiornare immagini profilo generate localmente.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
     <key>NSAllowsLocalNetworking</key>
     <true/>
   </dict>
