@@ -47,6 +47,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ApnsOptions>(builder.Configuration.GetSection("Apns"));
 builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.GetSection("Notifications"));
+builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(

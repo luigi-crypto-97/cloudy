@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Text.Json;
 using FriendMap.Api.Contracts;
 using FriendMap.Api.Data;
 using FriendMap.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
 namespace FriendMap.Api.Services;
@@ -10,12 +12,15 @@ namespace FriendMap.Api.Services;
 public class AffluenceAggregationService
 {
     private const double EarthRadiusMeters = 6_371_000d;
+    private static readonly TimeSpan MapLayerCacheTtl = TimeSpan.FromSeconds(8);
     private readonly AppDbContext _db;
+    private readonly IMemoryCache _cache;
     private readonly PrivacyOptions _privacy;
 
-    public AffluenceAggregationService(AppDbContext db, IOptions<PrivacyOptions> privacy)
+    public AffluenceAggregationService(AppDbContext db, IMemoryCache cache, IOptions<PrivacyOptions> privacy)
     {
         _db = db;
+        _cache = cache;
         _privacy = privacy.Value;
     }
 
@@ -48,6 +53,7 @@ public class AffluenceAggregationService
                   AND ST_Intersects(location, ST_MakeEnvelope({west}, {south}, {east}, {north}, 4326)::geography)
                 ORDER BY name
                 """)
+            .AsNoTracking()
             .Take(300)
             .ToListAsync(ct);
 
@@ -92,6 +98,7 @@ public class AffluenceAggregationService
         var venueIds = venues.Select(x => x.Id).ToList();
 
         var latestSnapshots = await _db.VenueAffluenceSnapshots
+            .AsNoTracking()
             .Where(x => venueIds.Contains(x.VenueId))
             .GroupBy(x => x.VenueId)
             .Select(g => g.OrderByDescending(x => x.BucketStartUtc).First())
@@ -100,14 +107,17 @@ public class AffluenceAggregationService
         var snapshotMap = latestSnapshots.ToDictionary(x => x.VenueId);
 
         var activeCheckIns = await _db.VenueCheckIns
+            .AsNoTracking()
             .Where(x => venueIds.Contains(x.VenueId) && x.ExpiresAtUtc >= now)
             .ToListAsync(ct);
 
         var activeIntentions = await _db.VenueIntentions
+            .AsNoTracking()
             .Where(x => venueIds.Contains(x.VenueId) && x.EndsAtUtc >= now && x.StartsAtUtc <= now.AddHours(3))
             .ToListAsync(ct);
 
         var openTables = await _db.SocialTables
+            .AsNoTracking()
             .Where(x => venueIds.Contains(x.VenueId) && x.Status == "open" && x.StartsAtUtc >= now)
             .ToListAsync(ct);
 
@@ -115,6 +125,7 @@ public class AffluenceAggregationService
         var tableParticipants = openTableIds.Count == 0
             ? new List<SocialTableParticipant>()
             : await _db.SocialTableParticipants
+                .AsNoTracking()
                 .Where(x => openTableIds.Contains(x.SocialTableId) && x.Status == "accepted")
                 .ToListAsync(ct);
 
@@ -122,6 +133,7 @@ public class AffluenceAggregationService
         if (viewerUserId != Guid.Empty)
         {
             var relations = await _db.FriendRelations
+                .AsNoTracking()
                 .Where(x => x.Status == "accepted" && (x.RequesterId == viewerUserId || x.AddresseeId == viewerUserId))
                 .ToListAsync(ct);
 
@@ -141,6 +153,7 @@ public class AffluenceAggregationService
         var socialUsers = socialUserIds.Count == 0
             ? new Dictionary<Guid, AppUser>()
             : await _db.Users
+                .AsNoTracking()
                 .Where(x => socialUserIds.Contains(x.Id))
                 .ToDictionaryAsync(x => x.Id, ct);
 
@@ -254,6 +267,23 @@ public class AffluenceAggregationService
         double? maxDistanceKm,
         CancellationToken ct)
     {
+        var cacheKey = BuildMapLayerCacheKey(
+            minLat,
+            minLng,
+            maxLat,
+            maxLng,
+            viewerUserId,
+            query,
+            category,
+            openNowOnly,
+            centerLat,
+            centerLng,
+            maxDistanceKm);
+        if (_cache.TryGetValue(cacheKey, out VenueMapLayerDto? cachedLayer) && cachedLayer is not null)
+        {
+            return cachedLayer;
+        }
+
         var markers = await GetVenueMarkersAsync(
             minLat,
             minLng,
@@ -268,7 +298,9 @@ public class AffluenceAggregationService
             maxDistanceKm,
             ct);
         var areas = BuildVenueAreas(markers, minLat, minLng, maxLat, maxLng);
-        return new VenueMapLayerDto(markers, areas);
+        var layer = new VenueMapLayerDto(markers, areas);
+        _cache.Set(cacheKey, layer, MapLayerCacheTtl);
+        return layer;
     }
 
     public async Task<VenueDetailsDto?> GetVenueDetailsAsync(Guid venueId, CancellationToken ct)
@@ -720,6 +752,37 @@ public class AffluenceAggregationService
         }
 
         return parts.Count == 0 ? "Area live" : string.Join(" ", parts);
+    }
+
+    private static string BuildMapLayerCacheKey(
+        double minLat,
+        double minLng,
+        double maxLat,
+        double maxLng,
+        Guid viewerUserId,
+        string? query,
+        string? category,
+        bool openNowOnly,
+        double? centerLat,
+        double? centerLng,
+        double? maxDistanceKm)
+    {
+        static string Q(double value) => Math.Round(value, 3, MidpointRounding.AwayFromZero).ToString("0.000", CultureInfo.InvariantCulture);
+        static string S(string? value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToLowerInvariant();
+
+        return string.Join('|',
+            "venue-map-layer",
+            viewerUserId.ToString("N"),
+            Q(Math.Min(minLat, maxLat)),
+            Q(Math.Min(minLng, maxLng)),
+            Q(Math.Max(minLat, maxLat)),
+            Q(Math.Max(minLng, maxLng)),
+            S(query),
+            S(category),
+            openNowOnly ? "open" : "all",
+            centerLat is null ? string.Empty : Q(centerLat.Value),
+            centerLng is null ? string.Empty : Q(centerLng.Value),
+            maxDistanceKm is null ? string.Empty : Math.Round(maxDistanceKm.Value, 1, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture));
     }
 
     private readonly record struct AreaPoint(double Latitude, double Longitude);

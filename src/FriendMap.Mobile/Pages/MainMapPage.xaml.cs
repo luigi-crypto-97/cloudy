@@ -29,6 +29,7 @@ public partial class MainMapPage : ContentPage
     private readonly ApiClient _apiClient;
 
     private CancellationTokenSource? _viewportRefreshCts;
+    private CancellationTokenSource? _overlayRenderCts;
     private CancellationTokenSource? _discoveryRefreshCts;
     private SocialHub? _socialHub;
     private SocialMeState? _socialMeState;
@@ -115,6 +116,7 @@ public partial class MainMapPage : ContentPage
         base.OnDisappearing();
         StopOverlaySyncTimer();
         CancelPendingViewportRefresh();
+        CancelPendingOverlayRender();
         CancelPendingDiscoveryRefresh();
     }
 
@@ -495,7 +497,7 @@ public partial class MainMapPage : ContentPage
         }
 
         _lastOverlayViewport = null;
-        RenderViewportOverlay();
+        ScheduleOverlayRender(TimeSpan.FromMilliseconds(120));
 
         if (DateTimeOffset.UtcNow < _suspendViewportRefreshUntilUtc)
         {
@@ -3440,7 +3442,7 @@ public partial class MainMapPage : ContentPage
                 return;
             }
 
-            RenderViewportOverlay();
+            ScheduleOverlayRender(TimeSpan.Zero);
         };
         _overlaySyncTimer.Start();
     }
@@ -3493,6 +3495,46 @@ public partial class MainMapPage : ContentPage
         _viewportRefreshCts.Cancel();
         _viewportRefreshCts.Dispose();
         _viewportRefreshCts = null;
+    }
+
+    private void ScheduleOverlayRender(TimeSpan delay)
+    {
+        CancelPendingOverlayRender();
+        _overlayRenderCts = new CancellationTokenSource();
+        var token = _overlayRenderCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, token);
+                }
+
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await MainThread.InvokeOnMainThreadAsync(RenderViewportOverlay);
+            }
+            catch (TaskCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    private void CancelPendingOverlayRender()
+    {
+        if (_overlayRenderCts is null)
+        {
+            return;
+        }
+
+        _overlayRenderCts.Cancel();
+        _overlayRenderCts.Dispose();
+        _overlayRenderCts = null;
     }
 
     private void SuspendViewportRefreshFor(TimeSpan duration)

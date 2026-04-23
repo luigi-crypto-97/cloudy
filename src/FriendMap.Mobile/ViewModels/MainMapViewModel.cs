@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text;
 using System.Windows.Input;
 using FriendMap.Mobile.Models;
 using FriendMap.Mobile.Services;
@@ -17,6 +18,7 @@ public class MainMapViewModel : BindableObject
     private double? _maxDistanceKm;
     private string? _statusMessage;
     private string? _actionMessage;
+    private string? _lastLayerSignature;
     private Color _statusColor = Color.FromArgb("#B91C1C");
 
     public ObservableCollection<VenueMarker> Markers { get; } = new();
@@ -254,12 +256,20 @@ public class MainMapViewModel : BindableObject
                 OpenNowOnly,
                 MaxDistanceKm);
             var markers = layer.Markers ?? new List<VenueMarker>();
-            Markers.Clear();
-            foreach (var marker in markers)
-            {
-                Markers.Add(marker);
-            }
             Areas = layer.Areas ?? new List<MapArea>();
+            var nextLayerSignature = BuildLayerSignature(markers, Areas);
+            var hasLayerChanged = !string.Equals(_lastLayerSignature, nextLayerSignature, StringComparison.Ordinal);
+
+            if (hasLayerChanged)
+            {
+                Markers.Clear();
+                foreach (var marker in markers)
+                {
+                    Markers.Add(marker);
+                }
+
+                _lastLayerSignature = nextLayerSignature;
+            }
 
             if (markers.Count > 0 || SelectedMarker is not null)
             {
@@ -278,13 +288,17 @@ public class MainMapViewModel : BindableObject
 
             OnPropertyChanged(nameof(HasMarkers));
             OnPropertyChanged(nameof(ShowEmptyState));
-            MarkersRefreshed?.Invoke(this, EventArgs.Empty);
+            if (hasLayerChanged)
+            {
+                MarkersRefreshed?.Invoke(this, EventArgs.Empty);
+            }
         }
         catch (Exception ex)
         {
             Markers.Clear();
             Areas = Array.Empty<MapArea>();
             SelectedMarker = null;
+            _lastLayerSignature = null;
             ActionMessage = null;
             StatusColor = Color.FromArgb("#B91C1C");
             StatusMessage = $"Impossibile caricare la mappa. Verifica Backend URL e API LAN. Dettaglio: {_apiClient.DescribeException(ex)}";
@@ -443,5 +457,46 @@ public class MainMapViewModel : BindableObject
         }
 
         return uri.Host.Replace("www.", string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string BuildLayerSignature(IReadOnlyList<VenueMarker> markers, IReadOnlyList<MapArea> areas)
+    {
+        var builder = new StringBuilder(markers.Count * 48 + areas.Count * 40);
+        foreach (var marker in markers.OrderBy(x => x.VenueId))
+        {
+            builder
+                .Append(marker.VenueId.ToString("N"))
+                .Append(':')
+                .Append(marker.PeopleEstimate)
+                .Append(':')
+                .Append(marker.BubbleIntensity)
+                .Append(':')
+                .Append(marker.ActiveCheckIns)
+                .Append(':')
+                .Append(marker.ActiveIntentions)
+                .Append(':')
+                .Append(marker.OpenTables)
+                .Append(':')
+                .Append(marker.PresencePreview.Count)
+                .Append(';');
+        }
+
+        builder.Append("|areas:");
+        foreach (var area in areas.OrderBy(x => x.AreaId))
+        {
+            builder
+                .Append(area.AreaId)
+                .Append(':')
+                .Append(area.PeopleCount)
+                .Append(':')
+                .Append(area.BubbleIntensity)
+                .Append(':')
+                .Append(area.VenueCount)
+                .Append(':')
+                .Append(area.PresenceCount)
+                .Append(';');
+        }
+
+        return builder.ToString();
     }
 }
