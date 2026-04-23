@@ -16,3 +16,4 @@ TestResults/
 coverage/
 
 *.log
+/src/FriendMap.Api/wwwroot/uploads
