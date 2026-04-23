@@ -14,6 +14,7 @@ namespace FriendMap.Mobile.Pages;
 public partial class MainMapPage : ContentPage
 {
     private const bool EnableNativeIosCloudAnnotations = false;
+    private static readonly bool UseLightweightVenueBadges = true;
     private const double HiddenSheetPadding = 28;
     private const double MinimumTeaserVisibleHeight = 116;
     private const double MinimumCollapsedVisibleHeight = 288;
@@ -145,7 +146,7 @@ public partial class MainMapPage : ContentPage
         await HideEditProfileOverlayAsync(animated: false);
         await HideDirectMessageOverlayAsync(animated: false);
         ClearAreaSelection();
-        await Shell.Current.Navigation.PopToRootAsync();
+        await Shell.Current.GoToAsync("//login");
     }
 
     private async void OnSocialClicked(object sender, EventArgs e)
@@ -1147,7 +1148,16 @@ public partial class MainMapPage : ContentPage
                 .Where(x => viewport.Contains(x.Latitude, x.Longitude))
                 .ToList();
 
-            if (visibleMarkers.Count > 0 && _viewModel.Areas.Count > 0)
+            if (UseLightweightVenueBadges)
+            {
+                if (_selectedAreaClusterKey is not null)
+                {
+                    ClearAreaSelection();
+                }
+
+                RenderVenueCountBadges(visibleMarkers, viewport, insets);
+            }
+            else if (visibleMarkers.Count > 0 && _viewModel.Areas.Count > 0)
             {
                 var clusters = BuildOverlayAreas(visibleMarkers, viewport, insets);
                 if (_selectedAreaClusterKey is not null)
@@ -1197,6 +1207,72 @@ public partial class MainMapPage : ContentPage
 
         RenderCurrentUserOverlay(viewport, insets);
         RenderAreaSelectionState();
+    }
+
+    private void RenderVenueCountBadges(IReadOnlyList<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
+    {
+        foreach (var marker in markers)
+        {
+            if (!TryGetOverlayAnchorPoint(marker.Latitude, marker.Longitude, viewport, insets, out var anchor))
+            {
+                continue;
+            }
+
+            var badge = CreateVenueCountBadge(marker, viewport);
+            var size = badge.WidthRequest;
+            AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
+            AbsoluteLayout.SetLayoutBounds(badge, new Rect(anchor.X - size / 2d, anchor.Y - size / 2d, size, size));
+            BubbleLayer.Children.Add(badge);
+        }
+    }
+
+    private View CreateVenueCountBadge(VenueMarker marker, MapViewport viewport)
+    {
+        var peopleCount = GetMarkerPeopleCount(marker);
+        var zoomScale = ResolveBubbleZoomScale(viewport);
+        var size = Math.Clamp((32 + Math.Min(10, marker.BubbleIntensity / 8d)) * zoomScale, 28, 44);
+        var color = ResolveSignalColor(marker);
+        var textColor = marker.BubbleIntensity < 25 && marker.ActiveCheckIns == 0 && marker.ActiveIntentions == 0 && marker.OpenTables == 0
+            ? Color.FromArgb("#1D4ED8")
+            : Colors.White;
+
+        var badge = new Border
+        {
+            WidthRequest = size,
+            HeightRequest = size,
+            Padding = 0,
+            BackgroundColor = color == Colors.Transparent ? Color.FromArgb("#DBEAFE") : color,
+            Stroke = Colors.White,
+            StrokeThickness = 2,
+            StrokeShape = new RoundRectangle { CornerRadius = size / 2d },
+            Shadow = new Shadow
+            {
+                Brush = new SolidColorBrush(Colors.Black),
+                Offset = new Point(0, 4),
+                Radius = 9,
+                Opacity = 0.16f
+            },
+            Content = new Label
+            {
+                Text = peopleCount.ToString(),
+                FontSize = peopleCount > 99 ? 10 : 12,
+                FontAttributes = FontAttributes.Bold,
+                TextColor = textColor,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            }
+        };
+
+        badge.GestureRecognizers.Add(new TapGestureRecognizer
+        {
+            Command = new Command(() =>
+            {
+                ClearAreaSelection();
+                _viewModel.SelectMarker(marker);
+            })
+        });
+
+        return badge;
     }
 
     private void ApplyMapMood()

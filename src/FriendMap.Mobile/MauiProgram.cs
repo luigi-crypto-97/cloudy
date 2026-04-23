@@ -15,7 +15,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<ApiClient>();
         builder.Services.AddSingleton<IDevicePermissionService, DevicePermissionService>();
-        builder.Services.AddTransient<LoginViewModel>();
+        builder.Services.AddSingleton<LoginViewModel>();
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<MainMapViewModel>();
         builder.Services.AddTransient<MainMapPage>();

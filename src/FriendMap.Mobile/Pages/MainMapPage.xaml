@@ -100,16 +100,19 @@
                     <Border.Shadow>
                         <Shadow Brush="#180F172A" Offset="0,10" Radius="24" Opacity="0.16" />
                     </Border.Shadow>
-                    <ImageButton x:Name="QuickMenuButton"
-                             Source="icon_compass_blue.svg"
-                             WidthRequest="52"
-                             HeightRequest="52"
-                             MinimumHeightRequest="52"
-                             Padding="14"
-                             Clicked="OnQuickMenuToggleClicked"
-                             BackgroundColor="Transparent"
-                             BorderWidth="0"
-                             CornerRadius="18" />
+                    <Button x:Name="QuickMenuButton"
+                            Text="⌖"
+                            WidthRequest="52"
+                            HeightRequest="52"
+                            MinimumHeightRequest="52"
+                            Padding="0"
+                            Clicked="OnQuickMenuToggleClicked"
+                            BackgroundColor="Transparent"
+                            BorderWidth="0"
+                            CornerRadius="18"
+                            FontSize="25"
+                            FontAttributes="Bold"
+                            TextColor="#2563EB" />
                 </Border>
             </Grid>
 
@@ -257,14 +260,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_search_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnQuickSearchToggleClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="⌕"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnQuickSearchToggleClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="20"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Cerca"
@@ -289,14 +295,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_sliders_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnQuickFiltersToggleClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="≡"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnQuickFiltersToggleClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="22"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Filtri"
@@ -321,14 +330,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_cloud_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnLegendToggleClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="●"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnLegendToggleClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="18"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Live"
@@ -353,14 +365,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_moon_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnContrastModeToggleClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="◐"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnContrastModeToggleClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="20"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label x:Name="QuickModeLabel"
                                Grid.Column="1"
@@ -386,14 +401,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_refresh_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnRefreshClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="↻"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnRefreshClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="22"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Aggiorna"
@@ -418,14 +436,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_focus_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnFocusMarkersClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="◎"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnFocusMarkersClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="20"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Locali"
@@ -450,14 +471,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_location_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnCenterUserLocationClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="⌖"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnCenterUserLocationClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="20"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Posizione"
@@ -482,14 +506,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_users_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnSocialClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="◇"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnSocialClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="21"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Social"
@@ -514,14 +541,17 @@
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
-                            <ImageButton Source="icon_server_blue.svg"
-                                         WidthRequest="38"
-                                         HeightRequest="38"
-                                         Padding="9"
-                                         Clicked="OnServerClicked"
-                                         BackgroundColor="Transparent"
-                                         BorderWidth="0"
-                                         CornerRadius="12" />
+                            <Button Text="▤"
+                                    WidthRequest="38"
+                                    HeightRequest="38"
+                                    Padding="0"
+                                    Clicked="OnServerClicked"
+                                    BackgroundColor="Transparent"
+                                    BorderWidth="0"
+                                    CornerRadius="12"
+                                    FontSize="19"
+                                    FontAttributes="Bold"
+                                    TextColor="#2563EB" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Server"
@@ -2044,15 +2074,18 @@
                 <VerticalStackLayout Grid.Column="1"
                                      Spacing="6"
                                      HorizontalOptions="Center">
-                    <ImageButton Source="icon_users_blue.svg"
-                                 WidthRequest="54"
-                                 HeightRequest="54"
-                                 MinimumHeightRequest="54"
-                                 Padding="15"
-                                 Clicked="OnSocialClicked"
-                                 BackgroundColor="#ECF2FF"
-                                 BorderWidth="0"
-                                 CornerRadius="27" />
+                    <Button Text="◇"
+                            WidthRequest="54"
+                            HeightRequest="54"
+                            MinimumHeightRequest="54"
+                            Padding="0"
+                            Clicked="OnSocialClicked"
+                            BackgroundColor="#ECF2FF"
+                            BorderWidth="0"
+                            CornerRadius="27"
+                            FontSize="24"
+                            FontAttributes="Bold"
+                            TextColor="#2563EB" />
                     <Label Text="Social"
                            FontSize="11"
                            TextColor="{StaticResource MutedTextColor}" />
