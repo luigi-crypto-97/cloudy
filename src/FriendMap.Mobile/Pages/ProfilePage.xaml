@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.ProfilePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Profilo">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <VerticalStackLayout Grid.Row="0"
+                             Padding="24,16,24,8"
+                             Spacing="4">
+            <Label Text="Profilo"
+                   FontSize="{StaticResource FontSizeDisplay}"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+            <Label Text="Il tuo spazio personale"
+                   FontSize="{StaticResource FontSizeCallout}"
+                   TextColor="{StaticResource MutedTextColor}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1"
+                    Padding="0,0,0,90">
+            <VerticalStackLayout Padding="24,8,24,32" Spacing="20">
+                <!-- Avatar -->
+                <Border WidthRequest="120"
+                        HeightRequest="120"
+                        StrokeThickness="4"
+                        Stroke="{StaticResource BrandGradient}"
+                        HorizontalOptions="Center">
+                    <Border.StrokeShape>
+                        <Ellipse />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#8B5CF6" Offset="0,8" Radius="24" Opacity="0.4" />
+                    </Border.Shadow>
+                    <Label Text="👤"
+                           FontSize="48"
+                           HorizontalOptions="Center"
+                           VerticalOptions="Center" />
+                </Border>
+
+                <!-- Stats -->
+                <Grid ColumnDefinitions="*,*,*"
+                      Padding="0,8">
+                    <VerticalStackLayout HorizontalOptions="Center">
+                        <Label Text="0"
+                               FontSize="{StaticResource FontSizeTitle2}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Amici"
+                               FontSize="{StaticResource FontSizeCaption}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1"
+                                         HorizontalOptions="Center">
+                        <Label Text="0"
+                               FontSize="{StaticResource FontSizeTitle2}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Tavoli"
+                               FontSize="{StaticResource FontSizeCaption}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="2"
+                                         HorizontalOptions="Center">
+                        <Label Text="0"
+                               FontSize="{StaticResource FontSizeTitle2}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Check-in"
+                               FontSize="{StaticResource FontSizeCaption}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- Profilo -->
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Profilo"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+
+                        <Button Text="✏️ Modifica profilo"
+                                Clicked="OnEditProfileClicked"
+                                Style="{StaticResource GhostButtonStyle}"
+                                HorizontalOptions="Start" />
+
+                        <Button Text="🎯 Modifica interessi"
+                                Clicked="OnInterestsClicked"
+                                Style="{StaticResource GhostButtonStyle}"
+                                HorizontalOptions="Start" />
+
+                        <Button Text="🏆 I miei badge"
+                                Clicked="OnBadgesClicked"
+                                Style="{StaticResource GhostButtonStyle}"
+                                HorizontalOptions="Start" />
+
+                        <Button Text="📨 Invita amici"
+                                Clicked="OnInviteClicked"
+                                Style="{StaticResource GhostButtonStyle}"
+                                HorizontalOptions="Start" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Impostazioni -->
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Impostazioni"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="🥷 Modalità fantasma"
+                                   FontSize="{StaticResource FontSizeBody}"
+                                   VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                            <Switch Grid.Column="1"
+                                    x:Name="GhostModeSwitch"
+                                    Toggled="OnGhostModeToggled"
+                                    OnColor="{StaticResource BrandViolet}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="🌙 Tema scuro"
+                                   FontSize="{StaticResource FontSizeBody}"
+                                   VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                            <Switch Grid.Column="1"
+                                    x:Name="DarkModeSwitch"
+                                    Toggled="OnDarkModeToggled"
+                                    OnColor="{StaticResource BrandViolet}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="📄 Privacy Policy"
+                        Clicked="OnPrivacyClicked"
+                        Style="{StaticResource GhostButtonStyle}"
+                        HorizontalOptions="Start" />
+
+                <Button Text="📜 Termini di Servizio"
+                        Clicked="OnTermsClicked"
+                        Style="{StaticResource GhostButtonStyle}"
+                        HorizontalOptions="Start" />
+
+                <Button Text="🗑️ Elimina account"
+                        Clicked="OnDeleteAccountClicked"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        TextColor="{StaticResource ErrorColor}" />
+
+                <Button Text="Esci"
+                        Clicked="OnLogoutClicked"
+                        Style="{StaticResource SecondaryButtonStyle}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

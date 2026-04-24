@@ -186,6 +186,30 @@ public static class UserEndpoints
             return Results.Ok(results);
         }).RequireAuthorization();
 
+        group.MapDelete("/me", async (
+            ClaimsPrincipal principal,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var user = await db.Users.FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
+            if (user is null)
+            {
+                return Results.NotFound();
+            }
+
+            // Hard delete cascades (configure in DbContext or handle manually)
+            db.Users.Remove(user);
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new { deleted = true, message = "Account eliminato." });
+        }).RequireAuthorization();
+
         group.MapPost("/me/avatar", async (
             HttpRequest request,
             ClaimsPrincipal principal,

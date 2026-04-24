@@ -9,3 +9,12 @@ public record QueueTestNotificationRequest(
     Guid UserId,
     string Title,
     string Body);
+
+public record NotificationOutboxItemDto(
+    Guid Id,
+    string Title,
+    string Body,
+    string Type,
+    DateTimeOffset CreatedAtUtc,
+    bool IsRead,
+    string? DeepLink);

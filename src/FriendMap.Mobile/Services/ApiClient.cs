@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Globalization;
+using System.Text.Json;
 using FriendMap.Mobile.Models;
 using Microsoft.Maui.Devices;
 using Microsoft.Maui.Storage;
@@ -18,8 +19,14 @@ public class ApiClient
     private static readonly TimeSpan SocialCacheTtl = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan ProfileCacheTtl = TimeSpan.FromMinutes(3);
     private static readonly TimeSpan VenueDetailsCacheTtl = TimeSpan.FromMinutes(3);
+    private static readonly JsonSerializerOptions RelaxedJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     private HttpClient _httpClient;
+    public Uri? BaseAddress => _httpClient.BaseAddress;
     private string? _currentAccessToken;
     private readonly Dictionary<string, CacheEntry<VenueMapLayer>> _mapLayerCache = new();
     private readonly Dictionary<string, CacheEntry<VenueDetails>> _venueDetailsCache = new();
@@ -553,6 +560,65 @@ public class ApiClient
 
         await RegisterDeviceTokenAsync(userId, deviceToken);
 #endif
+    }
+
+    public async Task DeleteAccountAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.DeleteAsync("api/users/me");
+        await EnsureSuccessAsync(response);
+        SecureStorage.Remove(AccessTokenKey);
+        SecureStorage.Remove(UserIdKey);
+        SecureStorage.Remove(NicknameKey);
+        _currentAccessToken = null;
+        CurrentUserId = null;
+        _httpClient.DefaultRequestHeaders.Authorization = null;
+    }
+
+    public async Task<List<UserStory>> GetStoriesAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/stories");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<UserStory>>(RelaxedJsonOptions) ?? new List<UserStory>();
+    }
+
+    public async Task PostStoryAsync(string caption)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync("api/stories", new { caption });
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task<List<NearbyUser>> GetNearbyUsersAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/discovery/nearby?radiusMeters=2000");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<NearbyUser>>(RelaxedJsonOptions) ?? new List<NearbyUser>();
+    }
+
+    public async Task<List<UserAchievement>> GetMyAchievementsAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/gamification/me");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<UserAchievement>>(RelaxedJsonOptions) ?? new List<UserAchievement>();
+    }
+
+    public async Task CheckAchievementsAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsync("api/gamification/check", null);
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task<List<NotificationItem>> GetNotificationsOutboxAsync()
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.GetAsync("api/notifications/outbox");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<NotificationItem>>(RelaxedJsonOptions) ?? new List<NotificationItem>();
     }
 
     private async Task EnsureAuthenticatedAsync()

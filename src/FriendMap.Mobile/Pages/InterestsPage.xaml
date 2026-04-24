@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.InterestsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    BackgroundColor="#0B0F19"
+    Title="I tuoi interessi">
+
+    <Grid>
+        <!-- Background glow -->
+        <AbsoluteLayout>
+            <Ellipse Fill="#7C3AED"
+                     WidthRequest="400"
+                     HeightRequest="400"
+                     Opacity="0.15"
+                     AbsoluteLayout.LayoutBounds="0.5,0.3,400,400"
+                     AbsoluteLayout.LayoutFlags="XProportional,YProportional" />
+            <Ellipse Fill="#EC4899"
+                     WidthRequest="300"
+                     HeightRequest="300"
+                     Opacity="0.10"
+                     AbsoluteLayout.LayoutBounds="-0.1,0.8,300,300"
+                     AbsoluteLayout.LayoutFlags="XProportional,YProportional" />
+        </AbsoluteLayout>
+
+        <Grid RowDefinitions="Auto,*,Auto,Auto"
+              Padding="24,24,24,32">
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="8"
+                                 Margin="0,16,0,0">
+                <Label Text="Cosa ti piace?"
+                       FontSize="{StaticResource FontSizeTitle1}"
+                       FontAttributes="Bold"
+                      
+                       TextColor="White"
+                       HorizontalOptions="Center" />
+                <Label Text="Swipe a destra per i tuoi interessi, a sinistra per saltare."
+                       FontSize="{StaticResource FontSizeCallout}"
+                      
+                       TextColor="#94A3B8"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+
+            <!-- Card stack -->
+            <Grid Grid.Row="1"
+                  x:Name="CardContainer"
+                  VerticalOptions="Center"
+                  HorizontalOptions="Center">
+                <!-- Empty / Complete -->
+                <VerticalStackLayout x:Name="CompleteLayout"
+                                     Spacing="16"
+                                     VerticalOptions="Center"
+                                     HorizontalOptions="Center"
+                                     IsVisible="{Binding IsComplete}"
+                                     Opacity="0">
+                    <Border WidthRequest="120"
+                            HeightRequest="120"
+                            StrokeThickness="0"
+                            Background="{StaticResource BrandGradient}">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="36" />
+                        </Border.StrokeShape>
+                        <Border.Shadow>
+                            <Shadow Brush="#8B5CF6" Offset="0,12" Radius="32" Opacity="0.5" />
+                        </Border.Shadow>
+                        <Label Text="✨"
+                               FontSize="56"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="Perfetto!"
+                           FontSize="{StaticResource FontSizeTitle1}"
+                           FontAttributes="Bold"
+                          
+                           TextColor="White"
+                           HorizontalOptions="Center" />
+                    <Label Text="Hai selezionato i tuoi interessi. Ti suggeriremo posti e eventi in base alle tue preferenze."
+                           FontSize="{StaticResource FontSizeCallout}"
+                          
+                           TextColor="#94A3B8"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+                    <Button Text="Salva e vai alla mappa"
+                            Command="{Binding SaveCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                           
+                            FontSize="{StaticResource FontSizeBody}" />
+                </VerticalStackLayout>
+
+                <!-- Active card -->
+                <Border x:Name="ActiveCard"
+                        WidthRequest="320"
+                        HeightRequest="420"
+                        Background="{StaticResource BrandGradient}"
+                        StrokeThickness="0"
+                        IsVisible="{Binding IsComplete, Converter={StaticResource InverseBoolConverter}}"
+                        AnchorX="0.5"
+                        AnchorY="0.5">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="32" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="#8B5CF6" Offset="0,16" Radius="40" Opacity="0.4" />
+                    </Border.Shadow>
+                    <Border.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnCardPanUpdated" />
+                    </Border.GestureRecognizers>
+                    <VerticalStackLayout VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Spacing="16"
+                                         Padding="24">
+                        <Label x:Name="CardEmoji"
+                               Text="🍹"
+                               FontSize="80"
+                               HorizontalOptions="Center" />
+                        <Label x:Name="CardTitle"
+                               Text="Cocktail"
+                               FontSize="{StaticResource FontSizeTitle1}"
+                               FontAttributes="Bold"
+                              
+                               TextColor="White"
+                               HorizontalOptions="Center" />
+                        <Label x:Name="CardDescription"
+                               Text="Aperitivi e drink artigianali"
+                               FontSize="{StaticResource FontSizeBody}"
+                              
+                               TextColor="#E9D5FF"
+                               HorizontalOptions="Center"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Like/Dislike badges -->
+                <Border x:Name="LikeBadge"
+                        Padding="14,6"
+                        BackgroundColor="#22C55E"
+                        StrokeThickness="0"
+                        Opacity="0"
+                        IsVisible="False"
+                        HorizontalOptions="Start"
+                        VerticalOptions="Start"
+                        Margin="16,16,0,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Label Text="LIKE"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                          
+                           TextColor="White" />
+                </Border>
+                <Border x:Name="DislikeBadge"
+                        Padding="14,6"
+                        BackgroundColor="#EF4444"
+                        StrokeThickness="0"
+                        Opacity="0"
+                        IsVisible="False"
+                        HorizontalOptions="End"
+                        VerticalOptions="Start"
+                        Margin="0,16,16,0">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="12" />
+                    </Border.StrokeShape>
+                    <Label Text="NOPE"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                          
+                           TextColor="White" />
+                </Border>
+            </Grid>
+
+            <!-- Controls -->
+            <Grid Grid.Row="2"
+                  ColumnDefinitions="*,Auto,Auto,*"
+                  ColumnSpacing="16"
+                  IsVisible="{Binding IsComplete, Converter={StaticResource InverseBoolConverter}}"
+                  Margin="0,16,0,0">
+                <Button Grid.Column="1"
+                        Text="✕"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        BackgroundColor="#2A0A0A"
+                        TextColor="#FCA5A5"
+                        WidthRequest="64"
+                        HeightRequest="64"
+                        CornerRadius="32"
+                        FontSize="24"
+                        Padding="0"
+                        Command="{Binding DislikeCommand}" />
+                <Button Grid.Column="2"
+                        Text="♥"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        WidthRequest="64"
+                        HeightRequest="64"
+                        CornerRadius="32"
+                        FontSize="28"
+                        Padding="0"
+                        Command="{Binding LikeCommand}" />
+            </Grid>
+
+            <!-- Progress -->
+            <Label Grid.Row="3"
+                   Text="{Binding ProgressText}"
+                   FontSize="{StaticResource FontSizeCaption}"
+                  
+                   TextColor="#64748B"
+                   HorizontalOptions="Center"
+                   Margin="0,12,0,0" />
+        </Grid>
+    </Grid>
+</ContentPage>

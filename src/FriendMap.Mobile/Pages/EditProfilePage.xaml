@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.EditProfilePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Modifica Profilo">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*"
+              Padding="24,16,24,8"
+              ColumnSpacing="12">
+            <ImageButton Style="{StaticResource IconButtonStyle}"
+                         Source="icon_back"
+                         VerticalOptions="Center">
+                <ImageButton.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackClicked" />
+                </ImageButton.GestureRecognizers>
+            </ImageButton>
+            <Label Grid.Column="1"
+                   Text="Modifica profilo"
+                   FontSize="{StaticResource FontSizeTitle2}"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                   VerticalOptions="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" Padding="24,8,24,32">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="14">
+                        <!-- Avatar -->
+                        <Border WidthRequest="96"
+                                HeightRequest="96"
+                                StrokeThickness="4"
+                                Stroke="{StaticResource BrandGradient}"
+                                HorizontalOptions="Center">
+                            <Border.StrokeShape>
+                                <Ellipse />
+                            </Border.StrokeShape>
+                            <Label x:Name="AvatarFallbackLabel"
+                                   Text="👤"
+                                   FontSize="40"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Border>
+
+                        <Button Text="📷 Carica foto"
+                                Clicked="OnUploadPhotoClicked"
+                                Style="{StaticResource GhostButtonStyle}"
+                                HorizontalOptions="Center" />
+
+                        <Entry x:Name="AvatarUrlEntry"
+                               Placeholder="URL avatar (opzionale)"
+                               Style="{StaticResource FieldStyle}"
+                               TextChanged="OnAvatarUrlChanged" />
+
+                        <Entry x:Name="DisplayNameEntry"
+                               Placeholder="Nome pubblico"
+                               Style="{StaticResource FieldStyle}" />
+
+                        <Entry x:Name="BirthYearEntry"
+                               Placeholder="Anno di nascita"
+                               Keyboard="Numeric"
+                               Style="{StaticResource FieldStyle}" />
+
+                        <Picker x:Name="GenderPicker"
+                                Title="Genere"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0F172A}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+
+                        <Editor x:Name="BioEditor"
+                                Placeholder="Bio breve (max 280 caratteri)"
+                                AutoSize="TextChanges"
+                                MaxLength="280"
+                                Style="{StaticResource FieldStyle}" />
+
+                        <Editor x:Name="InterestsEditor"
+                                Placeholder="Interessi separati da virgola"
+                                AutoSize="TextChanges"
+                                Style="{StaticResource FieldStyle}" />
+
+                        <Label x:Name="StatusLabel"
+                               IsVisible="False"
+                               FontSize="{StaticResource FontSizeCaption}" />
+
+                        <Button Text="Salva"
+                                Clicked="OnSaveClicked"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

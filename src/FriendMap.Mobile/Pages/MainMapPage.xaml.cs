@@ -55,6 +55,8 @@ public partial class MainMapPage : ContentPage
     private bool _isRefreshingCurrentUserLocation;
     private string? _activeInterestFilter;
     private double _sheetPanStartY;
+    private bool _isShaking;
+    private DateTimeOffset _lastShakeUtc = DateTimeOffset.MinValue;
     private MapViewport? _lastRequestedViewport;
     private MapViewport? _lastOverlayViewport;
     private Location? _currentUserLocation;
@@ -63,14 +65,19 @@ public partial class MainMapPage : ContentPage
     private DateTimeOffset _suspendViewportRefreshUntilUtc = DateTimeOffset.MinValue;
     private VenueSheetSnapState _sheetSnapState = VenueSheetSnapState.Teaser;
     private IDispatcherTimer? _overlaySyncTimer;
+    private IDispatcherTimer? _chatPollTimer;
 
-    public MainMapPage(MainMapViewModel viewModel, LoginViewModel loginViewModel, IDevicePermissionService permissions, ApiClient apiClient)
+    private readonly ChatHubService _chatHub;
+
+    public MainMapPage(MainMapViewModel viewModel, LoginViewModel loginViewModel, IDevicePermissionService permissions, ApiClient apiClient, ChatHubService chatHub)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _loginViewModel = loginViewModel;
         _permissions = permissions;
         _apiClient = apiClient;
+        _chatHub = chatHub;
+        _chatHub.MessageReceived += OnHubMessageReceived;
         BindingContext = _viewModel;
         _viewModel.MarkersRefreshed += (_, _) => MainThread.BeginInvokeOnMainThread(RenderMap);
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -83,12 +90,52 @@ public partial class MainMapPage : ContentPage
 #if FRIENDMAP_APNS_ENABLED
         ApnsDeviceTokenStore.TokenChanged += OnApnsDeviceTokenChanged;
 #endif
+        MessagingCenter.Subscribe<SocialViewModel, Guid>(this, "OpenDirectMessage", async (_, peerId) =>
+        {
+            await ShowDirectMessageOverlayAsync(peerId);
+        });
+        MessagingCenter.Subscribe<SocialViewModel, Guid>(this, "OpenTable", async (_, tableId) =>
+        {
+            await ShowTableOverlayAsync(tableId);
+        });
+        MessagingCenter.Subscribe<App, string>(this, "DeepLinkVenue", async (_, venueId) =>
+        {
+            if (Guid.TryParse(venueId, out var id))
+            {
+                var marker = _viewModel.Markers.FirstOrDefault(m => m.VenueId == id);
+                if (marker is not null)
+                {
+                    _viewModel.SelectMarker(marker);
+                }
+            }
+        });
+        MessagingCenter.Subscribe<App, string>(this, "DeepLinkChat", async (_, peerId) =>
+        {
+            if (Guid.TryParse(peerId, out var id))
+            {
+                await ShowDirectMessageOverlayAsync(id);
+            }
+        });
+        MessagingCenter.Subscribe<App, string>(this, "DeepLinkTable", async (_, tableId) =>
+        {
+            if (Guid.TryParse(tableId, out var id))
+            {
+                await ShowTableOverlayAsync(id);
+            }
+        });
+        MessagingCenter.Subscribe<ProfilePage>(this, "OpenEditProfile", async (_) =>
+        {
+            await ShowEditProfileOverlayAsync();
+        });
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         StartOverlaySyncTimer();
+        StartBumpAccelerometer();
+        StartChatPolling();
+        _ = _chatHub.ConnectAsync();
 
         try
         {
@@ -104,6 +151,7 @@ public partial class MainMapPage : ContentPage
             var mapCacheStale = (DateTimeOffset.UtcNow - _mapLayerLastRefreshUtc) > MapLayerCacheDuration;
             await RefreshForCurrentViewportAsync(force: mapCacheStale || _viewModel.Markers.Count == 0, centerOnMarkers: true);
             await SyncVenueSheetAsync(animated: false);
+            ApplyMapMood();
         }
         catch (Exception ex)
         {
@@ -116,9 +164,33 @@ public partial class MainMapPage : ContentPage
     {
         base.OnDisappearing();
         StopOverlaySyncTimer();
+        StopBumpAccelerometer();
+        StopChatPolling();
         CancelPendingViewportRefresh();
         CancelPendingOverlayRender();
         CancelPendingDiscoveryRefresh();
+        _chatHub.MessageReceived -= OnHubMessageReceived;
+        _ = _chatHub.DisconnectAsync();
+        MessagingCenter.Unsubscribe<SocialViewModel, Guid>(this, "OpenDirectMessage");
+        MessagingCenter.Unsubscribe<SocialViewModel, Guid>(this, "OpenTable");
+        MessagingCenter.Unsubscribe<App, string>(this, "DeepLinkVenue");
+        MessagingCenter.Unsubscribe<App, string>(this, "DeepLinkChat");
+        MessagingCenter.Unsubscribe<App, string>(this, "DeepLinkTable");
+    }
+
+    private async void OnHubMessageReceived(object? sender, HubMessageArgs e)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (e.ThreadId == $"dm-{_activeDirectMessageProfile?.UserId}" && DirectMessageOverlay.IsVisible)
+            {
+                await RefreshDirectMessageThreadAsync();
+            }
+            else if (e.ThreadId == $"table-{_activeTableSummary?.TableId}" && TableOverlay.IsVisible)
+            {
+                await RefreshActiveTableThreadAsync();
+            }
+        });
     }
 
     private async void OnRefreshClicked(object sender, EventArgs e)
@@ -149,10 +221,88 @@ public partial class MainMapPage : ContentPage
         await Shell.Current.GoToAsync("//login");
     }
 
-    private async void OnSocialClicked(object sender, EventArgs e)
+    private async void OnBumpFabClicked(object? sender, EventArgs e)
     {
-        await HideQuickActionRailAsync(animated: true);
-        await ShowSocialOverlayAsync(forceRefresh: true);
+        HapticService.Heavy();
+        if (_viewModel.SelectedMarker is null)
+        {
+            _viewModel.SetStatusMessage("Seleziona un locale sulla mappa per fare check-in!");
+            return;
+        }
+
+        var action = await DisplayActionSheet(
+            "Cosa vuoi fare?",
+            "Annulla",
+            null,
+            "✅ Check-in",
+            "💭 Ci vado",
+            "🪑 Apri tavolo");
+
+        switch (action)
+        {
+            case "✅ Check-in":
+                HapticService.Success();
+                _viewModel.CheckInCommand.Execute(null);
+                break;
+            case "💭 Ci vado":
+                HapticService.Success();
+                _viewModel.PlanIntentionCommand.Execute(null);
+                break;
+            case "🪑 Apri tavolo":
+                HapticService.Success();
+                await ShowCreateTableFormAsync();
+                break;
+        }
+    }
+
+    private async Task ShowCreateTableFormAsync()
+    {
+        if (_viewModel.SelectedMarker is null) return;
+
+        var title = await DisplayPromptAsync("Tavolo", "Dai un nome al tavolo:", placeholder: "Es. Aperitivo post-lavoro", maxLength: 60);
+        if (string.IsNullOrWhiteSpace(title)) return;
+
+        var description = await DisplayPromptAsync("Tavolo", "Tema / Descrizione (opzionale):", placeholder: "Es. Italiani a Milano", maxLength: 200);
+
+        var whenAction = await DisplayActionSheet("Quando?", "Annulla", null, "Adesso", "Tra 1 ora", "Tra 2 ore", "Tra 3 ore", "Stasera (20:00)");
+        if (whenAction == "Annulla") return;
+        var startsAt = whenAction switch
+        {
+            "Adesso" => DateTimeOffset.UtcNow,
+            "Tra 1 ora" => DateTimeOffset.UtcNow.AddHours(1),
+            "Tra 2 ore" => DateTimeOffset.UtcNow.AddHours(2),
+            "Tra 3 ore" => DateTimeOffset.UtcNow.AddHours(3),
+            "Stasera (20:00)" => DateTimeOffset.UtcNow.Date.AddHours(20),
+            _ => DateTimeOffset.UtcNow.AddHours(1)
+        };
+
+        var policyAction = await DisplayActionSheet("Chi può unirsi?", "Annulla", null, "Aperto a tutti", "Su approvazione");
+        if (policyAction == "Annulla") return;
+        var joinPolicy = policyAction == "Aperto a tutti" ? "auto" : "approval";
+
+        var capacityAction = await DisplayActionSheet("Quanti posti?", "Annulla", null, "2", "4", "6", "8", "10", "12");
+        if (capacityAction == "Annulla") return;
+        var capacity = int.TryParse(capacityAction, out var cap) ? cap : 6;
+
+        try
+        {
+            var userId = await _apiClient.GetCurrentUserIdAsync();
+            await _apiClient.CreateSocialTableAsync(
+                userId,
+                _viewModel.SelectedMarker.VenueId,
+                title.Trim(),
+                string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                startsAt,
+                capacity,
+                joinPolicy);
+            HapticService.Success();
+            await ShowSuccessOverlayAsync("Tavolo aperto! 🪑");
+            await _viewModel.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.SetStatusMessage($"Errore tavolo: {ex.Message}");
+        }
     }
 
     private async void OnQuickMenuToggleClicked(object? sender, EventArgs e)
@@ -468,6 +618,22 @@ public partial class MainMapPage : ContentPage
             RenderViewportOverlay();
             await SyncVenueSheetAsync(animated: true);
         }
+
+        if (e.PropertyName == nameof(MainMapViewModel.ActionMessage) && !string.IsNullOrWhiteSpace(_viewModel.ActionMessage))
+        {
+            if (_viewModel.ActionMessage.Contains("Check-in", StringComparison.OrdinalIgnoreCase))
+            {
+                await ShowSuccessOverlayAsync("Check-in fatto! ⚡");
+            }
+            else if (_viewModel.ActionMessage.Contains("Intenzione", StringComparison.OrdinalIgnoreCase))
+            {
+                await ShowSuccessOverlayAsync("Ci vado! 💭");
+            }
+            else if (_viewModel.ActionMessage.Contains("Tavolo", StringComparison.OrdinalIgnoreCase))
+            {
+                await ShowSuccessOverlayAsync("Tavolo aperto! 🪑");
+            }
+        }
     }
 
     private async void OnOpenVenueDetailsClicked(object? sender, EventArgs e)
@@ -584,8 +750,10 @@ public partial class MainMapPage : ContentPage
 
         try
         {
+            HapticService.Medium();
             _isSocialBusy = true;
             await _apiClient.ExitActiveCheckInAsync();
+            HapticService.Success();
             SetSocialStatus("Check-in terminato.", false);
             await RefreshSocialOverlayAsync();
             await RefreshForCurrentViewportAsync(force: true, centerOnMarkers: false);
@@ -656,12 +824,14 @@ public partial class MainMapPage : ContentPage
 
         try
         {
+            HapticService.Light();
             _isTableBusy = true;
             TableLoadingIndicator.IsVisible = true;
             TableLoadingIndicator.IsRunning = true;
             await _apiClient.SendTableMessageAsync(_activeTableSummary.TableId, message);
             TableMessageEntry.Text = string.Empty;
             SetTableStatus("Messaggio inviato.", false);
+            HapticService.Success();
             await RefreshActiveTableThreadAsync();
         }
         catch (Exception ex)
@@ -685,6 +855,7 @@ public partial class MainMapPage : ContentPage
 
         try
         {
+            HapticService.Medium();
             _isProfileActionBusy = true;
             ProfileActionMessageLabel.IsVisible = false;
 
@@ -692,6 +863,7 @@ public partial class MainMapPage : ContentPage
             if (relationshipStatus == "pending_received")
             {
                 await _apiClient.AcceptFriendRequestAsync(_activeProfilePreview.UserId);
+                HapticService.Success();
                 await RefreshActiveProfileAsync("Amicizia confermata.", false);
                 return;
             }
@@ -702,6 +874,7 @@ public partial class MainMapPage : ContentPage
             }
 
             await _apiClient.SendFriendRequestAsync(_activeProfilePreview.UserId);
+            HapticService.Success();
             await RefreshActiveProfileAsync("Richiesta di amicizia inviata.", false);
         }
         catch (Exception ex)
@@ -724,9 +897,11 @@ public partial class MainMapPage : ContentPage
 
         try
         {
+            HapticService.Medium();
             _isProfileActionBusy = true;
             ProfileActionMessageLabel.IsVisible = false;
             await _apiClient.InviteUserToHostedTableAsync(_activeProfilePreview.UserId);
+            HapticService.Success();
             SetProfileActionMessage("Invito al tavolo inviato.", false);
         }
         catch (Exception ex)
@@ -781,9 +956,9 @@ public partial class MainMapPage : ContentPage
 
         QuickActionRail.IsVisible = true;
         await QuickActionRail.FadeTo(1, 140, Easing.CubicOut);
-        await QuickActionRail.TranslateTo(0, 0, 180, Easing.CubicOut);
+        await QuickActionRail.TranslateTo(0, 0, 220, Easing.SpringOut);
         _isQuickActionRailOpen = true;
-        QuickMenuButton.BackgroundColor = Color.FromArgb("#E8F0FF");
+        QuickMenuButton.BackgroundColor = Color.FromArgb("#F5F3FF");
     }
 
     private async Task HideQuickActionRailAsync(bool animated)
@@ -797,7 +972,7 @@ public partial class MainMapPage : ContentPage
         {
             await Task.WhenAll(
                 QuickActionRail.FadeTo(0, 120, Easing.CubicIn),
-                QuickActionRail.TranslateTo(28, 0, 140, Easing.CubicIn));
+                QuickActionRail.TranslateTo(28, 0, 180, Easing.SpringIn));
         }
         else
         {
@@ -821,7 +996,7 @@ public partial class MainMapPage : ContentPage
         LegendPanel.TranslationY = -6;
         await Task.WhenAll(
             LegendPanel.FadeTo(1, 160, Easing.CubicOut),
-            LegendPanel.TranslateTo(0, 0, 160, Easing.CubicOut));
+            LegendPanel.TranslateTo(0, 0, 200, Easing.SpringOut));
         _isLegendPanelOpen = true;
     }
 
@@ -836,7 +1011,7 @@ public partial class MainMapPage : ContentPage
         {
             await Task.WhenAll(
                 LegendPanel.FadeTo(0, 120, Easing.CubicIn),
-                LegendPanel.TranslateTo(0, -6, 120, Easing.CubicIn));
+                LegendPanel.TranslateTo(0, -6, 160, Easing.SpringIn));
         }
         else
         {
@@ -864,7 +1039,7 @@ public partial class MainMapPage : ContentPage
 
     private static void SetFilterButtonState(Button button, bool isActive)
     {
-        button.BackgroundColor = isActive ? Color.FromArgb("#2563EB") : Color.FromArgb("#EAF0F7");
+        button.BackgroundColor = isActive ? Color.FromArgb("#7C3AED") : Color.FromArgb("#F1F5F9");
         button.TextColor = isActive ? Colors.White : Color.FromArgb("#0F172A");
     }
 
@@ -906,6 +1081,36 @@ public partial class MainMapPage : ContentPage
         _discoveryRefreshCts.Cancel();
         _discoveryRefreshCts.Dispose();
         _discoveryRefreshCts = null;
+    }
+
+    private void StartChatPolling()
+    {
+        if (_chatPollTimer is not null || Dispatcher is null) return;
+        _chatPollTimer = Dispatcher.CreateTimer();
+        _chatPollTimer.Interval = TimeSpan.FromSeconds(5);
+        _chatPollTimer.Tick += async (_, _) =>
+        {
+            try
+            {
+                if (DirectMessageOverlay.IsVisible && _activeDirectMessageProfile is not null)
+                {
+                    await RefreshDirectMessageThreadAsync();
+                }
+                if (TableOverlay.IsVisible && _activeTableSummary is not null)
+                {
+                    await RefreshActiveTableThreadAsync();
+                }
+            }
+            catch { /* ignore */ }
+        };
+        _chatPollTimer.Start();
+    }
+
+    private void StopChatPolling()
+    {
+        if (_chatPollTimer is null) return;
+        _chatPollTimer.Stop();
+        _chatPollTimer = null;
     }
 
     private async Task UpdatePrivacyAsync(bool? ghostMode, bool? sharePresence, bool? shareIntentions)
@@ -959,690 +1164,6 @@ public partial class MainMapPage : ContentPage
         return distanceKm is > 0 ? $"{distanceKm.Value:0} km" : "Ovunque";
     }
 
-    private void RenderMap()
-    {
-        NativeMap.Pins.Clear();
-        NativeMap.MapElements.Clear();
-        BubbleLayer.Children.Clear();
-        RenderSelectedPresencePreview();
-        _lastOverlayViewport = null;
-
-        var markers = GetRenderableMarkers();
-        if (markers.Count == 0)
-        {
-            EnsureInitialMapRegion();
-            return;
-        }
-
-        var viewport = GetCurrentViewportOrDefault();
-        var allowPins = viewport.LatitudeSpan < 0.085d;
-        var allowCircles = viewport.LatitudeSpan < 0.14d;
-
-        RenderAreaPolygons(_viewModel.Areas, viewport);
-
-        foreach (var marker in markers)
-        {
-            var location = new Location(marker.Latitude, marker.Longitude);
-
-            if (allowPins)
-            {
-                var pin = new Pin
-                {
-                    Label = $"{marker.Name} ({marker.PeopleEstimate})",
-                    Address = marker.Category,
-                    Type = PinType.Place,
-                    Location = location
-                };
-                pin.MarkerClicked += (_, args) =>
-                {
-                    args.HideInfoWindow = false;
-                    _viewModel.SelectMarker(marker);
-                };
-                NativeMap.Pins.Add(pin);
-            }
-
-            if (allowCircles)
-            {
-                NativeMap.MapElements.Add(new Circle
-                {
-                    Center = location,
-                    Radius = Distance.FromMeters(75 + marker.BubbleIntensity * 5),
-                    StrokeColor = ResolveSignalColor(marker).WithAlpha(0.55f),
-                    StrokeWidth = 2,
-                    FillColor = ResolveSignalColor(marker).WithAlpha(0.09f)
-                });
-            }
-        }
-
-        if (_shouldAutoFocusOnNextRender)
-        {
-            MoveToMarkers(markers, suppressViewportRefresh: true);
-            _shouldAutoFocusOnNextRender = false;
-        }
-
-        RenderViewportOverlay();
-    }
-
-    private List<VenueMarker> GetRenderableMarkers()
-    {
-        return _viewModel.Markers
-            .Where(x => x.Latitude != 0 && x.Longitude != 0)
-            .ToList();
-    }
-
-    private void MoveToMarkers(IReadOnlyCollection<VenueMarker> markers, bool suppressViewportRefresh)
-    {
-        if (markers.Count == 0)
-        {
-            return;
-        }
-
-        var centerLat = markers.Average(x => x.Latitude);
-        var centerLng = markers.Average(x => x.Longitude);
-        var latSpan = Math.Max(0.02, markers.Max(x => x.Latitude) - markers.Min(x => x.Latitude));
-        var lngSpan = Math.Max(0.02, markers.Max(x => x.Longitude) - markers.Min(x => x.Longitude));
-        var radiusKm = Math.Max(latSpan, lngSpan) * 111;
-
-        if (suppressViewportRefresh)
-        {
-            SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(900));
-        }
-
-        NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
-            new Location(centerLat, centerLng),
-            Distance.FromKilometers(Math.Clamp(radiusKm, 2, 20))));
-    }
-
-    private void EnsureInitialMapRegion()
-    {
-        if (NativeMap.VisibleRegion is not null)
-        {
-            return;
-        }
-
-        SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(900));
-        NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(
-            new Location(MapViewport.MilanDefault.CenterLatitude, MapViewport.MilanDefault.CenterLongitude),
-            Distance.FromKilometers(8)));
-    }
-
-    private void RenderAreaPolygons(IReadOnlyList<MapArea> areas, MapViewport viewport)
-    {
-        if (areas.Count == 0 || viewport.LatitudeSpan > 0.24d)
-        {
-            return;
-        }
-
-        var markerLookup = _viewModel.Markers.ToDictionary(x => x.VenueId);
-        foreach (var area in areas.Where(x => x.Polygon.Count >= 3))
-        {
-            var baseColor = ResolveAreaColor(area);
-            var polygon = new Microsoft.Maui.Controls.Maps.Polygon
-            {
-                FillColor = baseColor.WithAlpha(_isContrastModeEnabled
-                    ? (area.IsCluster ? 0.18f : 0.12f)
-                    : (area.IsCluster ? 0.11f : 0.07f)),
-                StrokeColor = baseColor.WithAlpha(_isContrastModeEnabled
-                    ? (area.IsCluster ? 0.58f : 0.42f)
-                    : (area.IsCluster ? 0.44f : 0.30f)),
-                StrokeWidth = area.IsCluster ? 2.2f : 1.4f
-            };
-
-            foreach (var point in area.Polygon)
-            {
-                polygon.Add(new Location(point.Latitude, point.Longitude));
-            }
-
-            NativeMap.MapElements.Add(polygon);
-
-            var coreRadius = Math.Clamp(120 + area.BubbleIntensity * 6, 130, 520);
-            NativeMap.MapElements.Add(new Circle
-            {
-                Center = new Location(area.CentroidLatitude, area.CentroidLongitude),
-                Radius = Distance.FromMeters(coreRadius),
-                StrokeColor = Colors.Transparent,
-                StrokeWidth = 0,
-                FillColor = baseColor.WithAlpha(_isContrastModeEnabled ? 0.16f : 0.10f)
-            });
-
-            var bloomRadius = Math.Clamp(coreRadius * 1.9, 220, 920);
-            NativeMap.MapElements.Add(new Circle
-            {
-                Center = new Location(area.CentroidLatitude, area.CentroidLongitude),
-                Radius = Distance.FromMeters(bloomRadius),
-                StrokeColor = Colors.Transparent,
-                StrokeWidth = 0,
-                FillColor = baseColor.WithAlpha(_isContrastModeEnabled ? 0.08f : 0.05f)
-            });
-
-            foreach (var marker in area.VenueIds
-                         .Where(markerLookup.ContainsKey)
-                         .Select(id => markerLookup[id])
-                         .OrderByDescending(x => x.BubbleIntensity)
-                         .Take(4))
-            {
-                var venueRadius = Math.Clamp(70 + marker.BubbleIntensity * 3.4, 82, 260);
-                NativeMap.MapElements.Add(new Circle
-                {
-                    Center = new Location(marker.Latitude, marker.Longitude),
-                    Radius = Distance.FromMeters(venueRadius),
-                    StrokeColor = Colors.Transparent,
-                    StrokeWidth = 0,
-                    FillColor = ResolveSignalColor(marker).WithAlpha(_isContrastModeEnabled ? 0.12f : 0.07f)
-                });
-            }
-        }
-    }
-
-    private void RenderViewportOverlay()
-    {
-        BubbleLayer.Children.Clear();
-        var viewport = GetCurrentViewportOrDefault().Expand(0.04d).Normalize();
-        _lastOverlayViewport = viewport;
-        var insets = GetOverlayInsets();
-
-        var markers = GetRenderableMarkers();
-        if (markers.Count > 0)
-        {
-            var visibleMarkers = markers
-                .Where(x => viewport.Contains(x.Latitude, x.Longitude))
-                .ToList();
-
-            if (UseLightweightVenueBadges)
-            {
-                if (_selectedAreaClusterKey is not null)
-                {
-                    ClearAreaSelection();
-                }
-
-                RenderVenueCountBadges(visibleMarkers, viewport, insets);
-            }
-            else if (visibleMarkers.Count > 0 && _viewModel.Areas.Count > 0)
-            {
-                var clusters = BuildOverlayAreas(visibleMarkers, viewport, insets);
-                if (_selectedAreaClusterKey is not null)
-                {
-                    _activeAreaCluster = clusters.FirstOrDefault(x => x.Key == _selectedAreaClusterKey);
-                    if (_activeAreaCluster is null)
-                    {
-                        ClearAreaSelection();
-                    }
-                }
-
-                var useNativeCloudAnnotations =
-#if IOS
-                    EnableNativeIosCloudAnnotations;
-#else
-                    false;
-#endif
-
-                if (useNativeCloudAnnotations)
-                {
-                    RenderNativeCloudAnnotations(clusters);
-                }
-                else
-                {
-                    foreach (var link in BuildFogLinks(clusters))
-                    {
-                        var ribbon = CreateFogLink(link);
-                        AbsoluteLayout.SetLayoutFlags(ribbon, AbsoluteLayoutFlags.None);
-                        AbsoluteLayout.SetLayoutBounds(ribbon, link.Bounds);
-                        BubbleLayer.Children.Add(ribbon);
-                    }
-
-                    foreach (var cluster in clusters)
-                    {
-                        var bubble = CreateClusterBubble(cluster);
-                        AbsoluteLayout.SetLayoutFlags(bubble, AbsoluteLayoutFlags.None);
-                        AbsoluteLayout.SetLayoutBounds(bubble, BuildClusterBubbleBounds(cluster));
-                        BubbleLayer.Children.Add(bubble);
-                    }
-                }
-            }
-            else if (_selectedAreaClusterKey is not null)
-            {
-                ClearAreaSelection();
-            }
-        }
-
-        RenderCurrentUserOverlay(viewport, insets);
-        RenderAreaSelectionState();
-    }
-
-    private void RenderVenueCountBadges(IReadOnlyList<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
-    {
-        foreach (var marker in markers)
-        {
-            if (!TryGetOverlayAnchorPoint(marker.Latitude, marker.Longitude, viewport, insets, out var anchor))
-            {
-                continue;
-            }
-
-            var badge = CreateVenueCountBadge(marker, viewport);
-            var size = badge.WidthRequest;
-            AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
-            AbsoluteLayout.SetLayoutBounds(badge, new Rect(anchor.X - size / 2d, anchor.Y - size / 2d, size, size));
-            BubbleLayer.Children.Add(badge);
-        }
-    }
-
-    private View CreateVenueCountBadge(VenueMarker marker, MapViewport viewport)
-    {
-        var peopleCount = GetMarkerPeopleCount(marker);
-        var zoomScale = ResolveBubbleZoomScale(viewport);
-        var size = Math.Clamp((32 + Math.Min(10, marker.BubbleIntensity / 8d)) * zoomScale, 28, 44);
-        var color = ResolveSignalColor(marker);
-        var textColor = marker.BubbleIntensity < 25 && marker.ActiveCheckIns == 0 && marker.ActiveIntentions == 0 && marker.OpenTables == 0
-            ? Color.FromArgb("#1D4ED8")
-            : Colors.White;
-
-        var badge = new Border
-        {
-            WidthRequest = size,
-            HeightRequest = size,
-            Padding = 0,
-            BackgroundColor = color == Colors.Transparent ? Color.FromArgb("#DBEAFE") : color,
-            Stroke = Colors.White,
-            StrokeThickness = 2,
-            StrokeShape = new RoundRectangle { CornerRadius = size / 2d },
-            Shadow = new Shadow
-            {
-                Brush = new SolidColorBrush(Colors.Black),
-                Offset = new Point(0, 4),
-                Radius = 9,
-                Opacity = 0.16f
-            },
-            Content = new Label
-            {
-                Text = peopleCount.ToString(),
-                FontSize = peopleCount > 99 ? 10 : 12,
-                FontAttributes = FontAttributes.Bold,
-                TextColor = textColor,
-                HorizontalTextAlignment = TextAlignment.Center,
-                VerticalTextAlignment = TextAlignment.Center
-            }
-        };
-
-        badge.GestureRecognizers.Add(new TapGestureRecognizer
-        {
-            Command = new Command(() =>
-            {
-                ClearAreaSelection();
-                _viewModel.SelectMarker(marker);
-            })
-        });
-
-        return badge;
-    }
-
-    private void ApplyMapMood()
-    {
-        if (_isContrastModeEnabled)
-        {
-            MapMoodOverlay.BackgroundColor = Color.FromArgb("#8A0F172A");
-            QuickModeLabel.Text = "Giorno";
-            LegendModeLabel.Text = "Modalità notte";
-        }
-        else
-        {
-            MapMoodOverlay.BackgroundColor = Color.FromArgb("#2CEEF4FF");
-            QuickModeLabel.Text = "Notte";
-            LegendModeLabel.Text = "Modalità giorno";
-        }
-    }
-
-    private List<VenueOverlayCluster> BuildOverlayAreas(List<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
-    {
-        var markerMap = markers.ToDictionary(x => x.VenueId);
-        var zoomScale = ResolveBubbleZoomScale(viewport);
-
-        return _viewModel.Areas
-            .Where(x => viewport.Contains(x.CentroidLatitude, x.CentroidLongitude))
-            .Select(area =>
-            {
-                var resolvedMarkers = area.VenueIds
-                    .Where(markerMap.ContainsKey)
-                    .Select(id => markerMap[id])
-                    .ToList();
-
-                if (resolvedMarkers.Count == 0)
-                {
-                    return null;
-                }
-
-                if (!TryGetOverlayAnchorPoint(area.CentroidLatitude, area.CentroidLongitude, viewport, insets, out var anchor))
-                {
-                    return null;
-                }
-
-                var size = Math.Clamp((58 + Math.Min(34, area.BubbleIntensity / 2.9)) * zoomScale * (area.IsCluster ? 1.16d : 1.10d), 54, 132);
-
-                return new VenueOverlayCluster(
-                    area.AreaId,
-                    resolvedMarkers,
-                    area.PresencePreview.ToList(),
-                    Math.Max(area.PresenceCount, area.PresencePreview.Count),
-                    area.PeopleCount,
-                    area.VenueCount,
-                    area.Label,
-                    anchor.X,
-                    anchor.Y,
-                    size,
-                    zoomScale,
-                    ResolveAreaColor(area),
-                    area.IsCluster,
-                    area.CentroidLatitude,
-                    area.CentroidLongitude);
-            })
-            .Where(x => x is not null)
-            .Cast<VenueOverlayCluster>()
-            .ToList();
-    }
-
-    private List<VenueOverlayCluster> BuildOverlayClusters(List<VenueMarker> markers, MapViewport viewport, OverlayInsets insets)
-    {
-        var latRange = viewport.LatitudeSpan;
-        var lngRange = viewport.LongitudeSpan;
-        var usableWidth = Math.Max(0.18d, 1d - insets.Left - insets.Right);
-        var usableHeight = Math.Max(0.18d, 1d - insets.Top - insets.Bottom);
-        var zoomScale = ResolveBubbleZoomScale(viewport);
-
-        var projected = markers.Select(marker =>
-        {
-            var normalizedX = (marker.Longitude - viewport.MinLongitude) / lngRange;
-            var normalizedY = (marker.Latitude - viewport.MinLatitude) / latRange;
-            var x = Math.Clamp(insets.Left + normalizedX * usableWidth, insets.Left + 0.03d, 1d - insets.Right - 0.03d);
-            var y = Math.Clamp(1d - insets.Bottom - normalizedY * usableHeight, insets.Top + 0.04d, 1d - insets.Bottom - 0.04d);
-            var size = Math.Clamp((30 + Math.Min(16, marker.BubbleIntensity / 4.2)) * zoomScale, 28, 60);
-            return new OverlayMarkerProjection(marker, x, y, size);
-        }).ToList();
-
-        var clusterCellSize = ResolveClusterCellSize(viewport);
-        if (clusterCellSize <= 0)
-        {
-            return projected
-                .Select(x => CreateSingleMarkerCluster(x.Marker, x.X, x.Y, x.Size))
-                .ToList();
-        }
-
-        return projected
-            .GroupBy(x => (
-                Col: (int)Math.Floor((x.X - insets.Left) / clusterCellSize),
-                Row: (int)Math.Floor((x.Y - insets.Top) / clusterCellSize)))
-            .Select(group =>
-            {
-                if (group.Count() == 1)
-                {
-                    var single = group.First();
-                    return CreateSingleMarkerCluster(single.Marker, single.X, single.Y, single.Size);
-                }
-
-                var groupedMarkers = group.Select(x => x.Marker).ToList();
-                var uniquePresence = groupedMarkers
-                    .SelectMany(x => x.PresencePreview)
-                    .GroupBy(x => x.UserId)
-                    .Select(x => x.First())
-                    .ToList();
-
-                var peopleCount = groupedMarkers.Sum(GetMarkerPeopleCount);
-                var areaLabel = BuildAreaLabel(groupedMarkers);
-                var key = BuildClusterKey(groupedMarkers);
-
-                return new VenueOverlayCluster(
-                    key,
-                    groupedMarkers,
-                    uniquePresence.Take(4).ToList(),
-                    uniquePresence.Count,
-                    peopleCount,
-                    groupedMarkers.Count,
-                    areaLabel,
-                    group.Average(x => x.X),
-                    group.Average(x => x.Y),
-                    Math.Clamp(group.Max(x => x.Size) + 12, 48, 104),
-                    zoomScale,
-                    ResolveClusterColor(groupedMarkers),
-                    true,
-                    groupedMarkers.Average(x => x.Latitude),
-                    groupedMarkers.Average(x => x.Longitude));
-            })
-            .ToList();
-    }
-
-    private static double ResolveClusterCellSize(MapViewport viewport)
-    {
-        return viewport.LatitudeSpan switch
-        {
-            < 0.020d => 0d,
-            < 0.045d => 0.095d,
-            < 0.085d => 0.13d,
-            _ => 0.17d
-        };
-    }
-
-    private static double ResolveBubbleZoomScale(MapViewport viewport)
-    {
-        var normalized = 0.035d / Math.Max(0.006d, viewport.LatitudeSpan);
-        return Math.Clamp(Math.Pow(normalized, 0.25d), 0.36d, 1.20d);
-    }
-
-    private List<FogLink> BuildFogLinks(IReadOnlyList<VenueOverlayCluster> clusters)
-    {
-        var links = new List<FogLink>();
-        for (var i = 0; i < clusters.Count; i++)
-        {
-            for (var j = i + 1; j < clusters.Count; j++)
-            {
-                var first = clusters[i];
-                var second = clusters[j];
-                var dx = second.X - first.X;
-                var dy = second.Y - first.Y;
-                var distance = Math.Sqrt(dx * dx + dy * dy);
-                var maxDistance = Math.Max(110d, (first.Size + second.Size) * 1.45d);
-                if (distance < 24d || distance > maxDistance)
-                {
-                    continue;
-                }
-
-                var width = distance + Math.Max(first.Size, second.Size) * 0.95d;
-                var height = Math.Max(30d, (first.Size + second.Size) * 0.42d);
-                var centerX = (first.X + second.X) / 2d;
-                var centerY = (first.Y + second.Y) / 2d - 6d;
-                var angle = Math.Atan2(dy, dx) * 180d / Math.PI;
-                var intensity = Math.Clamp((first.PeopleCount + second.PeopleCount) / 18d, 0.42d, 1d);
-                var color = first.PeopleCount >= second.PeopleCount ? first.Color : second.Color;
-                var bodyAlpha = _isContrastModeEnabled ? 0.24f : 0.18f;
-                var glowAlpha = _isContrastModeEnabled ? 0.16f : 0.10f;
-                links.Add(new FogLink(
-                    new Rect(centerX - width / 2d, centerY - height / 2d, width, height),
-                    angle,
-                    height,
-                    color.WithAlpha(bodyAlpha),
-                    color.WithAlpha(glowAlpha),
-                    intensity));
-            }
-        }
-
-        return links
-            .OrderByDescending(x => x.Intensity)
-            .Take(18)
-            .ToList();
-    }
-
-    private View CreateClusterBubble(VenueOverlayCluster cluster)
-    {
-        var isSelectedArea = _selectedAreaClusterKey == cluster.Key;
-        var shadowOpacity = isSelectedArea ? 0.16f : 0.08f;
-        var contrastBoost = _isContrastModeEnabled ? 1.18d : 1d;
-        var cloud = new AbsoluteLayout
-        {
-            WidthRequest = cluster.LayoutWidth,
-            HeightRequest = cluster.LayoutHeight,
-            InputTransparent = false,
-            Shadow = new Shadow
-            {
-                Brush = new SolidColorBrush(Colors.Black),
-                Radius = isSelectedArea ? 26 : 20,
-                Offset = new Point(0, 10),
-                Opacity = shadowOpacity
-            }
-        };
-
-        var farField = new Border
-        {
-            WidthRequest = cluster.Size * (2.35 * contrastBoost),
-            HeightRequest = cluster.Size * (1.66 * contrastBoost),
-            Background = CreateFogFieldBrush(cluster.Color, isSelectedArea),
-            StrokeThickness = 0,
-            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.94 : 0.86) : (_isContrastModeEnabled ? 0.80 : 0.72),
-            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.90 }
-        };
-        AbsoluteLayout.SetLayoutBounds(farField, new Rect(cluster.LayoutWidth * -0.18, cluster.CloudYOffset - cluster.Size * 0.06, cluster.Size * (2.35 * contrastBoost), cluster.Size * (1.66 * contrastBoost)));
-        cloud.Children.Add(farField);
-
-        var outerAura = new Border
-        {
-            WidthRequest = cluster.Size * 2.02,
-            HeightRequest = cluster.Size * 1.28,
-            Background = CreateCloudHaloBrush(cluster.Color),
-            StrokeThickness = 0,
-            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.94 : 0.88) : (_isContrastModeEnabled ? 0.82 : 0.76),
-            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.72 }
-        };
-        AbsoluteLayout.SetLayoutBounds(outerAura, new Rect(cluster.LayoutWidth * -0.04, cluster.CloudYOffset + cluster.Size * 0.04, cluster.Size * 2.02, cluster.Size * 1.28));
-        cloud.Children.Add(outerAura);
-
-        var aura = new Border
-        {
-            WidthRequest = cluster.Size * 1.46,
-            HeightRequest = cluster.Size * 0.96,
-            Background = CreateCloudAuraBrush(cluster.Color, isSelectedArea),
-            StrokeThickness = 0,
-            Opacity = isSelectedArea ? (_isContrastModeEnabled ? 0.97 : 0.94) : (_isContrastModeEnabled ? 0.90 : 0.86),
-            StrokeShape = new RoundRectangle { CornerRadius = cluster.Size * 0.56 }
-        };
-        AbsoluteLayout.SetLayoutBounds(aura, new Rect(cluster.LayoutWidth * 0.08, cluster.CloudYOffset + cluster.Size * 0.18, cluster.Size * 1.46, cluster.Size * 0.96));
-        cloud.Children.Add(aura);
-
-        var fill = CreateCloudBrush(cluster.Color, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 1.08, cluster.Size * 0.64, cluster.LayoutWidth * 0.04, cluster.CloudYOffset + cluster.Size * 0.34, fill, Colors.Transparent, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 1.22, cluster.Size * 0.88, cluster.LayoutWidth * 0.16, cluster.CloudYOffset + cluster.Size * 0.04, fill, Colors.Transparent, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 1.08, cluster.Size * 0.72, cluster.LayoutWidth * 0.54, cluster.CloudYOffset + cluster.Size * 0.22, fill, Colors.Transparent, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.84, cluster.Size * 0.52, cluster.LayoutWidth * 0.34, cluster.CloudYOffset + cluster.Size * 0.46, fill, Colors.Transparent, isSelectedArea);
-        AddCloudPuff(cloud, cluster.Size * 0.74, cluster.Size * 0.44, cluster.LayoutWidth * 0.78, cluster.CloudYOffset + cluster.Size * 0.42, fill, Colors.Transparent, isSelectedArea);
-        AddCloudHighlight(cloud, cluster.Size * 0.30, cluster.Size * 0.11, cluster.LayoutWidth * 0.34, cluster.CloudYOffset + cluster.Size * 0.16);
-        AddCloudHighlight(cloud, cluster.Size * 0.26, cluster.Size * 0.10, cluster.LayoutWidth * 0.68, cluster.CloudYOffset + cluster.Size * 0.26);
-
-        if (viewportOrDefaultForCount(cluster))
-        {
-            var countPill = new Border
-            {
-                Padding = new Thickness(8, 3),
-                BackgroundColor = Colors.White.WithAlpha(isSelectedArea ? 0.92f : 0.82f),
-                StrokeThickness = 0,
-                StrokeShape = new RoundRectangle { CornerRadius = 12 },
-                Content = new Label
-                {
-                    Text = cluster.PeopleCount.ToString(),
-                    TextColor = Color.FromArgb("#0F172A"),
-                    FontAttributes = FontAttributes.Bold,
-                    FontSize = 11,
-                    HorizontalTextAlignment = TextAlignment.Center,
-                    VerticalTextAlignment = TextAlignment.Center
-                }
-            };
-            var pillWidth = Math.Max(30d, 18d + cluster.PeopleCount.ToString().Length * 7d);
-            AbsoluteLayout.SetLayoutBounds(countPill, new Rect((cluster.LayoutWidth - pillWidth) / 2d, cluster.CloudYOffset + cluster.Size * 0.74, pillWidth, 24));
-            cloud.Children.Add(countPill);
-        }
-
-        cloud.GestureRecognizers.Add(new TapGestureRecognizer
-        {
-            Command = new Command(async () => await OnClusterTappedAsync(cluster))
-        });
-
-        StartCloudPulse(cloud, cluster.BubbleScaleHint);
-
-        return cloud;
-    }
-
-    private View CreateFogLink(FogLink link)
-    {
-        var host = new Grid
-        {
-            WidthRequest = link.Bounds.Width,
-            HeightRequest = link.Bounds.Height,
-            Rotation = link.Angle,
-            InputTransparent = true,
-            Opacity = link.Intensity
-        };
-
-        var bloom = new Border
-        {
-            WidthRequest = link.Bounds.Width * 1.05,
-            HeightRequest = link.Bounds.Height * 1.55,
-            Background = new RadialGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(link.GlowColor, 0f),
-                    new GradientStop(link.GlowColor.WithAlpha(link.GlowColor.Alpha * 0.55f), 0.48f),
-                    new GradientStop(link.GlowColor.WithAlpha(0f), 1f)
-                },
-                new Point(0.5, 0.5),
-                1f),
-            StrokeThickness = 0,
-            StrokeShape = new RoundRectangle { CornerRadius = link.Height }
-        };
-
-        var haze = new Border
-        {
-            WidthRequest = link.Bounds.Width,
-            HeightRequest = link.Bounds.Height,
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(link.Color.WithAlpha(0f), 0f),
-                    new GradientStop(link.Color, 0.30f),
-                    new GradientStop(link.Color.WithAlpha(Math.Min(0.30f, link.Color.Alpha)), 0.50f),
-                    new GradientStop(link.Color, 0.70f),
-                    new GradientStop(link.Color.WithAlpha(0f), 1f)
-                },
-                new Point(0, 0.5),
-                new Point(1, 0.5)),
-            StrokeThickness = 0,
-            StrokeShape = new RoundRectangle { CornerRadius = link.Height / 2d }
-        };
-
-        host.Children.Add(bloom);
-        host.Children.Add(haze);
-        return host;
-    }
-
-    private async Task OnClusterTappedAsync(VenueOverlayCluster cluster)
-    {
-        await HidePresenceOverlayAsync(animated: false);
-        await HideProfileOverlayAsync(animated: false);
-        await HideVenueDetailOverlayAsync(animated: false);
-
-        if (!cluster.IsCluster || cluster.Markers.Count == 1)
-        {
-            ClearAreaSelection();
-            _viewModel.SelectMarker(cluster.Markers[0]);
-            return;
-        }
-
-        if (_selectedAreaClusterKey == cluster.Key)
-        {
-            await ShowPresenceOverlayAsync(cluster);
-            return;
-        }
-
-        _viewModel.ClearSelection();
-        _activeAreaCluster = cluster;
-        _selectedAreaClusterKey = cluster.Key;
-        RenderAreaSelectionState();
-        RenderViewportOverlay();
-    }
-
     private void RenderSelectedPresencePreview()
     {
         SheetPresenceStack.Children.Clear();
@@ -1688,7 +1209,7 @@ public partial class MainMapPage : ContentPage
 
         PresenceOverlay.IsVisible = true;
         PresenceSheet.TranslationY = 420;
-        await PresenceSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await PresenceSheet.TranslateTo(0, 0, 260, Easing.SpringOut);
     }
 
     private async Task HidePresenceOverlayAsync(bool animated)
@@ -1701,7 +1222,7 @@ public partial class MainMapPage : ContentPage
         _activePresenceCluster = null;
         if (animated)
         {
-            await PresenceSheet.TranslateTo(0, 420, 180, Easing.CubicIn);
+            await PresenceSheet.TranslateTo(0, 420, 200, Easing.SpringIn);
         }
         else
         {
@@ -1748,7 +1269,7 @@ public partial class MainMapPage : ContentPage
             {
                 Padding = new Thickness(10, 6),
                 Margin = new Thickness(0, 0, 8, 8),
-                BackgroundColor = Color.FromArgb("#EEF4FF"),
+                BackgroundColor = Color.FromArgb("#F5F3FF"),
                 StrokeThickness = 0,
                 StrokeShape = new RoundRectangle { CornerRadius = 14 },
                 Content = new Label
@@ -1756,7 +1277,7 @@ public partial class MainMapPage : ContentPage
                     Text = tag.Trim(),
                     FontSize = 12,
                     FontAttributes = FontAttributes.Bold,
-                    TextColor = Color.FromArgb("#1D4ED8")
+                    TextColor = Color.FromArgb("#6D28D9")
                 }
             });
         }
@@ -1842,7 +1363,7 @@ public partial class MainMapPage : ContentPage
         var row = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -1872,7 +1393,7 @@ public partial class MainMapPage : ContentPage
         VenueDetailAnalyticsSection.IsVisible = false;
         VenueDetailLoadingIndicator.IsVisible = true;
         VenueDetailLoadingIndicator.IsRunning = true;
-        await VenueDetailSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await VenueDetailSheet.TranslateTo(0, 0, 260, Easing.SpringOut);
 
         try
         {
@@ -1900,7 +1421,7 @@ public partial class MainMapPage : ContentPage
 
         if (animated)
         {
-            await VenueDetailSheet.TranslateTo(0, 540, 180, Easing.CubicIn);
+            await VenueDetailSheet.TranslateTo(0, 540, 200, Easing.SpringIn);
         }
         else
         {
@@ -1921,7 +1442,7 @@ public partial class MainMapPage : ContentPage
 
         if (animated)
         {
-            await ProfileSheet.TranslateTo(0, 460, 180, Easing.CubicIn);
+            await ProfileSheet.TranslateTo(0, 460, 200, Easing.SpringIn);
         }
         else
         {
@@ -1958,14 +1479,14 @@ public partial class MainMapPage : ContentPage
                 var tagBorder = new Border
                 {
                     Padding = new Thickness(8, 4),
-                    BackgroundColor = Color.FromArgb("#EEF8FF"),
+                    BackgroundColor = Color.FromArgb("#F5F3FF"),
                     StrokeThickness = 0,
                     StrokeShape = new RoundRectangle { CornerRadius = 12 },
                     Content = new Label
                     {
                         Text = tag,
                         FontSize = 12,
-                        TextColor = Color.FromArgb("#1D4ED8")
+                        TextColor = Color.FromArgb("#6D28D9")
                     }
                 };
                 VenueDetailTagsLayout.Children.Add(tagBorder);
@@ -2054,7 +1575,7 @@ public partial class MainMapPage : ContentPage
                 var trendCard = new Border
                 {
                     Padding = new Thickness(12, 8),
-                    BackgroundColor = Color.FromArgb("#F8FBFF"),
+                    BackgroundColor = Color.FromArgb("#F5F3FF"),
                     StrokeThickness = 0,
                     StrokeShape = new RoundRectangle { CornerRadius = 12 },
                     Content = new VerticalStackLayout
@@ -2094,7 +1615,7 @@ public partial class MainMapPage : ContentPage
 
         SocialOverlay.IsVisible = true;
         SocialSheet.TranslationY = 480;
-        await SocialSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await SocialSheet.TranslateTo(0, 0, 260, Easing.SpringOut);
         var socialCacheStale = (DateTimeOffset.UtcNow - _socialOverlayLastRefreshUtc) > SocialOverlayCacheDuration;
         if (forceRefresh || _socialHub is null || _socialMeState is null || socialCacheStale)
         {
@@ -2111,7 +1632,7 @@ public partial class MainMapPage : ContentPage
 
         if (animated)
         {
-            await SocialSheet.TranslateTo(0, 480, 180, Easing.CubicIn);
+            await SocialSheet.TranslateTo(0, 480, 200, Easing.SpringIn);
         }
         else
         {
@@ -2260,7 +1781,7 @@ public partial class MainMapPage : ContentPage
         return new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = new Label
@@ -2369,7 +1890,7 @@ public partial class MainMapPage : ContentPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -2449,7 +1970,7 @@ public partial class MainMapPage : ContentPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -2520,7 +2041,7 @@ public partial class MainMapPage : ContentPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -2547,12 +2068,12 @@ public partial class MainMapPage : ContentPage
 
         if (primary)
         {
-            button.BackgroundColor = Color.FromArgb("#2563EB");
+            button.BackgroundColor = Color.FromArgb("#7C3AED");
             button.TextColor = Colors.White;
         }
         else
         {
-            button.BackgroundColor = Color.FromArgb("#EAF0F7");
+            button.BackgroundColor = Color.FromArgb("#F1F5F9");
             button.TextColor = Color.FromArgb("#0F172A");
         }
 
@@ -2581,6 +2102,25 @@ public partial class MainMapPage : ContentPage
         return button;
     }
 
+    private async Task ShowTableOverlayAsync(Guid tableId)
+    {
+        try
+        {
+            var tables = await _apiClient.GetMyTablesAsync();
+            var table = tables.FirstOrDefault(t => t.TableId == tableId);
+            if (table is null)
+            {
+                _viewModel.SetStatusMessage("Tavolo non trovato.");
+                return;
+            }
+            await ShowTableOverlayAsync(table);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.SetStatusMessage($"Impossibile aprire il tavolo: {ex.Message}");
+        }
+    }
+
     private async Task ShowTableOverlayAsync(SocialTableSummary table)
     {
         await HideQuickActionRailAsync(animated: false);
@@ -2599,7 +2139,8 @@ public partial class MainMapPage : ContentPage
         TableLoadingIndicator.IsRunning = true;
         TableOverlay.IsVisible = true;
         TableSheet.TranslationY = 500;
-        await TableSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await TableSheet.TranslateTo(0, 0, 260, Easing.SpringOut);
+        await _chatHub.JoinThreadAsync($"table-{table.TableId}");
         await RefreshActiveTableThreadAsync();
     }
 
@@ -2610,9 +2151,12 @@ public partial class MainMapPage : ContentPage
             return;
         }
 
+        if (_activeTableSummary is not null)
+            await _chatHub.LeaveThreadAsync($"table-{_activeTableSummary.TableId}");
+
         if (animated)
         {
-            await TableSheet.TranslateTo(0, 500, 180, Easing.CubicIn);
+            await TableSheet.TranslateTo(0, 500, 200, Easing.SpringIn);
         }
         else
         {
@@ -2768,7 +2312,7 @@ public partial class MainMapPage : ContentPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -2795,7 +2339,7 @@ public partial class MainMapPage : ContentPage
         var bubble = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = message.IsMine ? Color.FromArgb("#2563EB") : Color.FromArgb("#F8FBFF"),
+            BackgroundColor = message.IsMine ? Color.FromArgb("#7C3AED") : Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             MaximumWidthRequest = 260,
@@ -2872,7 +2416,7 @@ public partial class MainMapPage : ContentPage
         SocialStatusLabel.Text = message;
         SocialStatusLabel.TextColor = isError
             ? Color.FromArgb("#B91C1C")
-            : Color.FromArgb("#1D4ED8");
+            : Color.FromArgb("#6D28D9");
         SocialStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
@@ -2881,7 +2425,7 @@ public partial class MainMapPage : ContentPage
         TableStatusLabel.Text = message;
         TableStatusLabel.TextColor = isError
             ? Color.FromArgb("#B91C1C")
-            : Color.FromArgb("#1D4ED8");
+            : Color.FromArgb("#6D28D9");
         TableStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
@@ -3008,7 +2552,7 @@ public partial class MainMapPage : ContentPage
         ProfileActionMessageLabel.Text = message;
         ProfileActionMessageLabel.TextColor = isError
             ? Color.FromArgb("#B91C1C")
-            : Color.FromArgb("#1D4ED8");
+            : Color.FromArgb("#6D28D9");
         ProfileActionMessageLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
@@ -3018,7 +2562,7 @@ public partial class MainMapPage : ContentPage
         {
             WidthRequest = size,
             HeightRequest = size,
-            BackgroundColor = Color.FromArgb("#E7EEF8"),
+            BackgroundColor = Color.FromArgb("#F1F5F9"),
             Stroke = Colors.White,
             StrokeThickness = 2,
             StrokeShape = new RoundRectangle { CornerRadius = size / 2 },
@@ -3027,7 +2571,7 @@ public partial class MainMapPage : ContentPage
                 Text = $"+{extraCount}",
                 FontSize = 11,
                 FontAttributes = FontAttributes.Bold,
-                TextColor = Color.FromArgb("#1D4ED8"),
+                TextColor = Color.FromArgb("#6D28D9"),
                 HorizontalTextAlignment = TextAlignment.Center,
                 VerticalTextAlignment = TextAlignment.Center
             }
@@ -3122,959 +2666,22 @@ public partial class MainMapPage : ContentPage
     {
         var palette = new[]
         {
-            "#3B82F6",
+            "#7C3AED",
             "#8B5CF6",
             "#EC4899",
             "#14B8A6",
             "#F97316",
-            "#0EA5E9"
+            "#06B6D4"
         };
 
         var seed = string.IsNullOrWhiteSpace(displayName) ? nickname : displayName;
         if (string.IsNullOrWhiteSpace(seed))
         {
-            return Color.FromArgb("#2563EB");
+            return Color.FromArgb("#7C3AED");
         }
 
         var hash = seed.Aggregate(17, (current, ch) => current * 31 + ch);
         return Color.FromArgb(palette[Math.Abs(hash) % palette.Length]);
     }
 
-    private void RenderAreaSelectionState()
-    {
-        if (_activeAreaCluster is null || !_activeAreaCluster.IsCluster)
-        {
-            AreaSelectionCard.IsVisible = false;
-            return;
-        }
-
-        AreaSelectionTitleLabel.Text = _activeAreaCluster.AreaLabel;
-        AreaSelectionMetaLabel.Text = $"{_activeAreaCluster.PeopleCount} persone • {_activeAreaCluster.VenueCount} luoghi";
-        AreaSelectionCard.IsVisible = true;
-    }
-
-    private void ClearAreaSelection()
-    {
-        _activeAreaCluster = null;
-        _selectedAreaClusterKey = null;
-        AreaSelectionCard.IsVisible = false;
-    }
-
-    private static int GetMarkerPeopleCount(VenueMarker marker)
-    {
-        return Math.Max(marker.PeopleEstimate, marker.ActiveCheckIns + marker.ActiveIntentions);
-    }
-
-    private static string BuildClusterKey(IEnumerable<VenueMarker> markers)
-    {
-        return string.Join('|', markers.Select(x => x.VenueId.ToString("N")).OrderBy(x => x, StringComparer.Ordinal));
-    }
-
-    private static string BuildAreaLabel(IEnumerable<VenueMarker> markers)
-    {
-        var lead = markers
-            .OrderByDescending(x => GetMarkerPeopleCount(x))
-            .ThenByDescending(x => x.OpenTables)
-            .First();
-
-        var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "bar", "club", "cafe", "cafè", "demo", "social", "ristorante", "bistrot", "pub", "the"
-        };
-
-        var parts = lead.Name
-            .Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(x => !stopWords.Contains(x))
-            .Take(2)
-            .ToList();
-
-        if (parts.Count == 0)
-        {
-            parts = lead.Name
-                .Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Take(2)
-                .ToList();
-        }
-
-        return parts.Count == 0 ? "Area live" : string.Join(" ", parts);
-    }
-
-    private static Brush CreateCloudBrush(Color signalColor, bool isSelectedArea)
-    {
-        var topColor = Colors.White.WithAlpha(isSelectedArea ? 0.62f : 0.48f);
-        var middleColor = signalColor.WithAlpha(isSelectedArea ? 0.24f : 0.18f);
-        var bottomColor = signalColor.WithAlpha(isSelectedArea ? 0.30f : 0.22f);
-        return new RadialGradientBrush(
-            new GradientStopCollection
-            {
-                new GradientStop(topColor, 0f),
-                new GradientStop(middleColor, 0.52f),
-                new GradientStop(bottomColor, 1f)
-            },
-            new Point(0.46, 0.34),
-            0.92f);
-    }
-
-    private static Brush CreateFogFieldBrush(Color signalColor, bool isSelectedArea)
-    {
-        return new RadialGradientBrush(
-            new GradientStopCollection
-            {
-                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.24f : 0.18f), 0f),
-                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.16f : 0.11f), 0.34f),
-                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.09f : 0.06f), 0.68f),
-                new GradientStop(signalColor.WithAlpha(0f), 1f)
-            },
-            new Point(0.5, 0.5),
-            1.05f);
-    }
-
-    private static Brush CreateCloudAuraBrush(Color signalColor, bool isSelectedArea)
-    {
-        return new RadialGradientBrush(
-            new GradientStopCollection
-            {
-                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.22f : 0.16f), 0f),
-                new GradientStop(signalColor.WithAlpha(isSelectedArea ? 0.14f : 0.09f), 0.50f),
-                new GradientStop(signalColor.WithAlpha(0.02f), 1f)
-            },
-            new Point(0.5, 0.5),
-            0.92f);
-    }
-
-    private static Brush CreateCloudHaloBrush(Color signalColor)
-    {
-        return new RadialGradientBrush(
-            new GradientStopCollection
-            {
-                new GradientStop(signalColor.WithAlpha(0.18f), 0f),
-                new GradientStop(signalColor.WithAlpha(0.10f), 0.42f),
-                new GradientStop(signalColor.WithAlpha(0.04f), 0.74f),
-                new GradientStop(signalColor.WithAlpha(0.00f), 1f)
-            },
-            new Point(0.5, 0.5),
-            1f);
-    }
-
-    private static void AddCloudPuff(AbsoluteLayout host, double width, double height, double x, double y, Brush fill, Color stroke, bool isSelectedArea)
-    {
-        var puff = new Border
-        {
-            WidthRequest = width,
-            HeightRequest = height,
-            Background = fill,
-            Stroke = stroke,
-            StrokeThickness = stroke == Colors.Transparent ? 0 : (isSelectedArea ? 1.2 : 0.6),
-            StrokeShape = new RoundRectangle { CornerRadius = Math.Min(width, height) / 2d }
-        };
-
-        AbsoluteLayout.SetLayoutBounds(puff, new Rect(x, y, width, height));
-        host.Children.Add(puff);
-    }
-
-    private static void AddCloudHighlight(AbsoluteLayout host, double width, double height, double x, double y)
-    {
-        var highlight = new Border
-        {
-            WidthRequest = width,
-            HeightRequest = height,
-            BackgroundColor = Colors.White.WithAlpha(0.56f),
-            StrokeThickness = 0,
-            StrokeShape = new RoundRectangle { CornerRadius = Math.Min(width, height) / 2d }
-        };
-
-        AbsoluteLayout.SetLayoutBounds(highlight, new Rect(x, y, width, height));
-        host.Children.Add(highlight);
-    }
-
-    private void StartCloudPulse(VisualElement cloud, double pulseHint)
-    {
-        cloud.AbortAnimation("cloud-pulse");
-        var targetScale = 1 + Math.Min(0.085, pulseHint * 0.032);
-        var targetOpacity = 0.95 - Math.Min(0.12, pulseHint * 0.04);
-        var animation = new Animation
-        {
-            { 0, 0.5, new Animation(v => cloud.Scale = v, 0.99, targetScale, Easing.SinInOut) },
-            { 0.5, 1, new Animation(v => cloud.Scale = v, targetScale, 0.99, Easing.SinInOut) },
-            { 0, 0.5, new Animation(v => cloud.Opacity = v, 0.94, targetOpacity, Easing.SinInOut) },
-            { 0.5, 1, new Animation(v => cloud.Opacity = v, targetOpacity, 0.94, Easing.SinInOut) }
-        };
-        animation.Commit(cloud, "cloud-pulse", 16, 3100, repeat: () => cloud.Parent is not null);
-    }
-
-    private bool viewportOrDefaultForCount(VenueOverlayCluster cluster)
-    {
-        var viewport = _lastOverlayViewport ?? GetCurrentViewportOrDefault();
-        return _selectedAreaClusterKey == cluster.Key || !cluster.IsCluster || viewport.LatitudeSpan < 0.030d;
-    }
-
-    private async Task SyncVenueSheetAsync(bool animated)
-    {
-        if (_viewModel.HasSelectedMarker)
-        {
-            VenueSheet.IsVisible = true;
-            var target = VenueSheet.TranslationY >= GetHiddenSheetOffset() - 1 || VenueSheet.TranslationY <= 0
-                ? GetOffsetForSheetState(_sheetSnapState)
-                : ResolveNearestVisibleSheetOffset(VenueSheet.TranslationY);
-
-            if (VenueSheet.TranslationY >= GetHiddenSheetOffset() - 1)
-            {
-                _sheetSnapState = VenueSheetSnapState.Teaser;
-                target = GetTeaserSheetOffset();
-            }
-
-            await AnimateVenueSheetToAsync(target, animated);
-            return;
-        }
-
-        if (!VenueSheet.IsVisible)
-        {
-            VenueSheet.TranslationY = GetHiddenSheetOffset();
-            return;
-        }
-
-        await AnimateVenueSheetToAsync(GetHiddenSheetOffset(), animated);
-        VenueSheet.IsVisible = false;
-        _sheetSnapState = VenueSheetSnapState.Teaser;
-    }
-
-    private async Task AnimateVenueSheetToAsync(double target, bool animated)
-    {
-        target = ClampSheetOffset(target);
-        if (!animated)
-        {
-            VenueSheet.TranslationY = target;
-            return;
-        }
-
-        await VenueSheet.TranslateTo(0, target, 220, Easing.CubicOut);
-    }
-
-    private double ResolveNearestSheetOffset(double currentOffset)
-    {
-        var offsets = new[]
-        {
-            GetExpandedSheetOffset(),
-            GetCollapsedSheetOffset(),
-            GetTeaserSheetOffset(),
-            GetHiddenSheetOffset()
-        };
-
-        return offsets.OrderBy(x => Math.Abs(x - currentOffset)).First();
-    }
-
-    private double ResolveNearestVisibleSheetOffset(double currentOffset)
-    {
-        var offsets = new[]
-        {
-            GetExpandedSheetOffset(),
-            GetCollapsedSheetOffset(),
-            GetTeaserSheetOffset()
-        };
-
-        return offsets.OrderBy(x => Math.Abs(x - currentOffset)).First();
-    }
-
-    private void UpdateSheetSnapState(double offset)
-    {
-        if (Math.Abs(offset - GetExpandedSheetOffset()) < 4)
-        {
-            _sheetSnapState = VenueSheetSnapState.Expanded;
-            return;
-        }
-
-        if (Math.Abs(offset - GetCollapsedSheetOffset()) < 4)
-        {
-            _sheetSnapState = VenueSheetSnapState.Collapsed;
-            return;
-        }
-
-        _sheetSnapState = VenueSheetSnapState.Teaser;
-    }
-
-    private double GetOffsetForSheetState(VenueSheetSnapState snapState)
-    {
-        return snapState switch
-        {
-            VenueSheetSnapState.Expanded => GetExpandedSheetOffset(),
-            VenueSheetSnapState.Collapsed => GetCollapsedSheetOffset(),
-            _ => GetTeaserSheetOffset()
-        };
-    }
-
-    private static double GetExpandedSheetOffset()
-    {
-        return 0d;
-    }
-
-    private double GetTeaserSheetOffset()
-    {
-        var hidden = GetHiddenSheetOffset();
-        return Math.Clamp(hidden - MinimumTeaserVisibleHeight, 108, hidden - 24);
-    }
-
-    private double GetCollapsedSheetOffset()
-    {
-        var hidden = GetHiddenSheetOffset();
-        return Math.Clamp(hidden - Math.Min(Math.Max(MinimumCollapsedVisibleHeight, VenueSheet.Height * 0.60d), VenueSheet.Height - 32), 72, hidden - 72);
-    }
-
-    private double ClampSheetOffset(double value)
-    {
-        return Math.Clamp(value, GetExpandedSheetOffset(), GetHiddenSheetOffset());
-    }
-
-    private double GetHiddenSheetOffset()
-    {
-        return Math.Max(320, VenueSheet.Height + HiddenSheetPadding);
-    }
-
-    private MapViewport GetCurrentViewportOrDefault()
-    {
-        if (NativeMap.VisibleRegion is not MapSpan visibleRegion)
-        {
-            return MapViewport.MilanDefault;
-        }
-
-        var halfLat = Math.Abs(visibleRegion.LatitudeDegrees) / 2d;
-        var halfLng = Math.Abs(visibleRegion.LongitudeDegrees) / 2d;
-        return new MapViewport(
-            visibleRegion.Center.Latitude - halfLat,
-            visibleRegion.Center.Longitude - halfLng,
-            visibleRegion.Center.Latitude + halfLat,
-            visibleRegion.Center.Longitude + halfLng).Normalize();
-    }
-
-    private OverlayInsets GetOverlayInsets()
-    {
-        var pageHeight = Height <= 0 ? 844d : Height;
-        var pageWidth = Width <= 0 ? 390d : Width;
-        var topChromeHeight = DiscoveryChromePanel.IsVisible ? 132d : 72d;
-        var topInset = Math.Clamp(topChromeHeight / pageHeight, 0.08d, 0.22d);
-
-        var sheetVisibleHeight = VenueSheet.IsVisible
-            ? Math.Max(0d, VenueSheet.Height - VenueSheet.TranslationY)
-            : 0d;
-        var bottomChrome = Math.Max(126d, 92d + sheetVisibleHeight);
-        if (AreaSelectionCard.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, 216d);
-        }
-        if (PresenceOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(250d, PresenceSheet.Height * 0.82d + 88d));
-        }
-        if (ProfileOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(320d, ProfileSheet.Height * 0.86d + 78d));
-        }
-        if (VenueDetailOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(380d, VenueDetailSheet.Height * 0.90d + 72d));
-        }
-        if (SocialOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(340d, SocialSheet.Height * 0.88d + 72d));
-        }
-        if (TableOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, TableSheet.Height * 0.88d + 72d));
-        }
-        if (EditProfileOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, EditProfileSheet.Height * 0.88d + 72d));
-        }
-        if (DirectMessageOverlay.IsVisible)
-        {
-            bottomChrome = Math.Max(bottomChrome, Math.Max(360d, DirectMessageSheet.Height * 0.88d + 72d));
-        }
-
-        var bottomInset = Math.Clamp(bottomChrome / pageHeight, 0.16d, 0.62d);
-        var leftInset = Math.Clamp(24d / pageWidth, 0.05d, 0.10d);
-        var rightInset = Math.Clamp((_isQuickActionRailOpen ? 164d : 24d) / pageWidth, 0.05d, 0.34d);
-        return new OverlayInsets(leftInset, topInset, rightInset, bottomInset);
-    }
-
-    private void StartOverlaySyncTimer()
-    {
-        if (_overlaySyncTimer is not null || Dispatcher is null)
-        {
-            return;
-        }
-
-        _overlaySyncTimer = Dispatcher.CreateTimer();
-        _overlaySyncTimer.Interval = TimeSpan.FromMilliseconds(OverlaySyncIntervalMs);
-        _overlaySyncTimer.Tick += (_, _) =>
-        {
-            if (NativeMap.VisibleRegion is null)
-            {
-                return;
-            }
-
-            var viewport = GetCurrentViewportOrDefault();
-            if (_lastOverlayViewport is MapViewport previous &&
-                !HasOverlayViewportChanged(viewport, previous))
-            {
-                return;
-            }
-
-            ScheduleOverlayRender(TimeSpan.Zero);
-        };
-        _overlaySyncTimer.Start();
-    }
-
-    private void StopOverlaySyncTimer()
-    {
-        if (_overlaySyncTimer is null)
-        {
-            return;
-        }
-
-        _overlaySyncTimer.Stop();
-        _overlaySyncTimer = null;
-    }
-
-    private void ScheduleViewportRefresh()
-    {
-        CancelPendingViewportRefresh();
-        _viewportRefreshCts = new CancellationTokenSource();
-        var token = _viewportRefreshCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(ViewportRefreshDelayMs, token);
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    await RefreshForCurrentViewportAsync(force: false, centerOnMarkers: false);
-                });
-            }
-            catch (TaskCanceledException)
-            {
-            }
-        }, token);
-    }
-
-    private void CancelPendingViewportRefresh()
-    {
-        if (_viewportRefreshCts is null)
-        {
-            return;
-        }
-
-        _viewportRefreshCts.Cancel();
-        _viewportRefreshCts.Dispose();
-        _viewportRefreshCts = null;
-    }
-
-    private void ScheduleOverlayRender(TimeSpan delay)
-    {
-        CancelPendingOverlayRender();
-        _overlayRenderCts = new CancellationTokenSource();
-        var token = _overlayRenderCts.Token;
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, token);
-                }
-
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                await MainThread.InvokeOnMainThreadAsync(RenderViewportOverlay);
-            }
-            catch (TaskCanceledException)
-            {
-            }
-        }, token);
-    }
-
-    private void CancelPendingOverlayRender()
-    {
-        if (_overlayRenderCts is null)
-        {
-            return;
-        }
-
-        _overlayRenderCts.Cancel();
-        _overlayRenderCts.Dispose();
-        _overlayRenderCts = null;
-    }
-
-    private void SuspendViewportRefreshFor(TimeSpan duration)
-    {
-        _suspendViewportRefreshUntilUtc = DateTimeOffset.UtcNow.Add(duration);
-    }
-
-    private static bool HasOverlayViewportChanged(MapViewport current, MapViewport previous)
-    {
-        var centerLatDelta = Math.Abs(current.CenterLatitude - previous.CenterLatitude);
-        var centerLngDelta = Math.Abs(current.CenterLongitude - previous.CenterLongitude);
-        var latSpanDelta = Math.Abs(current.LatitudeSpan - previous.LatitudeSpan);
-        var lngSpanDelta = Math.Abs(current.LongitudeSpan - previous.LongitudeSpan);
-
-        return centerLatDelta > previous.LatitudeSpan * 0.012d ||
-               centerLngDelta > previous.LongitudeSpan * 0.012d ||
-               latSpanDelta > previous.LatitudeSpan * 0.02d ||
-               lngSpanDelta > previous.LongitudeSpan * 0.02d;
-    }
-
-    private bool TryGetOverlayAnchorPoint(double latitude, double longitude, MapViewport viewport, OverlayInsets insets, out Point anchor)
-    {
-#if IOS
-        if (TryProjectCoordinateToScreenIos(latitude, longitude, out anchor))
-        {
-            var width = GetOverlayLayerWidth();
-            var height = GetOverlayLayerHeight();
-            const double margin = 64d;
-            return anchor.X >= -margin &&
-                   anchor.Y >= -margin &&
-                   anchor.X <= width + margin &&
-                   anchor.Y <= height + margin;
-        }
-#endif
-        anchor = ProjectCoordinateFallback(latitude, longitude, viewport, insets);
-        return true;
-    }
-
-    private Point ProjectCoordinateFallback(double latitude, double longitude, MapViewport viewport, OverlayInsets insets)
-    {
-        var latRange = viewport.LatitudeSpan;
-        var lngRange = viewport.LongitudeSpan;
-        var usableWidth = Math.Max(0.18d, 1d - insets.Left - insets.Right);
-        var usableHeight = Math.Max(0.18d, 1d - insets.Top - insets.Bottom);
-        var normalizedX = (longitude - viewport.MinLongitude) / lngRange;
-        var normalizedY = (latitude - viewport.MinLatitude) / latRange;
-        var proportionalX = Math.Clamp(insets.Left + normalizedX * usableWidth, 0d, 1d);
-        var proportionalY = Math.Clamp(1d - insets.Bottom - normalizedY * usableHeight, 0d, 1d);
-        return new Point(proportionalX * GetOverlayLayerWidth(), proportionalY * GetOverlayLayerHeight());
-    }
-
-    private double GetOverlayLayerWidth()
-    {
-        return BubbleLayer.Width > 1 ? BubbleLayer.Width : Math.Max(Width, 390d);
-    }
-
-    private double GetOverlayLayerHeight()
-    {
-        return BubbleLayer.Height > 1 ? BubbleLayer.Height : Math.Max(Height, 844d);
-    }
-
-    private static Rect BuildClusterBubbleBounds(VenueOverlayCluster cluster)
-    {
-        var x = cluster.X - cluster.LayoutWidth / 2d;
-        var y = cluster.Y - cluster.AnchorYOffset;
-        return new Rect(x, y, cluster.LayoutWidth, cluster.LayoutHeight);
-    }
-
-    private async Task WarmPersonalMapContextAsync()
-    {
-        try
-        {
-            if (_myProfile is null)
-            {
-                _myProfile = await _apiClient.GetMyProfileAsync();
-            }
-        }
-        catch
-        {
-            // Personal context is best-effort; the map still works without it.
-        }
-
-        await RefreshCurrentUserLocationAsync(showErrors: false, centerMap: false, force: true);
-    }
-
-    private async Task RefreshCurrentUserLocationAsync(bool showErrors, bool centerMap, bool force)
-    {
-        if (_isRefreshingCurrentUserLocation)
-        {
-            return;
-        }
-
-        if (!force &&
-            _currentUserLocation is not null &&
-            DateTimeOffset.UtcNow - _lastCurrentUserLocationRefreshUtc < CurrentUserLocationCacheDuration)
-        {
-            if (centerMap)
-            {
-                MoveMapToUserLocation(_currentUserLocation, "Mappa centrata sulla tua posizione.");
-            }
-
-            return;
-        }
-
-        try
-        {
-            _isRefreshingCurrentUserLocation = true;
-            var permission = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-            if (permission != PermissionStatus.Granted)
-            {
-                if (!showErrors)
-                {
-                    return;
-                }
-
-                permission = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-            }
-
-            if (permission != PermissionStatus.Granted)
-            {
-                if (showErrors)
-                {
-                    SetMapStatus("Permesso posizione non concesso.", true);
-                }
-
-                return;
-            }
-
-            var location = await Geolocation.Default.GetLastKnownLocationAsync();
-            location ??= await Geolocation.Default.GetLocationAsync(
-                new GeolocationRequest(GeolocationAccuracy.Medium, TimeSpan.FromSeconds(8)));
-
-            if (location is null)
-            {
-                if (showErrors)
-                {
-                    SetMapStatus("Posizione non disponibile sul dispositivo.", true);
-                }
-
-                return;
-            }
-
-            _currentUserLocation = new Location(location.Latitude, location.Longitude);
-            _lastCurrentUserLocationRefreshUtc = DateTimeOffset.UtcNow;
-            _lastOverlayViewport = null;
-
-            if (centerMap)
-            {
-                MoveMapToUserLocation(_currentUserLocation, "Mappa centrata sulla tua posizione.");
-            }
-            else
-            {
-                MainThread.BeginInvokeOnMainThread(RenderViewportOverlay);
-            }
-        }
-        catch (FeatureNotSupportedException)
-        {
-            if (showErrors)
-            {
-                SetMapStatus("Geolocalizzazione non supportata su questo device.", true);
-            }
-        }
-        catch (Exception ex)
-        {
-            if (showErrors)
-            {
-                SetMapStatus(_apiClient.DescribeException(ex), true);
-            }
-        }
-        finally
-        {
-            _isRefreshingCurrentUserLocation = false;
-        }
-    }
-
-    private void MoveMapToUserLocation(Location location, string statusMessage)
-    {
-        SuspendViewportRefreshFor(TimeSpan.FromMilliseconds(1200));
-        _lastOverlayViewport = null;
-        NativeMap.MoveToRegion(MapSpan.FromCenterAndRadius(location, Distance.FromKilometers(1.2)));
-        SetMapStatus(statusMessage, false);
-        MainThread.BeginInvokeOnMainThread(RenderViewportOverlay);
-    }
-
-    private void RenderCurrentUserOverlay(MapViewport viewport, OverlayInsets insets)
-    {
-        if (_currentUserLocation is null)
-        {
-            return;
-        }
-
-        if (!viewport.Contains(_currentUserLocation.Latitude, _currentUserLocation.Longitude))
-        {
-            return;
-        }
-
-        if (!TryGetOverlayAnchorPoint(_currentUserLocation.Latitude, _currentUserLocation.Longitude, viewport, insets, out var anchor))
-        {
-            return;
-        }
-
-        var badge = CreateCurrentUserMapBadge();
-        AbsoluteLayout.SetLayoutFlags(badge, AbsoluteLayoutFlags.None);
-        AbsoluteLayout.SetLayoutBounds(badge, new Rect(anchor.X - 34d, anchor.Y - 76d, 68d, 76d));
-        BubbleLayer.Children.Add(badge);
-    }
-
-    private View CreateCurrentUserMapBadge()
-    {
-        var nickname = _myProfile?.Nickname ?? _loginViewModel.Nickname;
-        var displayName = string.IsNullOrWhiteSpace(_myProfile?.DisplayName) ? nickname : _myProfile!.DisplayName!;
-        var preview = new PresencePreview
-        {
-            UserId = _myProfile?.UserId ?? Guid.Empty,
-            DisplayName = displayName,
-            Nickname = nickname,
-            AvatarUrl = _myProfile?.AvatarUrl
-        };
-
-        var host = new Grid
-        {
-            WidthRequest = 68,
-            HeightRequest = 76,
-            InputTransparent = true
-        };
-
-        var glow = new Border
-        {
-            WidthRequest = 58,
-            HeightRequest = 58,
-            Background = new RadialGradientBrush(
-                new GradientStopCollection
-                {
-                    new GradientStop(Color.FromArgb("#5B9BFF").WithAlpha(0.30f), 0f),
-                    new GradientStop(Color.FromArgb("#3B82F6").WithAlpha(0.14f), 0.58f),
-                    new GradientStop(Color.FromArgb("#2563EB").WithAlpha(0f), 1f)
-                },
-                new Point(0.5, 0.5),
-                1f),
-            StrokeThickness = 0,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Start,
-            Margin = new Thickness(0, 2, 0, 0),
-            StrokeShape = new RoundRectangle { CornerRadius = 29 }
-        };
-
-        var avatar = CreateAvatarBadge(preview, 44);
-        avatar.HorizontalOptions = LayoutOptions.Center;
-        avatar.VerticalOptions = LayoutOptions.Start;
-        avatar.Margin = new Thickness(0, 8, 0, 0);
-        avatar.Stroke = Color.FromArgb("#FFFFFF");
-        avatar.StrokeThickness = 3;
-        avatar.Shadow = new Shadow
-        {
-            Brush = new SolidColorBrush(Colors.Black),
-            Radius = 18,
-            Offset = new Point(0, 8),
-            Opacity = 0.16f
-        };
-
-        var pointer = new Border
-        {
-            WidthRequest = 12,
-            HeightRequest = 12,
-            Rotation = 45,
-            BackgroundColor = Colors.White,
-            Stroke = Color.FromArgb("#D5E4FF"),
-            StrokeThickness = 1,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Start,
-            Margin = new Thickness(0, 46, 0, 0),
-            StrokeShape = new RoundRectangle { CornerRadius = 4 }
-        };
-
-        host.Children.Add(glow);
-        host.Children.Add(pointer);
-        host.Children.Add(avatar);
-        StartCloudPulse(glow, 0.9d);
-        return host;
-    }
-
-    private void SetMapStatus(string message, bool isError)
-    {
-        _viewModel.StatusColor = isError
-            ? Color.FromArgb("#B91C1C")
-            : Color.FromArgb("#1D4ED8");
-        _viewModel.StatusMessage = message;
-    }
-
-    private static Microsoft.Maui.Controls.Maps.Polygon CreateHexagon(double latitude, double longitude, double radiusMeters, Color fillColor, Color strokeColor, float strokeWidth)
-    {
-        var polygon = new Microsoft.Maui.Controls.Maps.Polygon
-        {
-            FillColor = fillColor,
-            StrokeColor = strokeColor,
-            StrokeWidth = strokeWidth
-        };
-
-        for (var i = 0; i < 6; i++)
-        {
-            var angle = Math.PI / 3 * i + Math.PI / 6;
-            var eastMeters = Math.Cos(angle) * radiusMeters;
-            var northMeters = Math.Sin(angle) * radiusMeters;
-            polygon.Add(OffsetLocation(latitude, longitude, northMeters, eastMeters));
-        }
-
-        return polygon;
-    }
-
-    private static Location OffsetLocation(double latitude, double longitude, double northMeters, double eastMeters)
-    {
-        var latOffset = northMeters / 111_320d;
-        var lngScale = Math.Cos(latitude * Math.PI / 180d);
-        var lngOffset = eastMeters / (111_320d * Math.Max(0.2, lngScale));
-        return new Location(latitude + latOffset, longitude + lngOffset);
-    }
-
-    private Color ResolveSignalColor(VenueMarker marker)
-    {
-        if (marker.OpenTables > 0)
-        {
-            return Color.FromArgb("#2563EB");
-        }
-
-        if (marker.ActiveIntentions > 0)
-        {
-            return Color.FromArgb("#7C3AED");
-        }
-
-        if (marker.ActiveCheckIns > 0)
-        {
-            return Color.FromArgb("#0EA5E9");
-        }
-
-        return _viewModel.ResolveBubbleColor(marker.BubbleIntensity);
-    }
-
-    private Color ResolveAreaColor(MapArea area)
-    {
-        if (area.OpenTables > 0)
-        {
-            return Color.FromArgb("#2563EB");
-        }
-
-        if (area.ActiveIntentions > 0)
-        {
-            return Color.FromArgb("#7C3AED");
-        }
-
-        if (area.ActiveCheckIns > 0)
-        {
-            return Color.FromArgb("#0EA5E9");
-        }
-
-        return _viewModel.ResolveBubbleColor(area.BubbleIntensity);
-    }
-
-    private Color ResolveClusterColor(IEnumerable<VenueMarker> markers)
-    {
-        var marker = markers
-            .OrderByDescending(x => x.OpenTables > 0)
-            .ThenByDescending(x => x.ActiveIntentions > 0)
-            .ThenByDescending(x => x.ActiveCheckIns > 0)
-            .ThenByDescending(x => x.BubbleIntensity)
-            .First();
-
-        return ResolveSignalColor(marker);
-    }
-
-    partial void RenderNativeCloudAnnotations(IReadOnlyList<VenueOverlayCluster> clusters);
-
-    private static VenueOverlayCluster CreateSingleMarkerCluster(VenueMarker marker, double x, double y, double size)
-    {
-        return new VenueOverlayCluster(
-            marker.VenueId.ToString("N"),
-            new List<VenueMarker> { marker },
-            marker.PresencePreview.ToList(),
-            marker.PresencePreview.Count,
-            GetMarkerPeopleCount(marker),
-            1,
-            BuildAreaLabel(new[] { marker }),
-            x,
-            y,
-            size,
-            1d,
-            ResolveSignalColorStatic(marker),
-            false,
-            marker.Latitude,
-            marker.Longitude);
-    }
-
-    private static Color ResolveSignalColorStatic(VenueMarker marker)
-    {
-        if (marker.OpenTables > 0)
-        {
-            return Color.FromArgb("#2563EB");
-        }
-
-        if (marker.ActiveIntentions > 0)
-        {
-            return Color.FromArgb("#7C3AED");
-        }
-
-        if (marker.ActiveCheckIns > 0)
-        {
-            return Color.FromArgb("#0EA5E9");
-        }
-
-        return marker.BubbleIntensity switch
-        {
-            <= 0 => Colors.Transparent,
-            < 25 => Color.FromArgb("#DBEAFE"),
-            < 45 => Color.FromArgb("#93C5FD"),
-            < 65 => Color.FromArgb("#60A5FA"),
-            < 85 => Color.FromArgb("#2563EB"),
-            _ => Color.FromArgb("#1D4ED8")
-        };
-    }
-
-    private void OnApnsDeviceTokenChanged(object? sender, string token)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            try
-            {
-                await _viewModel.RegisterStoredDeviceTokenAsync();
-            }
-            catch
-            {
-                // Push registration is best-effort in local development.
-            }
-        });
-    }
-
-    private readonly record struct OverlayInsets(double Left, double Top, double Right, double Bottom);
-    private readonly record struct OverlayMarkerProjection(VenueMarker Marker, double X, double Y, double Size);
-    private readonly record struct FogLink(Rect Bounds, double Angle, double Height, Color Color, Color GlowColor, double Intensity);
-    private sealed record VenueOverlayCluster(
-        string Key,
-        List<VenueMarker> Markers,
-        List<PresencePreview> PresencePreview,
-        int TotalPresenceCount,
-        int PeopleCount,
-        int VenueCount,
-        string AreaLabel,
-        double X,
-        double Y,
-        double Size,
-        double BubbleScaleHint,
-        Color Color,
-        bool IsCluster,
-        double Latitude,
-        double Longitude)
-    {
-        public double LayoutWidth => Size * 1.86d;
-        public double LayoutHeight => Size * 1.54d + (IsCluster ? 28d : 16d);
-        public double AnchorYOffset => IsCluster ? 54d : 42d;
-        public double CloudYOffset => IsCluster ? 24d : 16d;
-    }
-
-    private enum VenueSheetSnapState
-    {
-        Teaser,
-        Collapsed,
-        Expanded
-    }
 }

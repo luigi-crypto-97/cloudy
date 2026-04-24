@@ -1,7 +1,9 @@
 using FriendMap.Api.Contracts;
 using FriendMap.Api.Data;
+using FriendMap.Api.Hubs;
 using FriendMap.Api.Models;
 using FriendMap.Api.Services;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
@@ -11,7 +13,7 @@ public static class MessagingEndpoints
 {
     public static RouteGroupBuilder MapMessagingEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/messages").WithTags("Messages").RequireAuthorization();
+        var group = app.MapGroup("/api/messages").WithTags("Messages").RequireAuthorization().RequireRateLimiting("social");
         group.MapGet("/threads", GetThreadsAsync);
         group.MapGet("/threads/{otherUserId:guid}", GetThreadAsync);
         group.MapPost("/threads/{otherUserId:guid}", PostThreadMessageAsync);
@@ -142,6 +144,7 @@ public static class MessagingEndpoints
         SendDirectMessageRequest request,
         ClaimsPrincipal principal,
         AppDbContext db,
+        IHubContext<ChatHub> hubContext,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -186,6 +189,15 @@ public static class MessagingEndpoints
         });
 
         await db.SaveChangesAsync(ct);
+
+        await hubContext.Clients.Group(thread.Id.ToString()).SendAsync("ReceiveMessage", new
+        {
+            ThreadId = thread.Id,
+            SenderId = currentUserId,
+            Body = request.Body.Trim(),
+            SentAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return Results.Ok(new SocialActionResultDto("sent", "Messaggio inviato."));
     }
 

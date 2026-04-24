@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.OnboardingPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:skia="clr-namespace:SkiaSharp.Extended.UI.Controls;assembly=SkiaSharp.Extended.UI"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    BackgroundColor="#0B0F19">
+
+    <Grid RowDefinitions="*,Auto">
+        <CarouselView x:Name="OnboardingCarousel"
+                      Grid.Row="0"
+                      IndicatorView="Indicator"
+                      Loop="False"
+                      IsSwipeEnabled="True">
+            <CarouselView.ItemsSource>
+                <x:Array Type="{x:Type x:String}">
+                    <x:String>slide1</x:String>
+                    <x:String>slide2</x:String>
+                    <x:String>slide3</x:String>
+                </x:Array>
+            </CarouselView.ItemsSource>
+            <CarouselView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Padding="28,40">
+                        <VerticalStackLayout Spacing="18" VerticalOptions="Center">
+                            <Border WidthRequest="200"
+                                    HeightRequest="200"
+                                    StrokeThickness="0"
+                                    Background="{StaticResource BrandGradient}"
+                                    HorizontalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="48" />
+                                </Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="#8B5CF6" Offset="0,16" Radius="40" Opacity="0.5" />
+                                </Border.Shadow>
+                                <skia:SKLottieView Source="pulse.json"
+                                                   RepeatCount="-1"
+                                                   WidthRequest="160"
+                                                   HeightRequest="160"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                            </Border>
+
+                            <Label Text="Trova la movida live"
+                                   FontSize="{StaticResource FontSizeTitle1}"
+                                   FontAttributes="Bold"
+                                  
+                                   TextColor="White"
+                                   HorizontalOptions="Center"
+                                   HorizontalTextAlignment="Center" />
+
+                            <Label Text="Scopri locali, bar e eventi in tempo reale. Vedi chi c'è e unisciti alla festa."
+                                   FontSize="{StaticResource FontSizeBody}"
+                                  
+                                   TextColor="#94A3B8"
+                                   HorizontalOptions="Center"
+                                   HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CarouselView.ItemTemplate>
+        </CarouselView>
+
+        <VerticalStackLayout Grid.Row="1"
+                             Padding="28,24"
+                             Spacing="16">
+            <IndicatorView x:Name="Indicator"
+                           IndicatorColor="#334155"
+                           SelectedIndicatorColor="White"
+                           IndicatorSize="8"
+                           HorizontalOptions="Center" />
+
+            <Button Text="Inizia"
+                    Clicked="OnStartClicked"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                   
+                    FontSize="{StaticResource FontSizeBody}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

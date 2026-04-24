@@ -4,7 +4,44 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pages="clr-namespace:FriendMap.Mobile.Pages"
-    FlyoutBehavior="Disabled">
-    <ShellContent Route="login" ContentTemplate="{DataTemplate pages:LoginPage}" />
-    <ShellContent Route="main" ContentTemplate="{DataTemplate pages:MainMapPage}" />
+    FlyoutBehavior="Disabled"
+    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0B0F19}"
+    ForegroundColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
+    TitleColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
+    UnselectedColor="{AppThemeBinding Light=#94A3B8, Dark=#475569}">
+
+    <ShellContent Route="login"
+                  ContentTemplate="{DataTemplate pages:LoginPage}"
+                  Shell.TabBarIsVisible="False" />
+
+    <ShellContent Route="onboarding"
+                  ContentTemplate="{DataTemplate pages:OnboardingPage}"
+                  Shell.TabBarIsVisible="False" />
+
+    <ShellContent Route="interests"
+                  ContentTemplate="{DataTemplate pages:InterestsPage}"
+                  Shell.TabBarIsVisible="False" />
+
+    <TabBar Route="main">
+        <Tab Title="Mappa"
+             Icon="icon_map"
+             Route="map">
+            <ShellContent ContentTemplate="{DataTemplate pages:MainMapPage}" />
+        </Tab>
+        <Tab Title="Social"
+             Icon="icon_social"
+             Route="social">
+            <ShellContent ContentTemplate="{DataTemplate pages:SocialPage}" />
+        </Tab>
+        <Tab Title="Notifiche"
+             Icon="icon_bell"
+             Route="notifications">
+            <ShellContent ContentTemplate="{DataTemplate pages:NotificationsPage}" />
+        </Tab>
+        <Tab Title="Profilo"
+             Icon="icon_profile"
+             Route="profile">
+            <ShellContent ContentTemplate="{DataTemplate pages:ProfilePage}" />
+        </Tab>
+    </TabBar>
 </Shell>

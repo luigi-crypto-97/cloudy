@@ -374,6 +374,19 @@ public partial class MainMapPage
         UpdateProfileActionState(profile, fallback);
     }
 
+    private async Task ShowDirectMessageOverlayAsync(Guid peerUserId)
+    {
+        try
+        {
+            var profile = await _apiClient.GetUserProfileAsync(peerUserId);
+            await ShowDirectMessageOverlayAsync(profile);
+        }
+        catch (Exception ex)
+        {
+            _viewModel.SetStatusMessage($"Impossibile aprire la chat: {ex.Message}");
+        }
+    }
+
     private async Task ShowDirectMessageOverlayAsync(UserProfile profile)
     {
         await HideSocialOverlayAsync(animated: false);
@@ -386,6 +399,7 @@ public partial class MainMapPage
         DirectMessageOverlay.IsVisible = true;
         DirectMessageSheet.TranslationY = 500;
         await DirectMessageSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+        await _chatHub.JoinThreadAsync($"dm-{profile.UserId}");
         await RefreshDirectMessageThreadAsync();
     }
 
@@ -395,6 +409,9 @@ public partial class MainMapPage
         {
             return;
         }
+
+        if (_activeDirectMessageProfile is not null)
+            await _chatHub.LeaveThreadAsync($"dm-{_activeDirectMessageProfile.UserId}");
 
         if (animated)
         {
@@ -520,7 +537,7 @@ public partial class MainMapPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid
@@ -545,7 +562,7 @@ public partial class MainMapPage
         var bubble = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = message.IsMine ? Color.FromArgb("#2563EB") : Color.FromArgb("#F8FBFF"),
+            BackgroundColor = message.IsMine ? Color.FromArgb("#7C3AED") : Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             MaximumWidthRequest = 260,
@@ -590,14 +607,14 @@ public partial class MainMapPage
     private void SetEditProfileStatus(string message, bool isError)
     {
         EditProfileStatusLabel.Text = message;
-        EditProfileStatusLabel.TextColor = isError ? Color.FromArgb("#B91C1C") : Color.FromArgb("#1D4ED8");
+        EditProfileStatusLabel.TextColor = isError ? Color.FromArgb("#B91C1C") : Color.FromArgb("#6D28D9");
         EditProfileStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
     private void SetDirectMessageStatus(string message, bool isError)
     {
         DirectMessageStatusLabel.Text = message;
-        DirectMessageStatusLabel.TextColor = isError ? Color.FromArgb("#B91C1C") : Color.FromArgb("#1D4ED8");
+        DirectMessageStatusLabel.TextColor = isError ? Color.FromArgb("#B91C1C") : Color.FromArgb("#6D28D9");
         DirectMessageStatusLabel.IsVisible = !string.IsNullOrWhiteSpace(message);
     }
 
@@ -763,7 +780,7 @@ public partial class MainMapPage
             "pending_sent" => new Border
             {
                 Padding = new Thickness(10, 8),
-                BackgroundColor = Color.FromArgb("#EAF0F7"),
+                BackgroundColor = Color.FromArgb("#F1F5F9"),
                 StrokeThickness = 0,
                 StrokeShape = new RoundRectangle { CornerRadius = 14 },
                 Content = new Label
@@ -783,7 +800,7 @@ public partial class MainMapPage
         var card = new Border
         {
             Padding = new Thickness(12, 10),
-            BackgroundColor = Color.FromArgb("#F8FBFF"),
+            BackgroundColor = Color.FromArgb("#F5F3FF"),
             StrokeThickness = 0,
             StrokeShape = new RoundRectangle { CornerRadius = 18 },
             Content = grid

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.PrivacyPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Privacy">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*"
+              Padding="24,16,24,8"
+              ColumnSpacing="12">
+            <ImageButton Command="{Binding GoBackCommand}"
+                         Style="{StaticResource IconButtonStyle}"
+                         Source="icon_back"
+                         VerticalOptions="Center">
+                <ImageButton.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackClicked" />
+                </ImageButton.GestureRecognizers>
+            </ImageButton>
+            <Label Grid.Column="1"
+                   Text="Privacy Policy"
+                   FontSize="{StaticResource FontSizeTitle2}"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                   VerticalOptions="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" Padding="24,8,24,32">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="1. Dati raccolti"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="Raccogliamo nickname, posizione approssimativa, foto profilo e interessi. Non vendiamo dati a terzi."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="2. Posizione"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="La posizione è usata solo per mostrarti locali e persone nelle vicinanze. Puoi attivare la Modalità Fantasma in qualsiasi momento."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="3. Contenuti"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="Messaggi e foto sono conservati sui nostri server cifrati. Puoi segnalare abusi in qualsiasi momento."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="4. I tuoi diritti (GDPR)"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="Hai diritto di accesso, rettifica, cancellazione e portabilità dei dati. Contatta privacy@friendmap.app per esercitare i tuoi diritti."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

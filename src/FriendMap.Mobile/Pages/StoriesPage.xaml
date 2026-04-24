@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.StoriesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Stories">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto"
+              Padding="24,16,24,8">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Stories"
+                       FontSize="{StaticResource FontSizeDisplay}"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                <Label Text="Cosa succede intorno a te"
+                       FontSize="{StaticResource FontSizeCallout}"
+                       TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1"
+                    Text="+"
+                    Style="{StaticResource FabStyle}"
+                    Clicked="OnAddStoryClicked"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsBusy}"
+                     Command="{Binding RefreshCommand}"
+                     RefreshColor="{StaticResource BrandViolet}">
+            <ScrollView Padding="0,0,0,90">
+                <VerticalStackLayout Padding="24,8,24,32" Spacing="16">
+                    <CollectionView ItemsSource="{Binding Stories}"
+                                    IsVisible="{Binding Stories.Count, Converter={StaticResource NonZeroConverter}}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource CardStyle}" Padding="12" Margin="0,0,0,10">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <Border WidthRequest="52"
+                                                HeightRequest="52"
+                                                StrokeThickness="3"
+                                                Stroke="{StaticResource BrandGradient}">
+                                            <Border.StrokeShape>
+                                                <Ellipse />
+                                            </Border.StrokeShape>
+                                            <Label Text="📸"
+                                                   FontSize="24"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Padding="12,0,0,0" Spacing="2">
+                                            <Label Text="{Binding Caption}"
+                                                   FontSize="{StaticResource FontSizeCallout}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                                            <Label Text="{Binding CreatedAtUtc, StringFormat='{0:HH:mm}'}"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   TextColor="{StaticResource MutedTextColor}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <VerticalStackLayout Spacing="16"
+                                         IsVisible="{Binding ShowEmptyState}"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Margin="0,60">
+                        <Border WidthRequest="120"
+                                HeightRequest="120"
+                                StrokeThickness="0"
+                                Background="{StaticResource BrandGradient}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="36" />
+                            </Border.StrokeShape>
+                            <Label Text="📸"
+                                   FontSize="56"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Border>
+                        <Label Text="Nessuna story"
+                               FontSize="{StaticResource FontSizeTitle2}"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                        <Label Text="Sii il primo a condividere un momento!"
+                               FontSize="{StaticResource FontSizeCallout}"
+                               TextColor="{StaticResource MutedTextColor}"
+                               HorizontalOptions="Center"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

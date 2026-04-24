@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.InvitePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Invita">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*"
+              Padding="24,16,24,8"
+              ColumnSpacing="12">
+            <ImageButton Style="{StaticResource IconButtonStyle}"
+                         Source="icon_back"
+                         VerticalOptions="Center">
+                <ImageButton.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackClicked" />
+                </ImageButton.GestureRecognizers>
+            </ImageButton>
+            <Label Grid.Column="1"
+                   Text="Invita amici"
+                   FontSize="{StaticResource FontSizeTitle2}"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                   VerticalOptions="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" Padding="24,8,24,32">
+            <VerticalStackLayout Spacing="20">
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Il tuo codice invite"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Border Background="{StaticResource BrandGradient}"
+                                StrokeThickness="0"
+                                Padding="16,12">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="16" />
+                            </Border.StrokeShape>
+                            <Label x:Name="InviteCodeLabel"
+                                   Text="FRIENDMAP"
+                                   FontSize="{StaticResource FontSizeTitle1}"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   HorizontalOptions="Center" />
+                        </Border>
+                        <Button Text="Copia codice"
+                                Clicked="OnCopyCodeClicked"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                        <Button Text="Condividi invite"
+                                Clicked="OnShareInviteClicked"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Dai contatti"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Button Text="Scegli contatto"
+                                Clicked="OnPickContactClicked"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                        <Label x:Name="SelectedContactLabel"
+                               Text="Nessun contatto selezionato"
+                               FontSize="{StaticResource FontSizeCaption}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                        <Button Text="Invita via SMS/WhatsApp"
+                                Clicked="OnInviteContactClicked"
+                                IsEnabled="False"
+                                x:Name="InviteContactButton"
+                                Style="{StaticResource SecondaryButtonStyle}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

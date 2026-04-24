@@ -47,5 +47,16 @@
   <array>
     <string>remote-notification</string>
   </array>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.friendmap.mobile</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>friendmap</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

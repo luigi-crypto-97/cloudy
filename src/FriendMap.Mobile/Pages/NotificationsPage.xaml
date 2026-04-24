@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.NotificationsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Notifiche">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto"
+              Padding="24,16,24,8">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Notifiche"
+                       FontSize="{StaticResource FontSizeDisplay}"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                <Label Text="Aggiornamenti e inviti"
+                           FontSize="{StaticResource FontSizeCallout}"
+                           TextColor="{StaticResource MutedTextColor}" />
+            </VerticalStackLayout>
+            <ImageButton Grid.Column="1"
+                         Command="{Binding RefreshCommand}"
+                         Style="{StaticResource IconButtonStyle}"
+                         Source="icon_refresh_white"
+                         VerticalOptions="Center" />
+        </Grid>
+
+        <RefreshView Grid.Row="1"
+                     IsRefreshing="{Binding IsBusy}"
+                     Command="{Binding RefreshCommand}"
+                     RefreshColor="{StaticResource BrandViolet}"
+                     BackgroundColor="Transparent">
+            <ScrollView Padding="0,0,0,90">
+                <VerticalStackLayout Padding="24,8,24,32" Spacing="12">
+                    <CollectionView ItemsSource="{Binding Items}"
+                                    IsVisible="{Binding Items.Count, Converter={StaticResource NonZeroConverter}}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource CardStyle}"
+                                        Padding="16"
+                                        Margin="0,0,0,8">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNotificationTapped"
+                                                              CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="Auto,*"
+                                          ColumnSpacing="14">
+                                        <Border WidthRequest="48"
+                                                HeightRequest="48"
+                                                Background="{StaticResource BrandGradient}"
+                                                StrokeThickness="0">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="16" />
+                                            </Border.StrokeShape>
+                                            <Label Text="🔔"
+                                                   FontSize="24"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1"
+                                                             Spacing="3">
+                                            <Label Text="{Binding Title}"
+                                                   FontSize="{StaticResource FontSizeCallout}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                                            <Label Text="{Binding Body}"
+                                                   FontSize="{StaticResource FontSizeCaption}"
+                                                   TextColor="{StaticResource MutedTextColor}"
+                                                   LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding CreatedAtUtc, StringFormat='{0:dd MMM HH:mm}'}"
+                                                   FontSize="{StaticResource FontSizeFootnote}"
+                                                   TextColor="{StaticResource MutedTextColor}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <VerticalStackLayout Spacing="16"
+                                         IsVisible="{Binding ShowEmptyState}"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center"
+                                         Margin="0,60">
+                        <Border WidthRequest="120"
+                                HeightRequest="120"
+                                StrokeThickness="0"
+                                Background="{StaticResource BrandGradient}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="36" />
+                            </Border.StrokeShape>
+                            <Border.Shadow>
+                                <Shadow Brush="#8B5CF6" Offset="0,12" Radius="32" Opacity="0.4" />
+                            </Border.Shadow>
+                            <Label Text="🔕"
+                                   FontSize="56"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Border>
+                        <Label Text="Nessuna notifica"
+                               FontSize="{StaticResource FontSizeTitle2}"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                               HorizontalOptions="Center" />
+                        <Label Text="Le notifiche push e gli inviti appariranno qui."
+                               FontSize="{StaticResource FontSizeCallout}"
+                               TextColor="{StaticResource MutedTextColor}"
+                               HorizontalOptions="Center"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

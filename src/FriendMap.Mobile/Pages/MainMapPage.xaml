@@ -5,8 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:skia="clr-namespace:SkiaSharp.Extended.UI.Controls;assembly=SkiaSharp.Extended.UI"
     Shell.NavBarIsVisible="False"
-    Shell.TabBarIsVisible="False"
+    Shell.TabBarIsVisible="True"
     ios:Page.UseSafeArea="True"
     Title="Mappa">
 
@@ -29,7 +30,7 @@
             <Grid ColumnDefinitions="Auto,*,Auto"
                   ColumnSpacing="8">
                 <Border Padding="12,6"
-                        BackgroundColor="#243CFF"
+                        Background="{StaticResource BrandGradient}"
                         StrokeThickness="0"
                         VerticalOptions="Center">
                     <Border.StrokeShape>
@@ -46,8 +47,8 @@
 
                 <Border Grid.Column="1"
                         Padding="14,10"
-                        BackgroundColor="#F8FCFF"
-                        Stroke="#DDE7F5"
+                        BackgroundColor="#FFFFFF"
+                        Stroke="#E9D5FF"
                         StrokeThickness="1"
                         IsVisible="False">
                     <Border.StrokeShape>
@@ -60,7 +61,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="34"
                                 HeightRequest="34"
-                                BackgroundColor="#F4F8FF"
+                                BackgroundColor="#F5F3FF"
                                 StrokeThickness="0"
                                 VerticalOptions="Center">
                             <Border.StrokeShape>
@@ -91,8 +92,8 @@
                         WidthRequest="52"
                         HeightRequest="52"
                         Padding="0"
-                        BackgroundColor="#EEF4FF"
-                        Stroke="#D5E4FF"
+                        BackgroundColor="#F5F3FF"
+                        Stroke="#E9D5FF"
                         StrokeThickness="1">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -112,13 +113,13 @@
                             CornerRadius="18"
                             FontSize="25"
                             FontAttributes="Bold"
-                            TextColor="#2563EB" />
+                            TextColor="{StaticResource PrimaryColor}" />
                 </Border>
             </Grid>
 
             <Border Padding="12,8"
-                    BackgroundColor="#FDFEFF"
-                    Stroke="#E3EBF5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     IsVisible="{Binding HasStatusMessage}">
                 <Border.StrokeShape>
@@ -134,8 +135,8 @@
 
             <Border x:Name="DiscoveryChromePanel"
                     Padding="12,10"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#E3EBF5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     IsVisible="False">
                 <Border.StrokeShape>
@@ -146,8 +147,8 @@
                 </Border.Shadow>
                 <VerticalStackLayout Spacing="10">
                     <Border Padding="12,4"
-                            BackgroundColor="#F8FBFF"
-                            Stroke="#E3EBF5"
+                            BackgroundColor="#F5F3FF"
+                            Stroke="#E9D5FF"
                             StrokeThickness="1">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="16" />
@@ -232,8 +233,8 @@
                 Padding="10"
                 HorizontalOptions="End"
                 VerticalOptions="Start"
-                BackgroundColor="#FCFEFF"
-                Stroke="#DDE7F5"
+                BackgroundColor="#FFFFFF"
+                Stroke="#E9D5FF"
                 StrokeThickness="1"
                 IsVisible="False"
                 Opacity="0"
@@ -246,7 +247,7 @@
             </Border.Shadow>
             <VerticalStackLayout Spacing="8">
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -255,7 +256,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -270,7 +271,7 @@
                                     CornerRadius="12"
                                     FontSize="20"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Cerca"
@@ -281,7 +282,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -290,7 +291,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -305,7 +306,7 @@
                                     CornerRadius="12"
                                     FontSize="22"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Filtri"
@@ -316,7 +317,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -325,7 +326,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -340,7 +341,7 @@
                                     CornerRadius="12"
                                     FontSize="18"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Live"
@@ -351,7 +352,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -360,7 +361,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -375,7 +376,7 @@
                                     CornerRadius="12"
                                     FontSize="20"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label x:Name="QuickModeLabel"
                                Grid.Column="1"
@@ -387,7 +388,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -396,7 +397,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -411,7 +412,7 @@
                                     CornerRadius="12"
                                     FontSize="22"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Aggiorna"
@@ -422,7 +423,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -431,7 +432,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -446,7 +447,7 @@
                                     CornerRadius="12"
                                     FontSize="20"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Locali"
@@ -457,7 +458,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -466,7 +467,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -481,7 +482,7 @@
                                     CornerRadius="12"
                                     FontSize="20"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Posizione"
@@ -492,7 +493,7 @@
                     </Grid>
                 </Border>
                 <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
+                        BackgroundColor="#F5F3FF"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="18" />
@@ -501,42 +502,7 @@
                           ColumnSpacing="10">
                         <Border WidthRequest="38"
                                 HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
-                                StrokeThickness="0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="12" />
-                            </Border.StrokeShape>
-                            <Button Text="◇"
-                                    WidthRequest="38"
-                                    HeightRequest="38"
-                                    Padding="0"
-                                    Clicked="OnSocialClicked"
-                                    BackgroundColor="Transparent"
-                                    BorderWidth="0"
-                                    CornerRadius="12"
-                                    FontSize="21"
-                                    FontAttributes="Bold"
-                                    TextColor="#2563EB" />
-                        </Border>
-                        <Label Grid.Column="1"
-                               Text="Social"
-                               FontSize="12"
-                               FontAttributes="Bold"
-                               VerticalTextAlignment="Center"
-                               TextColor="{StaticResource TextColor}" />
-                    </Grid>
-                </Border>
-                <Border Padding="8,6"
-                        BackgroundColor="#F5F8FF"
-                        StrokeThickness="0">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="18" />
-                    </Border.StrokeShape>
-                    <Grid ColumnDefinitions="38,Auto"
-                          ColumnSpacing="10">
-                        <Border WidthRequest="38"
-                                HeightRequest="38"
-                                BackgroundColor="#E6EEFF"
+                                BackgroundColor="#EDE9FE"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -551,7 +517,7 @@
                                     CornerRadius="12"
                                     FontSize="19"
                                     FontAttributes="Bold"
-                                    TextColor="#2563EB" />
+                                    TextColor="{StaticResource PrimaryColor}" />
                         </Border>
                         <Label Grid.Column="1"
                                Text="Server"
@@ -569,8 +535,8 @@
                 Padding="12"
                 HorizontalOptions="Start"
                 VerticalOptions="Start"
-                BackgroundColor="#FDFEFF"
-                Stroke="#DDE7F5"
+                BackgroundColor="#FFFFFF"
+                Stroke="#E9D5FF"
                 StrokeThickness="1"
                 IsVisible="False"
                 Opacity="0">
@@ -593,7 +559,7 @@
                       ColumnSpacing="10">
                     <Border WidthRequest="18"
                             HeightRequest="18"
-                            BackgroundColor="#DCEEFF"
+                            BackgroundColor="#EDE9FE"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="9" />
@@ -608,7 +574,7 @@
                       ColumnSpacing="10">
                     <Border WidthRequest="18"
                             HeightRequest="18"
-                            BackgroundColor="#78B7FF"
+                            BackgroundColor="#A78BFA"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="9" />
@@ -623,7 +589,7 @@
                       ColumnSpacing="10">
                     <Border WidthRequest="18"
                             HeightRequest="18"
-                            BackgroundColor="#215BFF"
+                            BackgroundColor="#6D28D9"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="9" />
@@ -639,8 +605,8 @@
 
         <Border Padding="18"
                 Margin="28"
-                BackgroundColor="#FDFEFF"
-                Stroke="#D7E3F1"
+                BackgroundColor="#FFFFFF"
+                Stroke="#F1F5F9"
                 StrokeThickness="1"
                 HorizontalOptions="Center"
                 VerticalOptions="Center"
@@ -674,8 +640,8 @@
                 Margin="14,0,14,112"
                 Padding="14"
                 VerticalOptions="End"
-                BackgroundColor="#FDFEFF"
-                Stroke="#D7E3F1"
+                BackgroundColor="#FFFFFF"
+                Stroke="#F1F5F9"
                 StrokeThickness="1"
                 IsVisible="False"
                 TranslationY="360">
@@ -692,7 +658,7 @@
                 <Border WidthRequest="42"
                         HeightRequest="4"
                         HorizontalOptions="Center"
-                        BackgroundColor="#D4DEEB"
+                        BackgroundColor="#D1D5DB"
                         StrokeThickness="0">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="2" />
@@ -735,7 +701,7 @@
 
                 <HorizontalStackLayout Spacing="8">
                     <Border Padding="10,7"
-                            BackgroundColor="#EDF4FF"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -746,7 +712,7 @@
                     </Border>
 
                     <Border Padding="10,7"
-                            BackgroundColor="#F3F7FB"
+                            BackgroundColor="#F1F5F9"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -756,7 +722,7 @@
                                TextColor="{StaticResource MutedTextColor}" />
                     </Border>
                     <Border Padding="10,7"
-                            BackgroundColor="#F6F9FD"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -773,7 +739,7 @@
 
                 <HorizontalStackLayout Spacing="8">
                     <Border Padding="10,7"
-                            BackgroundColor="#EEF8FF"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -783,7 +749,7 @@
                                TextColor="{StaticResource PrimaryColorDark}" />
                     </Border>
                     <Border Padding="10,7"
-                            BackgroundColor="#F6F9FD"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -793,7 +759,7 @@
                                TextColor="{StaticResource MutedTextColor}" />
                     </Border>
                     <Border Padding="10,7"
-                            BackgroundColor="#F6F9FD"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="12" />
@@ -876,8 +842,8 @@
                     Margin="14,0,14,88"
                     Padding="0"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="540">
                 <Border.StrokeShape>
@@ -888,7 +854,7 @@
                 </Border.Shadow>
                 <Grid RowDefinitions="220,Auto">
                     <Grid HeightRequest="220"
-                          BackgroundColor="#E9F2FF"
+                          BackgroundColor="#F5F3FF"
                           IsClippedToBounds="True">
                         <Image x:Name="VenueDetailCoverImage"
                                Aspect="AspectFill"
@@ -898,7 +864,7 @@
                               RowDefinitions="Auto,*,Auto">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Border Padding="10,6"
-                                        BackgroundColor="#F4F8FF33"
+                                        BackgroundColor="#F5F3FF33"
                                         StrokeThickness="0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="14" />
@@ -951,7 +917,7 @@
                             <Grid ColumnDefinitions="*,*,*"
                                   ColumnSpacing="8">
                                 <Border Padding="12,10"
-                                        BackgroundColor="#EEF8FF"
+                                        BackgroundColor="#F5F3FF"
                                         StrokeThickness="0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="16" />
@@ -969,7 +935,7 @@
                                 </Border>
                                 <Border Grid.Column="1"
                                         Padding="12,10"
-                                        BackgroundColor="#F6F9FD"
+                                        BackgroundColor="#F5F3FF"
                                         StrokeThickness="0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="16" />
@@ -987,7 +953,7 @@
                                 </Border>
                                 <Border Grid.Column="2"
                                         Padding="12,10"
-                                        BackgroundColor="#F6F9FD"
+                                        BackgroundColor="#F5F3FF"
                                         StrokeThickness="0">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="16" />
@@ -1048,7 +1014,7 @@
                                           ColumnSpacing="8"
                                           IsVisible="False">
                                         <Border Padding="8,6"
-                                                BackgroundColor="#EEF8FF"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1066,7 +1032,7 @@
                                         </Border>
                                         <Border Grid.Column="1"
                                                 Padding="8,6"
-                                                BackgroundColor="#F6F9FD"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1084,7 +1050,7 @@
                                         </Border>
                                         <Border Grid.Column="2"
                                                 Padding="8,6"
-                                                BackgroundColor="#F6F9FD"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1102,7 +1068,7 @@
                                         </Border>
                                         <Border Grid.Column="3"
                                                 Padding="8,6"
-                                                BackgroundColor="#F6F9FD"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1124,7 +1090,7 @@
                                           ColumnSpacing="8"
                                           IsVisible="False">
                                         <Border Padding="8,6"
-                                                BackgroundColor="#EEF8FF"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1142,7 +1108,7 @@
                                         </Border>
                                         <Border Grid.Column="1"
                                                 Padding="8,6"
-                                                BackgroundColor="#F6F9FD"
+                                                BackgroundColor="#F5F3FF"
                                                 StrokeThickness="0">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="8" />
@@ -1245,8 +1211,8 @@
                 Margin="16,0,16,116"
                 Padding="14"
                 VerticalOptions="End"
-                BackgroundColor="#FCFEFF"
-                Stroke="#DDE7F5"
+                BackgroundColor="#FFFFFF"
+                Stroke="#E9D5FF"
                 StrokeThickness="1"
                 IsVisible="False">
             <Border.StrokeShape>
@@ -1306,8 +1272,8 @@
                     Margin="16,0,16,110"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="420">
                 <Border.StrokeShape>
@@ -1357,8 +1323,8 @@
                     Margin="16,0,16,102"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="460">
                 <Border.StrokeShape>
@@ -1400,7 +1366,7 @@
 
                     <HorizontalStackLayout Spacing="8">
                         <Border Padding="10,7"
-                                BackgroundColor="#EDF4FF"
+                                BackgroundColor="#F5F3FF"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -1412,7 +1378,7 @@
                         </Border>
 
                         <Border Padding="10,7"
-                                BackgroundColor="#F6F9FD"
+                                BackgroundColor="#F5F3FF"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -1424,7 +1390,7 @@
                         </Border>
 
                         <Border Padding="10,7"
-                                BackgroundColor="#F6F9FD"
+                                BackgroundColor="#F5F3FF"
                                 StrokeThickness="0">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="12" />
@@ -1437,7 +1403,7 @@
                     </HorizontalStackLayout>
 
                     <Border Padding="12,10"
-                            BackgroundColor="#F8FBFF"
+                            BackgroundColor="#F5F3FF"
                             StrokeThickness="0">
                         <Border.StrokeShape>
                             <RoundRectangle CornerRadius="18" />
@@ -1543,8 +1509,8 @@
                     Margin="16,0,16,94"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="480">
                 <Border.StrokeShape>
@@ -1586,7 +1552,7 @@
                     <ScrollView MaximumHeightRequest="420">
                         <VerticalStackLayout Spacing="16">
                             <Border Padding="12"
-                                    BackgroundColor="#F8FBFF"
+                                    BackgroundColor="#F5F3FF"
                                     StrokeThickness="0">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="18" />
@@ -1645,8 +1611,8 @@
                                        FontAttributes="Bold"
                                        TextColor="{StaticResource TextColor}" />
                                 <Border Padding="12,4"
-                                        BackgroundColor="#F8FBFF"
-                                        Stroke="#E3EBF5"
+                                        BackgroundColor="#F5F3FF"
+                                        Stroke="#E9D5FF"
                                         StrokeThickness="1">
                                     <Border.StrokeShape>
                                         <RoundRectangle CornerRadius="16" />
@@ -1751,8 +1717,8 @@
                     Margin="16,0,16,96"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="500">
                 <Border.StrokeShape>
@@ -1818,8 +1784,8 @@
                     <Grid ColumnDefinitions="*,Auto"
                           ColumnSpacing="8">
                         <Border Padding="12,4"
-                                BackgroundColor="#F8FBFF"
-                                Stroke="#E3EBF5"
+                                BackgroundColor="#F5F3FF"
+                                Stroke="#E9D5FF"
                                 StrokeThickness="1">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="16" />
@@ -1855,8 +1821,8 @@
                     Margin="16,0,16,96"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="500">
                 <Border.StrokeShape>
@@ -1887,7 +1853,7 @@
                                   ColumnSpacing="12">
                                 <Border WidthRequest="72"
                                         HeightRequest="72"
-                                        BackgroundColor="#EEF4FF"
+                                        BackgroundColor="#F5F3FF"
                                         StrokeThickness="0"
                                         VerticalOptions="Start">
                                     <Border.StrokeShape>
@@ -1979,8 +1945,8 @@
                     Margin="16,0,16,96"
                     Padding="16"
                     VerticalOptions="End"
-                    BackgroundColor="#FCFEFF"
-                    Stroke="#DDE7F5"
+                    BackgroundColor="#FFFFFF"
+                    Stroke="#E9D5FF"
                     StrokeThickness="1"
                     TranslationY="500">
                 <Border.StrokeShape>
@@ -2033,65 +1999,50 @@
             </Border>
         </Grid>
 
-        <Border Margin="16,0,16,18"
-                Padding="14,12,14,8"
+        <!-- Bump-style FAB -->
+        <Button x:Name="BumpFab"
+                Text="⚡"
+                Grid.Row="0"
                 VerticalOptions="End"
-                BackgroundColor="#F7FBFF"
-                Stroke="#DDE7F5"
-                StrokeThickness="1"
-                IsVisible="False">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="30" />
-            </Border.StrokeShape>
-            <Border.Shadow>
-                <Shadow Brush="#1A0F172A" Offset="0,14" Radius="28" Opacity="0.18" />
-            </Border.Shadow>
-            <Grid ColumnDefinitions="*,*"
-                  ColumnSpacing="8">
-                <VerticalStackLayout Spacing="6"
-                                     HorizontalOptions="Center">
-                        <Border WidthRequest="54"
-                            HeightRequest="54"
-                            BackgroundColor="{StaticResource PrimaryColor}"
-                            StrokeThickness="0">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="27" />
-                        </Border.StrokeShape>
-                        <Border.Shadow>
-                            <Shadow Brush="#222563EB" Offset="0,10" Radius="22" Opacity="0.24" />
-                        </Border.Shadow>
-                        <Image Source="icon_map_white.svg"
-                               WidthRequest="22"
-                               HeightRequest="22"
-                               HorizontalOptions="Center"
-                               VerticalOptions="Center" />
-                    </Border>
-                    <Label Text="Mappa"
-                           FontSize="11"
-                           TextColor="{StaticResource TextColor}" />
-                </VerticalStackLayout>
+                HorizontalOptions="Center"
+                Margin="0,0,0,32"
+                Style="{StaticResource FabStyle}"
+                Clicked="OnBumpFabClicked"
+                ZIndex="100"
+                Opacity="0"
+                IsVisible="False" />
 
-                <VerticalStackLayout Grid.Column="1"
-                                     Spacing="6"
-                                     HorizontalOptions="Center">
-                    <Button Text="◇"
-                            WidthRequest="54"
-                            HeightRequest="54"
-                            MinimumHeightRequest="54"
-                            Padding="0"
-                            Clicked="OnSocialClicked"
-                            BackgroundColor="#ECF2FF"
-                            BorderWidth="0"
-                            CornerRadius="27"
-                            FontSize="24"
-                            FontAttributes="Bold"
-                            TextColor="#2563EB" />
-                    <Label Text="Social"
-                           FontSize="11"
-                           TextColor="{StaticResource MutedTextColor}" />
-                </VerticalStackLayout>
-
-            </Grid>
-        </Border>
+        <!-- Lottie success overlay -->
+        <Grid x:Name="SuccessOverlay"
+              BackgroundColor="#CC0B0F19"
+              IsVisible="False"
+              ZIndex="200">
+            <VerticalStackLayout VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Spacing="16">
+                <Border WidthRequest="160"
+                        HeightRequest="160"
+                        StrokeThickness="0"
+                        Background="{StaticResource BrandGradient}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="48" />
+                    </Border.StrokeShape>
+                    <skia:SKLottieView x:Name="SuccessLottie"
+                                       Source="pulse.json"
+                                       RepeatCount="2"
+                                       WidthRequest="120"
+                                       HeightRequest="120"
+                                       HorizontalOptions="Center"
+                                       VerticalOptions="Center" />
+                </Border>
+                <Label x:Name="SuccessLabel"
+                       Text="Check-in fatto!"
+                       FontSize="{StaticResource FontSizeTitle2}"
+                       FontAttributes="Bold"
+                      
+                       TextColor="White"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
     </Grid>
 </ContentPage>

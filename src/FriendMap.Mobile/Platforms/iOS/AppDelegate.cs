@@ -31,4 +31,13 @@ public class AppDelegate : MauiUIApplicationDelegate
         ApnsDeviceTokenStore.SaveRegistrationError(error.LocalizedDescription);
 #endif
     }
+
+    public override bool OpenUrl(UIApplication app, NSUrl url, NSDictionary options)
+    {
+        if (url is not null && Uri.TryCreate(url.AbsoluteString, UriKind.Absolute, out var uri))
+        {
+            DeepLinkService.HandleUrl(uri);
+        }
+        return base.OpenUrl(app, url, options);
+    }
 }

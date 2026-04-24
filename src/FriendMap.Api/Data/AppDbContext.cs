@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
     public DbSet<VenueAffluenceSnapshot> VenueAffluenceSnapshots => Set<VenueAffluenceSnapshot>();
     public DbSet<NotificationDeviceToken> NotificationDeviceTokens => Set<NotificationDeviceToken>();
     public DbSet<NotificationOutboxItem> NotificationOutboxItems => Set<NotificationOutboxItem>();
+    public DbSet<UserStory> UserStories => Set<UserStory>();
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -44,6 +46,27 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<VenueAffluenceSnapshot>().ToTable("venue_affluence_snapshots");
         modelBuilder.Entity<NotificationDeviceToken>().ToTable("notification_device_tokens");
         modelBuilder.Entity<NotificationOutboxItem>().ToTable("notification_outbox");
+        modelBuilder.Entity<UserStory>().ToTable("user_stories");
+        modelBuilder.Entity<UserAchievement>().ToTable("user_achievements");
+
+        modelBuilder.Entity<UserStory>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserStory>()
+            .HasIndex(x => new { x.UserId, x.ExpiresAtUtc });
+
+        modelBuilder.Entity<UserAchievement>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserAchievement>()
+            .HasIndex(x => new { x.UserId, x.BadgeCode })
+            .IsUnique();
 
         modelBuilder.Entity<Venue>()
             .Property(x => x.Location)

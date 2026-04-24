@@ -1,7 +1,9 @@
 using FriendMap.Api.Contracts;
 using FriendMap.Api.Data;
+using FriendMap.Api.Hubs;
 using FriendMap.Api.Models;
 using FriendMap.Api.Services;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
@@ -12,7 +14,7 @@ public static class SocialEndpoints
 {
     public static RouteGroupBuilder MapSocialEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/social").WithTags("Social").RequireAuthorization();
+        var group = app.MapGroup("/api/social").WithTags("Social").RequireAuthorization().RequireRateLimiting("social");
 
         group.MapGet("/hub", async (
             AppDbContext db,
@@ -816,6 +818,7 @@ public static class SocialEndpoints
             Guid tableId,
             SendSocialTableMessageRequest request,
             AppDbContext db,
+            IHubContext<ChatHub> hubContext,
             ClaimsPrincipal user,
             CancellationToken ct) =>
         {
@@ -850,6 +853,14 @@ public static class SocialEndpoints
 
             db.SocialTableMessages.Add(message);
             await db.SaveChangesAsync(ct);
+
+            await hubContext.Clients.Group(tableId.ToString()).SendAsync("ReceiveMessage", new
+            {
+                TableId = tableId,
+                SenderId = currentUserId,
+                Body = request.Body.Trim(),
+                SentAt = DateTimeOffset.UtcNow
+            }, ct);
 
             return Results.Ok(new SocialActionResultDto("sent", "Messaggio inviato."));
         });

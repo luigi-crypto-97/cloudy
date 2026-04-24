@@ -11,4 +11,5 @@ public class NotificationOutboxItem : BaseEntity
     public DateTimeOffset? NextAttemptAtUtc { get; set; }
     public DateTimeOffset? SentAtUtc { get; set; }
     public string? LastError { get; set; }
+    public string? DeepLink { get; set; }
 }

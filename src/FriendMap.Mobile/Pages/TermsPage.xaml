@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="FriendMap.Mobile.Pages.TermsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
+    Title="Termini">
+
+    <Grid RowDefinitions="Auto,*"
+          BackgroundColor="{AppThemeBinding Light={StaticResource PageBackgroundColor}, Dark={StaticResource PageBackgroundColorDark}}">
+
+        <Grid Grid.Row="0"
+              ColumnDefinitions="Auto,*"
+              Padding="24,16,24,8"
+              ColumnSpacing="12">
+            <ImageButton Style="{StaticResource IconButtonStyle}"
+                         Source="icon_back"
+                         VerticalOptions="Center">
+                <ImageButton.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnBackClicked" />
+                </ImageButton.GestureRecognizers>
+            </ImageButton>
+            <Label Grid.Column="1"
+                   Text="Termini di Servizio"
+                   FontSize="{StaticResource FontSizeTitle2}"
+                   FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}"
+                   VerticalOptions="Center" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" Padding="24,8,24,32">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardStyle}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="1. Accettazione"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="Usando FriendMap accetti questi termini. Se non sei d'accordo, non usare l'app."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="2. Età minima"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="Devi avere almeno 16 anni per usare FriendMap."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="3. Comportamento"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="È vietato molestare, minacciare o pubblicare contenuti illegali. Gli account che violano queste regole verranno bannati."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+
+                        <Label Text="4. Responsabilità"
+                               FontAttributes="Bold"
+                               FontSize="{StaticResource FontSizeTitle3}"
+                               TextColor="{AppThemeBinding Light={StaticResource TextColor}, Dark={StaticResource TextColorDark}}" />
+                        <Label Text="FriendMap non è responsabile per incontri tra utenti. Incontra persone in luoghi pubblici e informa qualcuno di fiducia."
+                               FontSize="{StaticResource FontSizeBody}"
+                               TextColor="{StaticResource MutedTextColor}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

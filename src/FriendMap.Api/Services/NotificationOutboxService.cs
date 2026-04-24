@@ -13,7 +13,7 @@ public class NotificationOutboxService
         _db = db;
     }
 
-    public async Task EnqueueAsync(Guid userId, string title, string body, object? payload, CancellationToken ct)
+    public async Task EnqueueAsync(Guid userId, string title, string body, object? payload, CancellationToken ct = default, string? deepLink = null)
     {
         var item = new NotificationOutboxItem
         {
@@ -21,6 +21,7 @@ public class NotificationOutboxService
             Title = title,
             Body = body,
             PayloadJson = payload is null ? null : JsonSerializer.Serialize(payload),
+            DeepLink = deepLink,
             Status = "pending",
             NextAttemptAtUtc = DateTimeOffset.UtcNow
         };
