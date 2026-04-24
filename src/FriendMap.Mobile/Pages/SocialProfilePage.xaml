@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FriendMap.Mobile.Pages.SocialProfilePage"
+             Shell.NavBarIsVisible="False"
+             Title="Profilo">
+
+    <ScrollView BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#020617}">
+        <VerticalStackLayout Padding="18,18,18,28"
+                             Spacing="18">
+            <Grid ColumnDefinitions="Auto,*">
+                <ImageButton Source="icon_back"
+                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                             WidthRequest="42"
+                             HeightRequest="42"
+                             CornerRadius="21"
+                             Clicked="OnBackClicked" />
+                <Label Grid.Column="1"
+                       Text="Profilo"
+                       VerticalOptions="Center"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+            </Grid>
+
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 28"
+                    Padding="22">
+                <VerticalStackLayout Spacing="14">
+                    <Border x:Name="AvatarBorder"
+                            WidthRequest="88"
+                            HeightRequest="88"
+                            BackgroundColor="#4F46E5"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 44"
+                            HorizontalOptions="Center">
+                        <Label x:Name="AvatarFallbackLabel"
+                               Text="?"
+                               FontSize="30"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Spacing="4">
+                        <Label x:Name="DisplayNameLabel"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <Label x:Name="NicknameLabel"
+                               FontSize="13"
+                               HorizontalTextAlignment="Center"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    </VerticalStackLayout>
+                    <Label x:Name="BioLabel"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
+                           IsVisible="False" />
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <Button x:Name="PrimaryActionButton"
+                                Text="Aggiungi"
+                                Clicked="OnPrimaryActionClicked"
+                                BackgroundColor="#4F46E5"
+                                TextColor="White"
+                                FontAttributes="Bold"
+                                CornerRadius="18"
+                                HeightRequest="44" />
+                        <Button x:Name="MessageButton"
+                                Grid.Column="1"
+                                Text="Messaggio"
+                                Clicked="OnMessageClicked"
+                                BackgroundColor="{AppThemeBinding Light=#EEF2FF, Dark=#312E81}"
+                                TextColor="{AppThemeBinding Light=#3730A3, Dark=#E0E7FF}"
+                                FontAttributes="Bold"
+                                CornerRadius="18"
+                                HeightRequest="44" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 24"
+                    Padding="18">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Live"
+                           FontSize="17"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <Label x:Name="PresenceLabel"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}" />
+                    <Label x:Name="StatsLabel"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border x:Name="InterestsCard"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 24"
+                    Padding="18"
+                    IsVisible="False">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Interessi"
+                           FontSize="17"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <FlexLayout x:Name="InterestsLayout"
+                                Wrap="Wrap"
+                                Direction="Row"
+                                AlignItems="Start"
+                                JustifyContent="Start" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FriendMap.Mobile.Pages.SocialRecapPage"
+             Shell.NavBarIsVisible="False"
+             Title="Recap">
+
+    <ScrollView BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#020617}">
+        <VerticalStackLayout Padding="18,18,18,28"
+                             Spacing="16">
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="10">
+                <ImageButton Source="icon_back"
+                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                             WidthRequest="42"
+                             HeightRequest="42"
+                             CornerRadius="21"
+                             Clicked="OnBackClicked" />
+                <Label Grid.Column="1"
+                       Text="Recap"
+                       VerticalOptions="Center"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                <Picker Grid.Column="2"
+                        x:Name="PeriodPicker"
+                        WidthRequest="110"
+                        SelectedIndexChanged="OnPeriodChanged" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="12">
+                <Border BackgroundColor="#4F46E5"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 22"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Check-in"
+                               FontSize="12"
+                               TextColor="#C7D2FE" />
+                        <Label x:Name="CheckInsLabel"
+                               FontSize="26"
+                               FontAttributes="Bold"
+                               TextColor="White" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1"
+                        BackgroundColor="#FFFFFF"
+                        Stroke="#E2E8F0"
+                        StrokeShape="RoundRectangle 22"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Locali"
+                               FontSize="12"
+                               TextColor="#64748B" />
+                        <Label x:Name="VenuesLabel"
+                               FontSize="26"
+                               FontAttributes="Bold"
+                               TextColor="#0F172A" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 24"
+                    Padding="18">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Top locali"
+                           FontSize="17"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <VerticalStackLayout x:Name="TopVenuesLayout"
+                                         Spacing="10" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

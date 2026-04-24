@@ -2,11 +2,13 @@ using System.Windows.Input;
 using FriendMap.Mobile.Pages;
 using FriendMap.Mobile.Services;
 using Microsoft.Maui.Devices;
+using Microsoft.Maui.Storage;
 
 namespace FriendMap.Mobile.ViewModels;
 
 public class LoginViewModel : BindableObject
 {
+    private const string PermissionPrimerCompletedKey = "friendmap_permission_primer_completed";
     private readonly ApiClient _apiClient;
     private string _nickname = "giulia";
     private string _apiBaseUrl;
@@ -134,6 +136,18 @@ public class LoginViewModel : BindableObject
         return await _apiClient.TryRestoreSessionAsync();
     }
 
+    public string ResolveAuthenticatedRoute()
+    {
+        return Preferences.Get(PermissionPrimerCompletedKey, false)
+            ? "//main"
+            : "//onboarding";
+    }
+
+    public static void MarkPermissionPrimerCompleted()
+    {
+        Preferences.Set(PermissionPrimerCompletedKey, true);
+    }
+
     private async Task VerifyBackendAsync()
     {
         if (IsBusy) return;
@@ -171,7 +185,7 @@ public class LoginViewModel : BindableObject
             }
 
             await _apiClient.DevLoginAsync(Nickname, Nickname);
-            await Shell.Current.GoToAsync("//main");
+            await Shell.Current.GoToAsync(ResolveAuthenticatedRoute());
         }
         catch (Exception ex)
         {

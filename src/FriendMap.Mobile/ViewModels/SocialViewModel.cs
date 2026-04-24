@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using FriendMap.Mobile.Models;
+using FriendMap.Mobile.Pages;
 using FriendMap.Mobile.Services;
 
 namespace FriendMap.Mobile.ViewModels;
@@ -8,6 +9,7 @@ namespace FriendMap.Mobile.ViewModels;
 public class SocialViewModel : BindableObject
 {
     private readonly ApiClient _apiClient;
+    private readonly AppIntentService _appIntentService;
     private bool _isBusy;
     private bool _isActionBusy;
     private string? _statusMessage;
@@ -17,6 +19,7 @@ public class SocialViewModel : BindableObject
     public ObservableCollection<SocialConnection> Friends { get; } = new();
     public ObservableCollection<SocialConnection> PendingRequests { get; } = new();
     public ObservableCollection<UserSearchResult> SearchResults { get; } = new();
+    public ObservableCollection<ContactMatchResult> ContactMatches { get; } = new();
 
     public bool IsBusy
     {
@@ -51,7 +54,7 @@ public class SocialViewModel : BindableObject
     }
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-    public bool IsEmptyStateVisible => !IsBusy && Tables.Count == 0 && Threads.Count == 0 && Friends.Count == 0 && PendingRequests.Count == 0 && SearchResults.Count == 0;
+    public bool IsEmptyStateVisible => !IsBusy && Tables.Count == 0 && Threads.Count == 0 && Friends.Count == 0 && PendingRequests.Count == 0 && SearchResults.Count == 0 && ContactMatches.Count == 0;
 
     public ICommand RefreshCommand { get; }
     public ICommand AcceptFriendCommand { get; }
@@ -59,16 +62,19 @@ public class SocialViewModel : BindableObject
     public ICommand OpenChatCommand { get; }
     public ICommand OpenTableCommand { get; }
     public ICommand AddFriendCommand { get; }
+    public ICommand OpenProfileCommand { get; }
 
-    public SocialViewModel(ApiClient apiClient)
+    public SocialViewModel(ApiClient apiClient, AppIntentService appIntentService)
     {
         _apiClient = apiClient;
+        _appIntentService = appIntentService;
         RefreshCommand = new Command(async () => await RefreshAsync());
         AcceptFriendCommand = new Command<SocialConnection?>(async c => await AcceptFriendAsync(c));
         RejectFriendCommand = new Command<SocialConnection?>(async c => await RejectFriendAsync(c));
         OpenChatCommand = new Command<DirectMessageThreadSummary?>(async t => await OpenChatAsync(t));
         OpenTableCommand = new Command<SocialTableSummary?>(async t => await OpenTableAsync(t));
         AddFriendCommand = new Command<UserSearchResult?>(async u => await AddFriendAsync(u));
+        OpenProfileCommand = new Command<Guid>(async userId => await OpenProfileAsync(userId));
 
         // Notifica cambiamenti di stato vuoto quando le collezioni cambiano
         Tables.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyStateVisible));
@@ -76,6 +82,7 @@ public class SocialViewModel : BindableObject
         Friends.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyStateVisible));
         PendingRequests.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyStateVisible));
         SearchResults.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyStateVisible));
+        ContactMatches.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmptyStateVisible));
     }
 
     public async Task RefreshAsync()
@@ -211,39 +218,31 @@ public class SocialViewModel : BindableObject
         }
     }
 
-    private async Task SwitchToMapTabAsync()
-    {
-        try
-        {
-            await Shell.Current.GoToAsync("//main/map");
-        }
-        catch
-        {
-            // Fallback: switch programmatico al primo tab
-            if (Shell.Current.Items.FirstOrDefault(i => i.Route == "main") is TabBar tabBar)
-            {
-                Shell.Current.CurrentItem = tabBar;
-                if (tabBar.Items.Count > 0)
-                    tabBar.CurrentItem = tabBar.Items[0];
-            }
-        }
-        await Task.Delay(300);
-    }
-
     public async Task OpenChatAsync(DirectMessageThreadSummary? thread)
     {
         if (thread is null) return;
-        HapticService.Light();
-        await SwitchToMapTabAsync();
-        MessagingCenter.Send(this, "OpenDirectMessage", thread.OtherUserId);
+        await OpenDirectMessageAsync(thread.OtherUserId);
     }
 
     public async Task OpenTableAsync(SocialTableSummary? table)
     {
         if (table is null) return;
         HapticService.Light();
-        await SwitchToMapTabAsync();
-        MessagingCenter.Send(this, "OpenTable", table.TableId);
+        await Shell.Current.GoToAsync($"{nameof(SocialTablePage)}?tableId={Uri.EscapeDataString(table.TableId.ToString())}");
+    }
+
+    public async Task OpenProfileAsync(Guid userId)
+    {
+        if (userId == Guid.Empty) return;
+        HapticService.Light();
+        await Shell.Current.GoToAsync($"{nameof(SocialProfilePage)}?userId={Uri.EscapeDataString(userId.ToString())}");
+    }
+
+    public async Task OpenDirectMessageAsync(Guid userId)
+    {
+        if (userId == Guid.Empty) return;
+        HapticService.Light();
+        await Shell.Current.GoToAsync($"{nameof(SocialChatPage)}?userId={Uri.EscapeDataString(userId.ToString())}");
     }
 
     public async Task SearchUsersAsync(string query)
@@ -262,5 +261,16 @@ public class SocialViewModel : BindableObject
         {
             StatusMessage = _apiClient.DescribeException(ex);
         }
+    }
+
+    public void SetContactMatches(IEnumerable<ContactMatchResult> matches)
+    {
+        ContactMatches.Clear();
+        foreach (var match in matches)
+        {
+            ContactMatches.Add(match);
+        }
+
+        OnPropertyChanged(nameof(IsEmptyStateVisible));
     }
 }

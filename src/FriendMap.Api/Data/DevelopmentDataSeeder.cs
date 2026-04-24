@@ -87,9 +87,9 @@ public static class DevelopmentDataSeeder
         var bucketStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, now.Minute / 15 * 15, 0, TimeSpan.Zero);
 
         db.Users.AddRange(
-            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", AvatarUrl = BuildDevAvatarUrl("giulia"), Bio = "Aperitivi, cinema e tavoli improvvisati.", BirthYear = 1997, Gender = "female" },
-            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", AvatarUrl = BuildDevAvatarUrl("marco"), Bio = "Musica live e locali dove si parla davvero.", BirthYear = 1994, Gender = "male" },
-            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", AvatarUrl = BuildDevAvatarUrl("sofia"), Bio = "Brunch, lettura e serate tranquille.", BirthYear = 1999, Gender = "female" });
+            new AppUser { Id = GiuliaUserId, Nickname = "giulia", DisplayName = "Giulia Negri", AvatarUrl = BuildDevAvatarUrl("giulia"), DiscoverablePhoneNormalized = "+393401000001", DiscoverableEmailNormalized = "giulia@cloudy.dev", Bio = "Aperitivi, cinema e tavoli improvvisati.", BirthYear = 1997, Gender = "female" },
+            new AppUser { Id = MarcoUserId, Nickname = "marco", DisplayName = "Marco Lodi", AvatarUrl = BuildDevAvatarUrl("marco"), DiscoverablePhoneNormalized = "+393401000002", DiscoverableEmailNormalized = "marco@cloudy.dev", Bio = "Musica live e locali dove si parla davvero.", BirthYear = 1994, Gender = "male" },
+            new AppUser { Id = SofiaUserId, Nickname = "sofia", DisplayName = "Sofia Riva", AvatarUrl = BuildDevAvatarUrl("sofia"), DiscoverablePhoneNormalized = "+393401000003", DiscoverableEmailNormalized = "sofia@cloudy.dev", Bio = "Brunch, lettura e serate tranquille.", BirthYear = 1999, Gender = "female" });
 
         db.UserInterests.AddRange(
             new UserInterest { UserId = GiuliaUserId, Tag = "aperitivi" },

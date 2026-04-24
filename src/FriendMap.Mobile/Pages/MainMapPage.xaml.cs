@@ -28,6 +28,7 @@ public partial class MainMapPage : ContentPage
     private readonly LoginViewModel _loginViewModel;
     private readonly IDevicePermissionService _permissions;
     private readonly ApiClient _apiClient;
+    private readonly AppIntentService _appIntentService;
 
     private CancellationTokenSource? _viewportRefreshCts;
     private CancellationTokenSource? _overlayRenderCts;
@@ -44,7 +45,7 @@ public partial class MainMapPage : ContentPage
     private string? _selectedAreaClusterKey;
     private bool _isQuickActionRailOpen;
     private bool _isLegendPanelOpen;
-    private bool _isContrastModeEnabled;
+    private bool _isContrastModeEnabled = true;
     private bool _isSocialBusy;
     private bool _isSocialLoading;
     private bool _isTableBusy;
@@ -69,7 +70,7 @@ public partial class MainMapPage : ContentPage
 
     private readonly ChatHubService _chatHub;
 
-    public MainMapPage(MainMapViewModel viewModel, LoginViewModel loginViewModel, IDevicePermissionService permissions, ApiClient apiClient, ChatHubService chatHub)
+    public MainMapPage(MainMapViewModel viewModel, LoginViewModel loginViewModel, IDevicePermissionService permissions, ApiClient apiClient, ChatHubService chatHub, AppIntentService appIntentService)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -77,6 +78,7 @@ public partial class MainMapPage : ContentPage
         _permissions = permissions;
         _apiClient = apiClient;
         _chatHub = chatHub;
+        _appIntentService = appIntentService;
         _chatHub.MessageReceived += OnHubMessageReceived;
         BindingContext = _viewModel;
         _viewModel.MarkersRefreshed += (_, _) => MainThread.BeginInvokeOnMainThread(RenderMap);
@@ -142,7 +144,7 @@ public partial class MainMapPage : ContentPage
             if (!_permissionsRequested)
             {
                 _permissionsRequested = true;
-                await _viewModel.RequestPermissionsAndRegisterDeviceAsync(_permissions);
+                await _viewModel.RegisterStoredDeviceTokenAsync();
             }
 
             EnsureInitialMapRegion();
@@ -152,6 +154,7 @@ public partial class MainMapPage : ContentPage
             await RefreshForCurrentViewportAsync(force: mapCacheStale || _viewModel.Markers.Count == 0, centerOnMarkers: true);
             await SyncVenueSheetAsync(animated: false);
             ApplyMapMood();
+            await ProcessPendingAppIntentAsync();
         }
         catch (Exception ex)
         {
@@ -236,7 +239,8 @@ public partial class MainMapPage : ContentPage
             null,
             "✅ Check-in",
             "💭 Ci vado",
-            "🪑 Apri tavolo");
+            "🪑 Apri tavolo",
+            "⚡ Flare");
 
         switch (action)
         {
@@ -252,57 +256,78 @@ public partial class MainMapPage : ContentPage
                 HapticService.Success();
                 await ShowCreateTableFormAsync();
                 break;
+            case "⚡ Flare":
+                HapticService.Success();
+                await LaunchSelectedVenueFlareAsync();
+                break;
+        }
+    }
+
+    private async Task LaunchSelectedVenueFlareAsync()
+    {
+        if (_viewModel.SelectedMarker is null)
+        {
+            _viewModel.SetStatusMessage("Seleziona un locale prima di lanciare un flare.");
+            return;
+        }
+
+        var marker = _viewModel.SelectedMarker;
+        var message = await DisplayPromptAsync(
+            "Flare",
+            "Che segnale vuoi mandare agli amici?",
+            initialValue: $"Passa da {marker.Name}, chi c'è?");
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.SendFlareAsync(marker.Latitude, marker.Longitude, message.Trim());
+            await DisplayAlert("Flare", "Flare inviato agli amici.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Flare", _apiClient.DescribeException(ex), "OK");
+        }
+    }
+
+    private async Task ProcessPendingAppIntentAsync()
+    {
+        var pendingIntent = _appIntentService.Consume();
+        if (pendingIntent is null)
+        {
+            return;
+        }
+
+        switch (pendingIntent.Type)
+        {
+            case AppIntentType.Profile:
+                await ShowUserProfileAsync(pendingIntent.EntityId);
+                break;
+            case AppIntentType.DirectMessage:
+                await ShowDirectMessageOverlayAsync(pendingIntent.EntityId);
+                break;
+            case AppIntentType.Table:
+                await ShowTableOverlayAsync(pendingIntent.EntityId);
+                break;
         }
     }
 
     private async Task ShowCreateTableFormAsync()
     {
         if (_viewModel.SelectedMarker is null) return;
+        await Shell.Current.GoToAsync(
+            $"{nameof(CreateTablePage)}" +
+            $"?venueId={Uri.EscapeDataString(_viewModel.SelectedMarker.VenueId.ToString())}" +
+            $"&venueName={Uri.EscapeDataString(_viewModel.SelectedMarker.Name)}" +
+            $"&venueCategory={Uri.EscapeDataString(_viewModel.SelectedMarker.Category)}");
+    }
 
-        var title = await DisplayPromptAsync("Tavolo", "Dai un nome al tavolo:", placeholder: "Es. Aperitivo post-lavoro", maxLength: 60);
-        if (string.IsNullOrWhiteSpace(title)) return;
-
-        var description = await DisplayPromptAsync("Tavolo", "Tema / Descrizione (opzionale):", placeholder: "Es. Italiani a Milano", maxLength: 200);
-
-        var whenAction = await DisplayActionSheet("Quando?", "Annulla", null, "Adesso", "Tra 1 ora", "Tra 2 ore", "Tra 3 ore", "Stasera (20:00)");
-        if (whenAction == "Annulla") return;
-        var startsAt = whenAction switch
-        {
-            "Adesso" => DateTimeOffset.UtcNow,
-            "Tra 1 ora" => DateTimeOffset.UtcNow.AddHours(1),
-            "Tra 2 ore" => DateTimeOffset.UtcNow.AddHours(2),
-            "Tra 3 ore" => DateTimeOffset.UtcNow.AddHours(3),
-            "Stasera (20:00)" => DateTimeOffset.UtcNow.Date.AddHours(20),
-            _ => DateTimeOffset.UtcNow.AddHours(1)
-        };
-
-        var policyAction = await DisplayActionSheet("Chi può unirsi?", "Annulla", null, "Aperto a tutti", "Su approvazione");
-        if (policyAction == "Annulla") return;
-        var joinPolicy = policyAction == "Aperto a tutti" ? "auto" : "approval";
-
-        var capacityAction = await DisplayActionSheet("Quanti posti?", "Annulla", null, "2", "4", "6", "8", "10", "12");
-        if (capacityAction == "Annulla") return;
-        var capacity = int.TryParse(capacityAction, out var cap) ? cap : 6;
-
-        try
-        {
-            var userId = await _apiClient.GetCurrentUserIdAsync();
-            await _apiClient.CreateSocialTableAsync(
-                userId,
-                _viewModel.SelectedMarker.VenueId,
-                title.Trim(),
-                string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-                startsAt,
-                capacity,
-                joinPolicy);
-            HapticService.Success();
-            await ShowSuccessOverlayAsync("Tavolo aperto! 🪑");
-            await _viewModel.RefreshAsync();
-        }
-        catch (Exception ex)
-        {
-            _viewModel.SetStatusMessage($"Errore tavolo: {ex.Message}");
-        }
+    private async void OnCreateTableClicked(object? sender, EventArgs e)
+    {
+        await ShowCreateTableFormAsync();
     }
 
     private async void OnQuickMenuToggleClicked(object? sender, EventArgs e)
@@ -654,6 +679,55 @@ public partial class MainMapPage : ContentPage
     private void OnVenueDetailOverlayCloseClicked(object? sender, EventArgs e)
     {
         _ = HideVenueDetailOverlayAsync(animated: true);
+    }
+
+    private async void OnVenueDetailVibeClicked(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedMarker is null)
+        {
+            return;
+        }
+
+        var vibe = await DisplayActionSheet(
+            "Che vibe c'è adesso?",
+            "Annulla",
+            null,
+            "🔥 Festa",
+            "🍸 Chill",
+            "🎶 Musica alta",
+            "🗣️ Si parla bene",
+            "🚶 Coda lunga");
+
+        if (string.IsNullOrWhiteSpace(vibe) || vibe == "Annulla")
+        {
+            return;
+        }
+
+        try
+        {
+            await _apiClient.SubmitVenueVibeAsync(_viewModel.SelectedMarker.VenueId, vibe);
+            await DisplayAlert("Vibe", "Grazie, vibe registrato.", "OK");
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Vibe", _apiClient.DescribeException(ex), "OK");
+        }
+    }
+
+    private async void OnVenueDetailShareClicked(object? sender, EventArgs e)
+    {
+        if (_viewModel.SelectedMarker is null)
+        {
+            return;
+        }
+
+        var link = DeepLinkService.BuildUniversalLink(_apiClient.BaseAddress, "venue", _viewModel.SelectedMarker.VenueId);
+        await Share.Default.RequestAsync(new ShareTextRequest
+        {
+            Uri = link,
+            Title = $"Apri {_viewModel.SelectedMarker.Name} su Cloudy",
+            Text = $"{_viewModel.SelectedMarker.Name}\n{link}"
+        });
     }
 
     private void OnNativeMapPropertyChanged(object? sender, PropertyChangedEventArgs e)

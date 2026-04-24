@@ -14,11 +14,16 @@
     <RuntimeIdentifiers>ios-arm64;iossimulator-x64;iossimulator-arm64</RuntimeIdentifiers>
     <EnableDefaultCodesignEntitlements>false</EnableDefaultCodesignEntitlements>
     <EnablePushEntitlements Condition="'$(EnablePushEntitlements)' == ''">false</EnablePushEntitlements>
+    <EnableAssociatedDomainsEntitlements Condition="'$(EnableAssociatedDomainsEntitlements)' == ''">false</EnableAssociatedDomainsEntitlements>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(EnablePushEntitlements)' == 'true'">
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(EnableCodeSigning)' != 'false' and '$(EnablePushEntitlements)' == 'true'">
     <CodesignEntitlements>Platforms/iOS/Entitlements.plist</CodesignEntitlements>
     <DefineConstants>$(DefineConstants);FRIENDMAP_APNS_ENABLED</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('-ios')) and '$(EnableCodeSigning)' != 'false' and '$(EnablePushEntitlements)' != 'true' and '$(EnableAssociatedDomainsEntitlements)' == 'true'">
+    <CodesignEntitlements>Platforms/iOS/AssociatedDomains.entitlements</CodesignEntitlements>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,10 +48,17 @@
     </MauiXaml>
   </ItemGroup>
 
-  <Target Name="DisablePushEntitlementsForUnsignedBuild" BeforeTargets="_DetectSigningIdentity" Condition="'$(EnablePushEntitlements)' != 'true'">
+  <Target Name="DisablePushEntitlementsForUnsignedBuild" BeforeTargets="_DetectSigningIdentity" Condition="'$(EnablePushEntitlements)' != 'true' and '$(EnableAssociatedDomainsEntitlements)' != 'true'">
     <PropertyGroup>
       <CodesignEntitlements></CodesignEntitlements>
       <CodesignRequireProvisioningProfile Condition="'$(EnableCodeSigning)' == 'false'">false</CodesignRequireProvisioningProfile>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="DisableAllEntitlementsForUnsignedBuild" BeforeTargets="_DetectSigningIdentity" Condition="'$(EnableCodeSigning)' == 'false'">
+    <PropertyGroup>
+      <CodesignEntitlements></CodesignEntitlements>
+      <CodesignRequireProvisioningProfile>false</CodesignRequireProvisioningProfile>
     </PropertyGroup>
   </Target>
 </Project>

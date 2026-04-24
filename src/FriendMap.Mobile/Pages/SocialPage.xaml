@@ -1,304 +1,458 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
              x:Name="SocialPageRoot"
              x:Class="FriendMap.Mobile.Pages.SocialPage"
-             xmlns:vm="clr-namespace:FriendMap.Mobile.ViewModels"
              xmlns:models="clr-namespace:FriendMap.Mobile.Models"
+             ios:Page.UseSafeArea="True"
              Title="Social">
 
-    <ContentPage.Resources>
-        <!-- Converters locali se necessari -->
-    </ContentPage.Resources>
+    <RefreshView IsRefreshing="{Binding IsBusy}"
+                 Command="{Binding RefreshCommand}">
+        <ScrollView>
+            <VerticalStackLayout Padding="18,18,18,34"
+                                 Spacing="18">
 
-    <Grid RowDefinitions="Auto,*">
-        <!-- Header -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="24,16,24,8">
-            <VerticalStackLayout>
-                <Label Text="Social" FontSize="28" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                <Label Text="Connettiti con gli amici" FontSize="15" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-            </VerticalStackLayout>
-            <ImageButton Grid.Column="1"
-                         Command="{Binding RefreshCommand}"
-                         WidthRequest="40" HeightRequest="40"
-                         CornerRadius="20"
-                         BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1E293B}">
-                <ImageButton.Source>
-                    <FontImageSource Glyph="&#x21BB;" FontFamily="SegoeUI" Size="18" Color="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                </ImageButton.Source>
-            </ImageButton>
-        </Grid>
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Social"
+                               FontSize="30"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <Label Text="Amici, chat, tavoli e contatti già presenti su Cloudy."
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                    </VerticalStackLayout>
+                    <ImageButton Grid.Column="1"
+                                 Command="{Binding RefreshCommand}"
+                                 WidthRequest="42"
+                                 HeightRequest="42"
+                                 CornerRadius="21"
+                                 BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                 BorderColor="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                 BorderWidth="1"
+                                 Source="icon_refresh_blue" />
+                </Grid>
 
-        <RefreshView Grid.Row="1" IsRefreshing="{Binding IsBusy}" Command="{Binding RefreshCommand}">
-            <ScrollView x:Name="MainScroll">
-                <VerticalStackLayout Padding="24,8,24,40" Spacing="20">
-
-                    <!-- Search Card -->
-                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 16"
-                            Padding="16">
-                        <VerticalStackLayout Spacing="12">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <Entry x:Name="SearchEntry"
-                                       Placeholder="Cerca utente per nickname..."
-                                       Completed="OnSearchCompleted"
-                                       BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0F172A}"
-                                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"
-                                       PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                       HeightRequest="44"
-                                       VerticalOptions="Center"/>
-                                <Button Grid.Column="1"
-                                        Text="Cerca"
-                                        Clicked="OnSearchClicked"
-                                        BackgroundColor="{StaticResource BrandViolet}"
-                                        TextColor="White"
-                                        CornerRadius="12"
-                                        HeightRequest="44"
-                                        FontAttributes="Bold"/>
-                            </Grid>
-                            <Button Text="&#x2709;&#xFE0F; Invita amici"
-                                    Clicked="OnInviteFriendsClicked"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{StaticResource BrandViolet}"
-                                    BorderColor="{StaticResource BrandViolet}"
-                                    BorderWidth="1"
-                                    CornerRadius="12"
-                                    HeightRequest="44"
-                                    FontAttributes="Bold"/>
+                <Grid ColumnDefinitions="*,*,*"
+                      ColumnSpacing="10">
+                    <Border BackgroundColor="#4F46E5"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 22"
+                            Padding="14">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Amici"
+                                   FontSize="12"
+                                   TextColor="#C7D2FE" />
+                            <Label Text="{Binding Friends.Count}"
+                                   FontSize="26"
+                                   FontAttributes="Bold"
+                                   TextColor="White" />
                         </VerticalStackLayout>
                     </Border>
+                    <Border Grid.Column="1"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                            StrokeShape="RoundRectangle 22"
+                            Padding="14">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Chat"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label Text="{Binding Threads.Count}"
+                                   FontSize="26"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Grid.Column="2"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                            StrokeShape="RoundRectangle 22"
+                            Padding="14">
+                        <VerticalStackLayout Spacing="3">
+                            <Label Text="Tavoli"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label Text="{Binding Tables.Count}"
+                                   FontSize="26"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
 
-                    <!-- Search Results -->
-                    <VerticalStackLayout IsVisible="{Binding SearchResults.Count, Converter={StaticResource NonZeroConverter}}">
-                        <Label Text="&#x1F50D; Risultati ricerca" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <StackLayout x:Name="SearchResultsStack"
-                                     BindableLayout.ItemsSource="{Binding SearchResults}"
-                                     Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="models:UserSearchResult">
-                                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                            StrokeThickness="1"
-                                            StrokeShape="RoundRectangle 16"
-                                            Padding="12">
-                                        <Grid ColumnDefinitions="Auto,*,Auto">
-                                            <Border WidthRequest="44" HeightRequest="44"
-                                                    Background="{StaticResource BrandGradient}"
-                                                    StrokeShape="RoundRectangle 22">
-                                                <Label Text="{Binding DisplayName, Converter={StaticResource InitialsConverter}}"
-                                                       FontSize="16" FontAttributes="Bold"
-                                                       TextColor="White"
-                                                       HorizontalOptions="Center" VerticalOptions="Center"/>
-                                            </Border>
-                                            <VerticalStackLayout Grid.Column="1" Spacing="2" Padding="12,0">
-                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                                                <Label Text="{Binding Nickname, StringFormat='@{0}'}" FontSize="13" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-                                            </VerticalStackLayout>
-                                            <Button Grid.Column="2" Text="+"
-                                                    Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.AddFriendCommand}"
-                                                    CommandParameter="{Binding .}"
-                                                    BackgroundColor="{StaticResource BrandViolet}"
-                                                    TextColor="White"
-                                                    CornerRadius="18"
-                                                    WidthRequest="36" HeightRequest="36"
-                                                    FontSize="20" Padding="0"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </StackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Pending Requests -->
-                    <VerticalStackLayout IsVisible="{Binding PendingRequests.Count, Converter={StaticResource NonZeroConverter}}">
-                        <Label Text="&#x1F4E5; Richieste di amicizia" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <ScrollView Orientation="Horizontal">
-                            <StackLayout x:Name="PendingRequestsStack"
-                                         BindableLayout.ItemsSource="{Binding PendingRequests}"
-                                         Orientation="Horizontal"
-                                         Spacing="12">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="models:SocialConnection">
-                                        <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                                Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                                StrokeThickness="1"
-                                                StrokeShape="RoundRectangle 16"
-                                                WidthRequest="160"
-                                                Padding="16">
-                                            <VerticalStackLayout Spacing="10">
-                                                <Border WidthRequest="56" HeightRequest="56"
-                                                        Background="{StaticResource BrandGradient}"
-                                                        StrokeShape="RoundRectangle 28"
-                                                        HorizontalOptions="Center">
-                                                    <Label Text="{Binding DisplayName, Converter={StaticResource InitialsConverter}}"
-                                                           FontSize="20" FontAttributes="Bold"
-                                                           TextColor="White"
-                                                           HorizontalOptions="Center" VerticalOptions="Center"/>
-                                                </Border>
-                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                                                <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                                                    <Button Text="&#x2713;"
-                                                            Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.AcceptFriendCommand}"
-                                                            CommandParameter="{Binding .}"
-                                                            BackgroundColor="{StaticResource SuccessColor}"
-                                                            TextColor="White"
-                                                            CornerRadius="16"
-                                                            WidthRequest="48" HeightRequest="36"
-                                                            FontAttributes="Bold" Padding="0"/>
-                                                    <Button Text="&#x2715;"
-                                                            Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.RejectFriendCommand}"
-                                                            CommandParameter="{Binding .}"
-                                                            BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#334155}"
-                                                            TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}"
-                                                            CornerRadius="16"
-                                                            WidthRequest="48" HeightRequest="36"
-                                                            FontAttributes="Bold" Padding="0"/>
-                                                </HorizontalStackLayout>
-                                            </VerticalStackLayout>
-                                        </Border>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </StackLayout>
-                        </ScrollView>
-                    </VerticalStackLayout>
-
-                    <!-- Friends -->
-                    <VerticalStackLayout IsVisible="{Binding Friends.Count, Converter={StaticResource NonZeroConverter}}">
-                        <Label Text="&#x1F465; Amici" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <StackLayout x:Name="FriendsStack"
-                                     BindableLayout.ItemsSource="{Binding Friends}"
-                                     Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="models:SocialConnection">
-                                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                            StrokeThickness="1"
-                                            StrokeShape="RoundRectangle 16"
-                                            Padding="12">
-                                        <Grid ColumnDefinitions="Auto,*">
-                                            <Border WidthRequest="48" HeightRequest="48"
-                                                    Background="{StaticResource BrandGradient}"
-                                                    StrokeShape="RoundRectangle 24">
-                                                <Label Text="{Binding DisplayName, Converter={StaticResource InitialsConverter}}"
-                                                       FontSize="16" FontAttributes="Bold"
-                                                       TextColor="White"
-                                                       HorizontalOptions="Center" VerticalOptions="Center"/>
-                                            </Border>
-                                            <VerticalStackLayout Grid.Column="1" Spacing="2" Padding="12,0">
-                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                                                <Label Text="{Binding Nickname, StringFormat='@{0}'}" FontSize="13" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </StackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Tables -->
-                    <VerticalStackLayout IsVisible="{Binding Tables.Count, Converter={StaticResource NonZeroConverter}}">
-                        <Label Text="&#x1F37D;&#xFE0F; Tavoli attivi" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <StackLayout x:Name="TablesStack"
-                                     BindableLayout.ItemsSource="{Binding Tables}"
-                                     Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="models:SocialTableSummary">
-                                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                            StrokeThickness="1"
-                                            StrokeShape="RoundRectangle 16"
-                                            Padding="16">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnTableTapped"/>
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="Auto,*">
-                                            <Border WidthRequest="44" HeightRequest="44"
-                                                    Background="{StaticResource BrandGradient}"
-                                                    StrokeShape="RoundRectangle 12">
-                                                <Label Text="&#x1F37D;&#xFE0F;"
-                                                       FontSize="20"
-                                                       HorizontalOptions="Center" VerticalOptions="Center"/>
-                                            </Border>
-                                            <VerticalStackLayout Grid.Column="1" Spacing="2" Padding="12,0">
-                                                <Label Text="{Binding Title}" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                                                <Label Text="{Binding VenueName, StringFormat='&#x1F4CD; {0}'}" FontSize="13" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-                                                <Label Text="{Binding AcceptedCount, StringFormat='&#x1F465; {0} partecipanti'}" FontSize="13" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </StackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Messages -->
-                    <VerticalStackLayout IsVisible="{Binding Threads.Count, Converter={StaticResource NonZeroConverter}}">
-                        <Label Text="&#x1F4AC; Messaggi" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <StackLayout x:Name="MessagesStack"
-                                     BindableLayout.ItemsSource="{Binding Threads}"
-                                     Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="models:DirectMessageThreadSummary">
-                                    <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1E293B}"
-                                            Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#334155}"
-                                            StrokeThickness="1"
-                                            StrokeShape="RoundRectangle 16"
-                                            Padding="12">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnMessageTapped"/>
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="Auto,*,Auto">
-                                            <Border WidthRequest="48" HeightRequest="48"
-                                                    Background="{StaticResource BrandGradient}"
-                                                    StrokeShape="RoundRectangle 24">
-                                                <Label Text="{Binding DisplayName, Converter={StaticResource InitialsConverter}}"
-                                                       FontSize="16" FontAttributes="Bold"
-                                                       TextColor="White"
-                                                       HorizontalOptions="Center" VerticalOptions="Center"/>
-                                            </Border>
-                                            <VerticalStackLayout Grid.Column="1" Spacing="2" Padding="12,0">
-                                                <Label Text="{Binding DisplayName}" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                                                <Label Text="{Binding LastMessagePreview}" FontSize="13" TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" LineBreakMode="TailTruncation" MaxLines="1"/>
-                                            </VerticalStackLayout>
-                                            <Label Grid.Column="2"
-                                                   Text="{Binding LastMessageAtUtc, StringFormat='{0:HH:mm}'}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
-                                                   VerticalOptions="Center"/>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </StackLayout>
-                    </VerticalStackLayout>
-
-                    <!-- Empty state -->
-                    <VerticalStackLayout IsVisible="{Binding IsEmptyStateVisible}"
-                                         HorizontalOptions="Center"
-                                         Spacing="16"
-                                         Padding="0,40">
-                        <Border WidthRequest="120" HeightRequest="120"
-                                StrokeShape="RoundRectangle 60"
-                                Background="{StaticResource BrandGradient}">
-                            <Label Text="&#x1F465;"
-                                   FontSize="48"
-                                   HorizontalOptions="Center" VerticalOptions="Center"/>
-                        </Border>
-                        <Label Text="Nessuna attivit&#xE0; social" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#0F172A, Dark=#F1F5F9}"/>
-                        <Label Text="Cerca amici, apri un tavolo o invita qualcuno." FontSize="14" HorizontalOptions="Center" TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"/>
-                        <Button Text="&#x1F50D; Cerca amici"
-                                Clicked="OnSearchFriendsClicked"
-                                BackgroundColor="{StaticResource BrandViolet}"
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                        StrokeShape="RoundRectangle 24"
+                        Padding="14">
+                    <Grid ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto"
+                          ColumnSpacing="10"
+                          RowSpacing="10">
+                        <Button Text="Sincronizza rubrica"
+                                Clicked="OnSyncContactsClicked"
+                                BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0B1220}"
+                                TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
+                                BorderColor="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                BorderWidth="1"
+                                CornerRadius="18"
+                                HeightRequest="48" />
+                        <Button Grid.Column="1"
+                                Text="Invita amici"
+                                Clicked="OnInviteFriendsClicked"
+                                BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0B1220}"
+                                TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
+                                BorderColor="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                BorderWidth="1"
+                                CornerRadius="18"
+                                HeightRequest="48" />
+                        <Button Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                Text="Apri recap"
+                                Clicked="OnOpenRecapClicked"
+                                BackgroundColor="#4F46E5"
                                 TextColor="White"
-                                CornerRadius="16"
-                                HorizontalOptions="Center"
-                                WidthRequest="200"
-                                FontAttributes="Bold"/>
+                                FontAttributes="Bold"
+                                CornerRadius="18"
+                                HeightRequest="48" />
+                    </Grid>
+                </Border>
+
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                        StrokeShape="RoundRectangle 24"
+                        Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Cerca persone"
+                               FontSize="17"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8">
+                            <Entry x:Name="SearchEntry"
+                                   Placeholder="Nickname o nome"
+                                   Completed="OnSearchCompleted"
+                                   BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#0B1220}"
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
+                                   PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                                   HeightRequest="46" />
+                            <Button Grid.Column="1"
+                                    Text="Vai"
+                                    Clicked="OnSearchClicked"
+                                    BackgroundColor="#4F46E5"
+                                    TextColor="White"
+                                    FontAttributes="Bold"
+                                    CornerRadius="18"
+                                    HeightRequest="46" />
+                        </Grid>
                     </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout IsVisible="{Binding ContactMatches.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Contatti già su Cloudy"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding ContactMatches}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:ContactMatchResult">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnContactMatchTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="12">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                            <Label Text="{Binding Nickname, StringFormat='@{0}'}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                            <Label Text="{Binding StatusLabel}"
+                                                   FontSize="12"
+                                                   TextColor="#4F46E5" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding MatchSource}"
+                                               VerticalOptions="Center"
+                                               FontSize="11"
+                                               TextColor="{AppThemeBinding Light=#475569, Dark=#CBD5E1}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
                 </VerticalStackLayout>
-            </ScrollView>
-        </RefreshView>
-    </Grid>
+
+                <VerticalStackLayout IsVisible="{Binding SearchResults.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Risultati ricerca"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding SearchResults}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:UserSearchResult">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnSearchResultTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="12">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                            <Label Text="{Binding Nickname, StringFormat='@{0}'}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1"
+                                                Text="Aggiungi"
+                                                Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.AddFriendCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="#4F46E5"
+                                                TextColor="White"
+                                                FontAttributes="Bold"
+                                                CornerRadius="16"
+                                                HeightRequest="38"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding PendingRequests.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Richieste in arrivo"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding PendingRequests}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Horizontal"
+                                               ItemSpacing="12" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SocialConnection">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14"
+                                        WidthRequest="220">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnConnectionTapped" />
+                                    </Border.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="10">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                            <Label Text="{Binding Nickname, StringFormat='@{0}'}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        <Grid ColumnDefinitions="*,*"
+                                              ColumnSpacing="8">
+                                            <Button Text="Accetta"
+                                                    Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.AcceptFriendCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="#10B981"
+                                                    TextColor="White"
+                                                    FontAttributes="Bold"
+                                                    CornerRadius="16"
+                                                    HeightRequest="38" />
+                                            <Button Grid.Column="1"
+                                                    Text="Ignora"
+                                                    Command="{Binding Source={x:Reference SocialPageRoot}, Path=BindingContext.RejectFriendCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#1F2937}"
+                                                    TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
+                                                    FontAttributes="Bold"
+                                                    CornerRadius="16"
+                                                    HeightRequest="38" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding Friends.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Amici"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding Friends}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SocialConnection">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnConnectionTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="12">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                            <Label Text="{Binding StatusLabel}"
+                                                   FontSize="13"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1"
+                                                Text="Chat"
+                                                Clicked="OnFriendChatClicked"
+                                                BackgroundColor="#4F46E5"
+                                                TextColor="White"
+                                                FontAttributes="Bold"
+                                                CornerRadius="16"
+                                                HeightRequest="38"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding Tables.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Tavoli attivi"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding Tables}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SocialTableSummary">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnTableTapped" />
+                                    </Border.GestureRecognizers>
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Text="{Binding Title}"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                        <Label Text="{Binding VenueName}"
+                                               FontSize="13"
+                                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        <Label Text="{Binding StartsAtUtc, StringFormat='{0:ddd d MMM HH:mm}'}"
+                                               FontSize="13"
+                                               TextColor="#4F46E5" />
+                                        <Label Text="{Binding AcceptedCount, StringFormat='Partecipanti: {0}'}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        <Label Text="{Binding JoinPolicyLabel, StringFormat='Accesso: {0}'}"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding Threads.Count, Converter={StaticResource NonZeroConverter}}"
+                                     Spacing="10">
+                    <Label Text="Chat recenti"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <CollectionView ItemsSource="{Binding Threads}"
+                                    SelectionMode="None">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical"
+                                               ItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:DirectMessageThreadSummary">
+                                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                                        StrokeShape="RoundRectangle 20"
+                                        Padding="14">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnMessageTapped" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*,Auto"
+                                          ColumnSpacing="12">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Label Text="{Binding DisplayName}"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                                            <Label Text="{Binding LastMessagePreview}"
+                                                   FontSize="13"
+                                                   LineBreakMode="TailTruncation"
+                                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1"
+                                               Text="{Binding LastMessageAtUtc, StringFormat='{0:HH:mm}'}"
+                                               VerticalOptions="Center"
+                                               FontSize="12"
+                                               TextColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout IsVisible="{Binding IsEmptyStateVisible}"
+                                     Padding="0,28"
+                                     Spacing="12"
+                                     HorizontalOptions="Center">
+                    <Label Text="Ancora nessuna attività social"
+                           FontSize="20"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <Label Text="Sincronizza la rubrica, cerca amici o apri un tavolo da un locale."
+                           FontSize="14"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
 </ContentPage>

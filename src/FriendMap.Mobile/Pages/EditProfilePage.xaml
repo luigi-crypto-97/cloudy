@@ -64,6 +64,19 @@
                                Placeholder="Nome pubblico"
                                Style="{StaticResource FieldStyle}" />
 
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="10">
+                            <Entry x:Name="PhoneEntry"
+                                   Placeholder="Telefono visibile ai match rubrica"
+                                   Keyboard="Telephone"
+                                   Style="{StaticResource FieldStyle}" />
+                            <Entry x:Name="EmailEntry"
+                                   Grid.Column="1"
+                                   Placeholder="Email visibile ai match rubrica"
+                                   Keyboard="Email"
+                                   Style="{StaticResource FieldStyle}" />
+                        </Grid>
+
                         <Entry x:Name="BirthYearEntry"
                                Placeholder="Anno di nascita"
                                Keyboard="Numeric"

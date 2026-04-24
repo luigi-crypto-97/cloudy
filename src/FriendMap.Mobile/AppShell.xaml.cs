@@ -21,5 +21,10 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(DiscoveryPage), typeof(DiscoveryPage));
         Routing.RegisterRoute(nameof(GamificationPage), typeof(GamificationPage));
         Routing.RegisterRoute(nameof(InvitePage), typeof(InvitePage));
+        Routing.RegisterRoute(nameof(SocialChatPage), typeof(SocialChatPage));
+        Routing.RegisterRoute(nameof(SocialProfilePage), typeof(SocialProfilePage));
+        Routing.RegisterRoute(nameof(SocialTablePage), typeof(SocialTablePage));
+        Routing.RegisterRoute(nameof(SocialRecapPage), typeof(SocialRecapPage));
+        Routing.RegisterRoute(nameof(CreateTablePage), typeof(CreateTablePage));
     }
 }

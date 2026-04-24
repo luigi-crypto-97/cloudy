@@ -4,6 +4,7 @@ using FriendMap.Api.Models;
 using FriendMap.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace FriendMap.Api.Endpoints;
 
@@ -48,6 +49,8 @@ public static class UserEndpoints
                 user.Nickname,
                 user.DisplayName,
                 user.AvatarUrl,
+                user.DiscoverablePhoneNormalized,
+                user.DiscoverableEmailNormalized,
                 user.Bio,
                 user.BirthYear,
                 user.Gender,
@@ -114,10 +117,137 @@ public static class UserEndpoints
                 user.Nickname,
                 user.DisplayName,
                 user.AvatarUrl,
+                user.DiscoverablePhoneNormalized,
+                user.DiscoverableEmailNormalized,
                 user.Bio,
                 user.BirthYear,
                 user.Gender,
                 normalizedInterests));
+        }).RequireAuthorization();
+
+        group.MapPut("/me/discovery-identity", async (
+            UpdateDiscoveryIdentityRequest request,
+            ClaimsPrincipal principal,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var user = await db.Users.FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
+            if (user is null)
+            {
+                return Results.NotFound();
+            }
+
+            user.DiscoverablePhoneNormalized = NormalizePhone(request.PhoneNumber);
+            user.DiscoverableEmailNormalized = NormalizeEmail(request.Email);
+            user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new
+            {
+                phoneNumber = user.DiscoverablePhoneNormalized,
+                email = user.DiscoverableEmailNormalized
+            });
+        }).RequireAuthorization();
+
+        group.MapPost("/contacts/match", async (
+            MatchContactsRequest request,
+            ClaimsPrincipal principal,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var normalizedPhones = (request.Phones ?? Array.Empty<string>())
+                .Select(NormalizePhone)
+                .Where(x => x is not null)
+                .Cast<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(500)
+                .ToList();
+
+            var normalizedEmails = (request.Emails ?? Array.Empty<string>())
+                .Select(NormalizeEmail)
+                .Where(x => x is not null)
+                .Cast<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(500)
+                .ToList();
+
+            if (normalizedPhones.Count == 0 && normalizedEmails.Count == 0)
+            {
+                return Results.Ok(Array.Empty<ContactMatchDto>());
+            }
+
+            var blocks = await db.UserBlocks
+                .AsNoTracking()
+                .Where(x => x.BlockerUserId == currentUserId || x.BlockedUserId == currentUserId)
+                .ToListAsync(ct);
+
+            var blockedUserIds = blocks
+                .Select(x => x.BlockerUserId == currentUserId ? x.BlockedUserId : x.BlockerUserId)
+                .ToHashSet();
+
+            var matchedUsers = await db.Users
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id != currentUserId &&
+                    !blockedUserIds.Contains(x.Id) &&
+                    ((x.DiscoverablePhoneNormalized != null && normalizedPhones.Contains(x.DiscoverablePhoneNormalized)) ||
+                     (x.DiscoverableEmailNormalized != null && normalizedEmails.Contains(x.DiscoverableEmailNormalized))))
+                .OrderBy(x => x.DisplayName ?? x.Nickname)
+                .Take(100)
+                .ToListAsync(ct);
+
+            if (matchedUsers.Count == 0)
+            {
+                return Results.Ok(Array.Empty<ContactMatchDto>());
+            }
+
+            var matchedUserIds = matchedUsers.Select(x => x.Id).ToList();
+            var relations = await db.FriendRelations
+                .AsNoTracking()
+                .Where(x =>
+                    (x.RequesterId == currentUserId && matchedUserIds.Contains(x.AddresseeId)) ||
+                    (x.AddresseeId == currentUserId && matchedUserIds.Contains(x.RequesterId)))
+                .ToListAsync(ct);
+
+            var presenceByUser = await LoadPresenceByUserAsync(db, matchedUserIds, ct);
+
+            var matches = matchedUsers.Select(user =>
+            {
+                var relation = relations.FirstOrDefault(x =>
+                    (x.RequesterId == currentUserId && x.AddresseeId == user.Id) ||
+                    (x.RequesterId == user.Id && x.AddresseeId == currentUserId));
+
+                var matchSource = user.DiscoverablePhoneNormalized is not null && normalizedPhones.Contains(user.DiscoverablePhoneNormalized)
+                    ? "phone"
+                    : "email";
+
+                var snapshot = presenceByUser.GetValueOrDefault(user.Id) ?? new PresenceSnapshot("idle", "Nessuna presenza live", null, null);
+
+                return new ContactMatchDto(
+                    user.Id,
+                    user.Nickname,
+                    user.DisplayName,
+                    user.AvatarUrl,
+                    ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
+                    matchSource,
+                    snapshot.CurrentVenueName,
+                    snapshot.CurrentVenueCategory,
+                    snapshot.StatusLabel);
+            }).ToList();
+
+            return Results.Ok(matches);
         }).RequireAuthorization();
 
         group.MapGet("/search", async (
@@ -279,10 +409,107 @@ public static class UserEndpoints
                 user.Nickname,
                 user.DisplayName,
                 user.AvatarUrl,
+                user.DiscoverablePhoneNormalized,
+                user.DiscoverableEmailNormalized,
                 user.Bio,
                 user.BirthYear,
                 user.Gender,
                 user.Interests.Select(x => x.Tag).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()));
+        }).RequireAuthorization();
+
+        group.MapGet("/me/recap", async (
+            string? period,
+            ClaimsPrincipal principal,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(principal);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var normalizedPeriod = string.Equals(period, "year", StringComparison.OrdinalIgnoreCase) ? "year" : "month";
+            var rangeEnd = DateTimeOffset.UtcNow;
+            var rangeStart = normalizedPeriod == "year"
+                ? rangeEnd.AddDays(-365)
+                : rangeEnd.AddDays(-30);
+
+            var checkIns = await db.VenueCheckIns
+                .AsNoTracking()
+                .Where(x => x.UserId == currentUserId && x.CreatedAtUtc >= rangeStart && x.CreatedAtUtc <= rangeEnd)
+                .ToListAsync(ct);
+
+            var hostedTables = await db.SocialTables
+                .AsNoTracking()
+                .Where(x => x.HostUserId == currentUserId && x.CreatedAtUtc >= rangeStart && x.CreatedAtUtc <= rangeEnd)
+                .ToListAsync(ct);
+
+            var joinedTables = await db.SocialTableParticipants
+                .AsNoTracking()
+                .Where(x => x.UserId == currentUserId && x.Status == "accepted" && x.CreatedAtUtc >= rangeStart && x.CreatedAtUtc <= rangeEnd)
+                .ToListAsync(ct);
+
+            var venueIds = checkIns.Select(x => x.VenueId).Distinct().ToList();
+            var venueMap = venueIds.Count == 0
+                ? new Dictionary<Guid, Venue>()
+                : await db.Venues
+                    .AsNoTracking()
+                    .Where(x => venueIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id, ct);
+
+            var topVenues = checkIns
+                .GroupBy(x => x.VenueId)
+                .OrderByDescending(x => x.Count())
+                .Take(5)
+                .Select(group =>
+                {
+                    venueMap.TryGetValue(group.Key, out var venue);
+                    return new VenueRecapItemDto(
+                        group.Key,
+                        venue?.Name ?? "Locale",
+                        venue?.Category ?? "venue",
+                        group.Count());
+                })
+                .ToList();
+
+            var sharedFriendIds = await db.FriendRelations
+                .AsNoTracking()
+                .Where(x => x.Status == "accepted" && (x.RequesterId == currentUserId || x.AddresseeId == currentUserId))
+                .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
+                .ToListAsync(ct);
+
+            var topPeople = sharedFriendIds.Count == 0
+                ? new List<FriendRecapItemDto>()
+                : await db.Users
+                    .AsNoTracking()
+                    .Where(x => sharedFriendIds.Contains(x.Id))
+                    .OrderBy(x => x.DisplayName ?? x.Nickname)
+                    .Take(5)
+                    .Select(x => new FriendRecapItemDto(
+                        x.Id,
+                        x.Nickname,
+                        x.DisplayName,
+                        x.AvatarUrl,
+                        0))
+                    .ToListAsync(ct);
+
+            var recap = new UserRecapDto(
+                normalizedPeriod,
+                rangeStart,
+                rangeEnd,
+                checkIns.Count,
+                checkIns.Select(x => x.VenueId).Distinct().Count(),
+                hostedTables.Count,
+                joinedTables.Count,
+                checkIns
+                    .Select(x => x.CreatedAtUtc.ToOffset(TimeSpan.Zero).Date)
+                    .Distinct()
+                    .Count(),
+                topVenues,
+                topPeople);
+
+            return Results.Ok(recap);
         }).RequireAuthorization();
 
         return group;
@@ -516,6 +743,69 @@ public static class UserEndpoints
         }
 
         return relation.Status;
+    }
+
+    private static string? NormalizePhone(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        var digits = Regex.Replace(trimmed, "[^0-9]", string.Empty);
+        if (digits.Length < 8)
+        {
+            return null;
+        }
+
+        return trimmed.StartsWith('+')
+            ? $"+{digits}"
+            : digits;
+    }
+
+    private static string? NormalizeEmail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().ToLowerInvariant();
+        return normalized.Contains("@", StringComparison.Ordinal) ? normalized : null;
+    }
+
+    private sealed record PresenceSnapshot(string PresenceState, string StatusLabel, string? CurrentVenueName, string? CurrentVenueCategory);
+
+    private static async Task<Dictionary<Guid, PresenceSnapshot>> LoadPresenceByUserAsync(AppDbContext db, List<Guid> userIds, CancellationToken ct)
+    {
+        var snapshots = userIds.ToDictionary(x => x, _ => new PresenceSnapshot("idle", "Nessuna presenza live", null, null));
+        if (userIds.Count == 0)
+        {
+            return snapshots;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        var checkIns = await db.VenueCheckIns
+            .AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId) && x.ExpiresAtUtc >= now)
+            .Join(
+                db.Venues.AsNoTracking(),
+                checkIn => checkIn.VenueId,
+                venue => venue.Id,
+                (checkIn, venue) => new { checkIn.UserId, venue.Name, venue.Category, checkIn.ExpiresAtUtc })
+            .ToListAsync(ct);
+
+        foreach (var item in checkIns
+                     .OrderByDescending(x => x.ExpiresAtUtc)
+                     .GroupBy(x => x.UserId)
+                     .Select(x => x.First()))
+        {
+            snapshots[item.UserId] = new PresenceSnapshot("checked_in", $"Ora a {item.Name}", item.Name, item.Category);
+        }
+
+        return snapshots;
     }
 
     private static string? NormalizeOptionalText(string? value, int maxLength)

@@ -658,7 +658,8 @@ public static class SocialEndpoints
                 "Invito a un tavolo",
                 $"Ti hanno invitato a {table.Title}.",
                 new { type = "social_table_invite", tableId = table.Id, hostUserId = currentUserId },
-                ct);
+                ct,
+                outbox.BuildDeepLink("table", table.Id));
 
             return Results.Ok(new SocialActionResultDto("invited", "Invito tavolo inviato."));
         });
@@ -774,7 +775,8 @@ public static class SocialEndpoints
                 "Ingresso approvato",
                 $"Sei dentro {table.Title}.",
                 new { type = "social_table_approved", tableId },
-                ct);
+                ct,
+                outbox.BuildDeepLink("table", tableId));
 
             return Results.Ok(new SocialActionResultDto("accepted", "Partecipante approvato."));
         });
@@ -809,7 +811,8 @@ public static class SocialEndpoints
                 "Ingresso non approvato",
                 $"Non sei stato inserito in {table.Title}.",
                 new { type = "social_table_rejected", tableId },
-                ct);
+                ct,
+                outbox.BuildDeepLink("table", tableId));
 
             return Results.Ok(new SocialActionResultDto("removed", "Richiesta rimossa."));
         });
@@ -1124,6 +1127,7 @@ public static class SocialEndpoints
             table.StartsAtUtc,
             venue?.Name ?? "Venue",
             venue?.Category ?? "venue",
+            table.JoinPolicy,
             membershipStatus == "host",
             membershipStatus,
             table.Capacity,
@@ -1259,4 +1263,19 @@ public static class SocialEndpoints
         return new SocialConnectionDto(
             user.Id,
             user.Nickname,
-            user.Display
+            user.DisplayName,
+            user.AvatarUrl,
+            relationshipStatus,
+            mutualFriendsCount,
+            snapshot.PresenceState,
+            snapshot.StatusLabel,
+            snapshot.CurrentVenueName,
+            snapshot.CurrentVenueCategory);
+    }
+
+    private sealed record PresenceSnapshot(
+        string PresenceState,
+        string StatusLabel,
+        string? CurrentVenueName,
+        string? CurrentVenueCategory);
+}

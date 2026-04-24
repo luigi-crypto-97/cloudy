@@ -6,12 +6,39 @@ public partial class DevicePermissionService : IDevicePermissionService
 {
     public async Task RequestMapAndPushPermissionsAsync()
     {
-        await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+        await RequestLocationAsync();
 
 #if FRIENDMAP_APNS_ENABLED
-        await RequestPushNotificationsAsync();
+        await RequestPushNotificationsPermissionAsync();
 #endif
     }
 
-    private partial Task RequestPushNotificationsAsync();
+    public Task<PermissionStatus> GetLocationStatusAsync()
+    {
+        return Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+    }
+
+    public Task<PermissionStatus> RequestLocationAsync()
+    {
+        return Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+    }
+
+    public Task<PermissionStatus> GetContactsStatusAsync()
+    {
+        return Permissions.CheckStatusAsync<Permissions.ContactsRead>();
+    }
+
+    public Task<PermissionStatus> RequestContactsAsync()
+    {
+        return Permissions.RequestAsync<Permissions.ContactsRead>();
+    }
+
+    public partial Task<bool> GetPushNotificationsEnabledAsync();
+
+    public partial Task<bool> RequestPushNotificationsPermissionAsync();
+
+    public void OpenAppSettings()
+    {
+        AppInfo.ShowSettingsUI();
+    }
 }

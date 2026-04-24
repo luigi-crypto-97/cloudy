@@ -294,6 +294,31 @@ public partial class MainMapPage
         return ShowUserProfileAsync(preview);
     }
 
+    private async Task ShowUserProfileAsync(Guid userId)
+    {
+        var profile = await _apiClient.GetUserProfileAsync(userId);
+        var preview = new PresencePreview
+        {
+            UserId = profile.UserId,
+            Nickname = profile.Nickname,
+            DisplayName = string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.Nickname : profile.DisplayName!,
+            AvatarUrl = profile.AvatarUrl
+        };
+
+        await HideQuickActionRailAsync(animated: false);
+        await HideDirectMessageOverlayAsync(animated: false);
+        await HideVenueDetailOverlayAsync(animated: false);
+        _activeProfilePreview = preview;
+        _activeProfile = profile;
+        ProfileOverlay.IsVisible = true;
+        ProfileSheet.TranslationY = 460;
+        ProfileActionMessageLabel.IsVisible = false;
+        ProfileLoadingIndicator.IsVisible = false;
+        ProfileLoadingIndicator.IsRunning = false;
+        PopulateProfileOverlay(profile, preview);
+        await ProfileSheet.TranslateTo(0, 0, 220, Easing.CubicOut);
+    }
+
     private async Task ShowUserProfileAsync(PresencePreview preview)
     {
         await HideQuickActionRailAsync(animated: false);

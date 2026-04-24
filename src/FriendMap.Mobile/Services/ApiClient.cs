@@ -244,6 +244,15 @@ public class ApiClient
         return profile;
     }
 
+    public async Task UpdateDiscoveryIdentityAsync(string? phoneNumber, string? email)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PutAsJsonAsync(
+            "api/users/me/discovery-identity",
+            new UpdateDiscoveryIdentityRequestDto(phoneNumber, email));
+        await EnsureSuccessAsync(response);
+    }
+
     public async Task<EditableUserProfile> UploadMyAvatarAsync(FileResult file)
     {
         await EnsureAuthenticatedAsync();
@@ -267,6 +276,25 @@ public class ApiClient
         var response = await _httpClient.GetAsync($"api/users/search?q={Uri.EscapeDataString(query.Trim())}");
         await EnsureSuccessAsync(response);
         return await response.Content.ReadFromJsonAsync<List<UserSearchResult>>() ?? new List<UserSearchResult>();
+    }
+
+    public async Task<List<ContactMatchResult>> MatchContactsAsync(IEnumerable<string> phones, IEnumerable<string> emails)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/users/contacts/match",
+            new MatchContactsRequestDto(phones.ToList(), emails.ToList()));
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<List<ContactMatchResult>>() ?? new List<ContactMatchResult>();
+    }
+
+    public async Task<UserRecap> GetMyRecapAsync(string period)
+    {
+        await EnsureAuthenticatedAsync();
+        var normalizedPeriod = string.Equals(period, "year", StringComparison.OrdinalIgnoreCase) ? "year" : "month";
+        var response = await _httpClient.GetAsync($"api/users/me/recap?period={normalizedPeriod}");
+        await EnsureSuccessAsync(response);
+        return await response.Content.ReadFromJsonAsync<UserRecap>() ?? new UserRecap();
     }
 
     public async Task<List<DirectMessageThreadSummary>> GetDirectMessageInboxAsync()
@@ -301,6 +329,24 @@ public class ApiClient
             new SendDirectMessageRequestDto(body));
         await EnsureSuccessAsync(response);
         ClearCache(_messageInboxCache);
+    }
+
+    public async Task SendFlareAsync(double latitude, double longitude, string message)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            "api/social/flares",
+            new CreateFlareRequestDto(latitude, longitude, message));
+        await EnsureSuccessAsync(response);
+    }
+
+    public async Task SubmitVenueVibeAsync(Guid venueId, string vibeEmoji)
+    {
+        await EnsureAuthenticatedAsync();
+        var response = await _httpClient.PostAsJsonAsync(
+            $"api/social/venues/{venueId}/vibe",
+            new SubmitVibeRequestDto(vibeEmoji));
+        await EnsureSuccessAsync(response);
     }
 
     public async Task BlockUserAsync(Guid targetUserId)
@@ -835,7 +881,15 @@ public class ApiClient
 
     private record UpdateMyProfileRequestDto(string? DisplayName, string? AvatarUrl, string? Bio, int? BirthYear, string? Gender, List<string> Interests);
 
+    private record UpdateDiscoveryIdentityRequestDto(string? PhoneNumber, string? Email);
+
     private record SendDirectMessageRequestDto(string Body);
+
+    private record MatchContactsRequestDto(List<string> Phones, List<string> Emails);
+
+    private record CreateFlareRequestDto(double Latitude, double Longitude, string Message);
+
+    private record SubmitVibeRequestDto(string VibeEmoji);
 
     private record CreateUserReportRequestDto(Guid ReportedUserId, string ReasonCode, string? Details);
 

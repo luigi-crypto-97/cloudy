@@ -28,6 +28,8 @@ public record EditableUserProfileDto(
     string Nickname,
     string? DisplayName,
     string? AvatarUrl,
+    string? DiscoverablePhone,
+    string? DiscoverableEmail,
     string? Bio,
     int? BirthYear,
     string Gender,
@@ -100,3 +102,47 @@ public record SocialActionResultDto(
 
 public record InviteToHostedTableRequest(
     Guid TargetUserId);
+
+public record UpdateDiscoveryIdentityRequest(
+    string? PhoneNumber,
+    string? Email);
+
+public record MatchContactsRequest(
+    IEnumerable<string>? Phones,
+    IEnumerable<string>? Emails);
+
+public record ContactMatchDto(
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    string RelationshipStatus,
+    string MatchSource,
+    string? CurrentVenueName,
+    string? CurrentVenueCategory,
+    string StatusLabel);
+
+public record VenueRecapItemDto(
+    Guid VenueId,
+    string Name,
+    string Category,
+    int Visits);
+
+public record FriendRecapItemDto(
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    int SharedMoments);
+
+public record UserRecapDto(
+    string Period,
+    DateTimeOffset RangeStartUtc,
+    DateTimeOffset RangeEndUtc,
+    int TotalCheckIns,
+    int UniqueVenues,
+    int HostedTables,
+    int JoinedTables,
+    int NightsOutEstimate,
+    IEnumerable<VenueRecapItemDto> TopVenues,
+    IEnumerable<FriendRecapItemDto> TopPeople);

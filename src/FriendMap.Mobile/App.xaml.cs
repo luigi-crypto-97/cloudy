@@ -1,3 +1,4 @@
+using FriendMap.Mobile.Pages;
 using FriendMap.Mobile.Services;
 
 namespace FriendMap.Mobile;
@@ -20,17 +21,18 @@ public partial class App : Application
     {
         try
         {
-            await Shell.Current.GoToAsync("//main");
+            await Shell.Current.GoToAsync("//main/social");
             switch (e.Type)
             {
                 case "venue":
+                    await Shell.Current.GoToAsync("//main/map");
                     MessagingCenter.Send(this, "DeepLinkVenue", e.Id);
                     break;
                 case "chat":
-                    MessagingCenter.Send(this, "DeepLinkChat", e.Id);
+                    await Shell.Current.GoToAsync($"{nameof(SocialChatPage)}?userId={Uri.EscapeDataString(e.Id)}");
                     break;
                 case "table":
-                    MessagingCenter.Send(this, "DeepLinkTable", e.Id);
+                    await Shell.Current.GoToAsync($"{nameof(SocialTablePage)}?tableId={Uri.EscapeDataString(e.Id)}");
                     break;
             }
         }

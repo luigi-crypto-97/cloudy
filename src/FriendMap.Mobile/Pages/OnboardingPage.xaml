@@ -4,83 +4,123 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    xmlns:skia="clr-namespace:SkiaSharp.Extended.UI.Controls;assembly=SkiaSharp.Extended.UI"
     Shell.NavBarIsVisible="False"
     Shell.TabBarIsVisible="False"
     ios:Page.UseSafeArea="True"
     BackgroundColor="#0B0F19">
 
-    <Grid RowDefinitions="*,Auto">
-        <CarouselView x:Name="OnboardingCarousel"
-                      Grid.Row="0"
-                      IndicatorView="Indicator"
-                      Loop="False"
-                      IsSwipeEnabled="True">
-            <CarouselView.ItemsSource>
-                <x:Array Type="{x:Type x:String}">
-                    <x:String>slide1</x:String>
-                    <x:String>slide2</x:String>
-                    <x:String>slide3</x:String>
-                </x:Array>
-            </CarouselView.ItemsSource>
-            <CarouselView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="28,40">
-                        <VerticalStackLayout Spacing="18" VerticalOptions="Center">
-                            <Border WidthRequest="200"
-                                    HeightRequest="200"
-                                    StrokeThickness="0"
-                                    Background="{StaticResource BrandGradient}"
-                                    HorizontalOptions="Center">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="48" />
-                                </Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="#8B5CF6" Offset="0,16" Radius="40" Opacity="0.5" />
-                                </Border.Shadow>
-                                <skia:SKLottieView Source="pulse.json"
-                                                   RepeatCount="-1"
-                                                   WidthRequest="160"
-                                                   HeightRequest="160"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                            </Border>
+    <ScrollView>
+        <VerticalStackLayout Padding="24,28,24,32"
+                             Spacing="18">
+            <Border Padding="22"
+                    Background="{StaticResource BrandGradient}"
+                    StrokeThickness="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="30" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Cloudy"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                    <Label Text="Prima di entrare"
+                           FontSize="30"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                    <Label Text="Ti chiediamo solo i permessi che rendono davvero utile l'app: mappa live, inviti e contatti già dentro Cloudy."
+                           FontSize="15"
+                           TextColor="#E2E8F0" />
+                </VerticalStackLayout>
+            </Border>
 
-                            <Label Text="Trova la movida live"
-                                   FontSize="{StaticResource FontSizeTitle1}"
-                                   FontAttributes="Bold"
-                                  
-                                   TextColor="White"
-                                   HorizontalOptions="Center"
-                                   HorizontalTextAlignment="Center" />
+            <Border Padding="18"
+                    BackgroundColor="#111827"
+                    Stroke="#1E293B"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="⌖ Posizione"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                    <Label Text="Guarda dove sta succedendo qualcosa. La posizione serve per centrare la mappa, trovare i locali vicini e mostrarti il live vero intorno a te."
+                           FontSize="14"
+                           TextColor="#94A3B8" />
+                    <Label Text="{Binding LocationStatusText}"
+                           FontSize="13"
+                           TextColor="#C4B5FD" />
+                    <Button Text="Attiva posizione"
+                            Clicked="OnActivateLocationClicked"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                </VerticalStackLayout>
+            </Border>
 
-                            <Label Text="Scopri locali, bar e eventi in tempo reale. Vedi chi c'è e unisciti alla festa."
-                                   FontSize="{StaticResource FontSizeBody}"
-                                  
-                                   TextColor="#94A3B8"
-                                   HorizontalOptions="Center"
-                                   HorizontalTextAlignment="Center"
-                                   LineBreakMode="WordWrap" />
-                        </VerticalStackLayout>
-                    </Grid>
-                </DataTemplate>
-            </CarouselView.ItemTemplate>
-        </CarouselView>
+            <Border Padding="18"
+                    BackgroundColor="#111827"
+                    Stroke="#1E293B"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="◉ Notifiche"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                    <Label Text="Non perderti un invito a un tavolo, un messaggio o un flare lanciato dagli amici mentre sei in giro."
+                           FontSize="14"
+                           TextColor="#94A3B8" />
+                    <Label Text="{Binding PushStatusText}"
+                           FontSize="13"
+                           TextColor="#C4B5FD" />
+                    <Button Text="Attiva notifiche"
+                            Clicked="OnActivatePushClicked"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                </VerticalStackLayout>
+            </Border>
 
-        <VerticalStackLayout Grid.Row="1"
-                             Padding="28,24"
-                             Spacing="16">
-            <IndicatorView x:Name="Indicator"
-                           IndicatorColor="#334155"
-                           SelectedIndicatorColor="White"
-                           IndicatorSize="8"
-                           HorizontalOptions="Center" />
+            <Border Padding="18"
+                    BackgroundColor="#111827"
+                    Stroke="#1E293B"
+                    StrokeThickness="1">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="✦ Rubrica"
+                           FontSize="22"
+                           FontAttributes="Bold"
+                           TextColor="White" />
+                    <Label Text="Serve per preparare la sincronizzazione contatti e accelerare il vero loop social: trovare subito chi dei tuoi contatti è già dentro Cloudy."
+                           FontSize="14"
+                           TextColor="#94A3B8" />
+                    <Label Text="{Binding ContactsStatusText}"
+                           FontSize="13"
+                           TextColor="#C4B5FD" />
+                    <Button Text="Attiva rubrica"
+                            Clicked="OnActivateContactsClicked"
+                            Style="{StaticResource PrimaryButtonStyle}" />
+                </VerticalStackLayout>
+            </Border>
 
-            <Button Text="Inizia"
-                    Clicked="OnStartClicked"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                   
-                    FontSize="{StaticResource FontSizeBody}" />
+            <Button Text="Apri impostazioni iPhone"
+                    Clicked="OnOpenSettingsClicked"
+                    BackgroundColor="#111827"
+                    BorderColor="#334155"
+                    BorderWidth="1"
+                    TextColor="White"
+                    CornerRadius="18"
+                    HeightRequest="52" />
+
+            <Button Text="{Binding ContinueButtonText}"
+                    Clicked="OnContinueClicked"
+                    BackgroundColor="#2563EB"
+                    TextColor="White"
+                    CornerRadius="18"
+                    HeightRequest="56"
+                    FontAttributes="Bold" />
         </VerticalStackLayout>
-    </Grid>
+    </ScrollView>
 </ContentPage>

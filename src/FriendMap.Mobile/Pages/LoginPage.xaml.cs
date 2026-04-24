@@ -21,21 +21,13 @@ public partial class LoginPage : ContentPage
         {
             if (await _viewModel.TryRestoreAsync())
             {
-                await Shell.Current.GoToAsync("//main");
+                await Shell.Current.GoToAsync(_viewModel.ResolveAuthenticatedRoute());
                 return;
             }
         }
         catch (Exception ex)
         {
             _viewModel.Error = ex.Message;
-        }
-
-        // Se non ha mai visto l'onboarding, portalo lì prima del login
-        var hasSeenOnboarding = Preferences.Get("has_seen_onboarding", false);
-        if (!hasSeenOnboarding)
-        {
-            await Shell.Current.GoToAsync("//onboarding");
-            return;
         }
 
         // Bump-style entrance animation

@@ -36,6 +36,8 @@
   <string>FriendMap usa le tue foto solo per permetterti di aggiornare l'immagine profilo.</string>
   <key>NSPhotoLibraryAddUsageDescription</key>
   <string>FriendMap puo salvare o aggiornare immagini profilo generate localmente.</string>
+  <key>NSContactsUsageDescription</key>
+  <string>Cloudy legge la rubrica solo per aiutarti a trovare piu velocemente amici e contatti gia presenti nell'app.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>

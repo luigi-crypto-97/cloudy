@@ -50,6 +50,7 @@ public record SocialTableSummaryDto(
     DateTimeOffset StartsAtUtc,
     string VenueName,
     string VenueCategory,
+    string JoinPolicy,
     bool IsHost,
     string MembershipStatus,
     int Capacity,

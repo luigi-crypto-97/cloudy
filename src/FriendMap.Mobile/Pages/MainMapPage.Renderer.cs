@@ -325,7 +325,27 @@ public partial class MainMapPage
             })
         });
 
+        if (marker.BubbleIntensity >= 55 || marker.OpenTables > 0 || marker.ActiveCheckIns > 0)
+        {
+            StartVenueBadgePulse(badge, marker.BubbleIntensity);
+        }
+
         return badge;
+    }
+
+    private static void StartVenueBadgePulse(VisualElement badge, int intensity)
+    {
+        badge.AbortAnimation("venue-badge-pulse");
+        var targetScale = intensity >= 80 ? 1.08d : 1.05d;
+        var targetOpacity = intensity >= 80 ? 1d : 0.94d;
+        var animation = new Animation
+        {
+            { 0, 0.5, new Animation(v => badge.Scale = v, 1d, targetScale, Easing.SinInOut) },
+            { 0.5, 1, new Animation(v => badge.Scale = v, targetScale, 1d, Easing.SinInOut) },
+            { 0, 0.5, new Animation(v => badge.Opacity = v, 0.96d, targetOpacity, Easing.SinInOut) },
+            { 0.5, 1, new Animation(v => badge.Opacity = v, targetOpacity, 0.96d, Easing.SinInOut) }
+        };
+        animation.Commit(badge, "venue-badge-pulse", 16, 2400, repeat: () => badge.Parent is not null);
     }
 
     private void ApplyMapMood()

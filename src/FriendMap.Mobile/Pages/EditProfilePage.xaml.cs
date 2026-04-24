@@ -22,6 +22,8 @@ public partial class EditProfilePage : ContentPage
             _profile = await _apiClient.GetMyProfileAsync();
             DisplayNameEntry.Text = _profile.DisplayName;
             AvatarUrlEntry.Text = _profile.AvatarUrl;
+            PhoneEntry.Text = _profile.DiscoverablePhone;
+            EmailEntry.Text = _profile.DiscoverableEmail;
             BirthYearEntry.Text = _profile.BirthYear?.ToString();
             GenderPicker.SelectedItem = _profile.Gender;
             BioEditor.Text = _profile.Bio;
@@ -85,6 +87,10 @@ public partial class EditProfilePage : ContentPage
                 birthYear,
                 GenderPicker.SelectedItem?.ToString(),
                 interests);
+
+            await _apiClient.UpdateDiscoveryIdentityAsync(
+                PhoneEntry.Text?.Trim(),
+                EmailEntry.Text?.Trim());
 
             SetStatus("Profilo aggiornato!", false);
             Services.AnalyticsService.TrackEvent("profile_updated");

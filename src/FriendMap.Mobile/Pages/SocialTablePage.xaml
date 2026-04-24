@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FriendMap.Mobile.Pages.SocialTablePage"
+             Shell.NavBarIsVisible="False"
+             Title="Tavolo">
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#020617}">
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="18,18,18,24"
+                                 Spacing="16">
+                <Grid ColumnDefinitions="Auto,*">
+                    <ImageButton Source="icon_back"
+                                 BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                                 WidthRequest="42"
+                                 HeightRequest="42"
+                                 CornerRadius="21"
+                                 Clicked="OnBackClicked" />
+                    <Label Grid.Column="1"
+                           Text="Tavolo"
+                           VerticalOptions="Center"
+                           FontSize="20"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                </Grid>
+
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                        StrokeShape="RoundRectangle 24"
+                        Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label x:Name="TitleLabel"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <Label x:Name="MetaLabel"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                        <Label x:Name="DescriptionLabel"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light=#334155, Dark=#CBD5E1}"
+                               IsVisible="False" />
+                        <Grid ColumnDefinitions="*,*,*"
+                              ColumnSpacing="10">
+                            <Border Padding="12"
+                                    BackgroundColor="#EEF2FF"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="Posti"
+                                           FontSize="11"
+                                           TextColor="#6366F1" />
+                                    <Label x:Name="CapacityLabel"
+                                           FontSize="18"
+                                           FontAttributes="Bold"
+                                           TextColor="#312E81" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1"
+                                    Padding="12"
+                                    BackgroundColor="#ECFDF5"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="Dentro"
+                                           FontSize="11"
+                                           TextColor="#10B981" />
+                                    <Label x:Name="AcceptedLabel"
+                                           FontSize="18"
+                                           FontAttributes="Bold"
+                                           TextColor="#065F46" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Column="2"
+                                    Padding="12"
+                                    BackgroundColor="#FEF3C7"
+                                    StrokeThickness="0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="16" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="Accesso"
+                                           FontSize="11"
+                                           TextColor="#D97706" />
+                                    <Label x:Name="PolicyLabel"
+                                           FontSize="15"
+                                           FontAttributes="Bold"
+                                           TextColor="#92400E" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                        StrokeShape="RoundRectangle 24"
+                        Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label x:Name="RequestsTitleLabel"
+                               Text="Richieste"
+                               FontSize="17"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <VerticalStackLayout x:Name="RequestsLayout"
+                                             Spacing="10" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                        Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                        StrokeShape="RoundRectangle 24"
+                        Padding="18">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Chat tavolo"
+                               FontSize="17"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        <VerticalStackLayout x:Name="MessagesLayout"
+                                             Spacing="10" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="2"
+              Padding="16,8,16,20"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="10">
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 22"
+                    Padding="14,2">
+                <Entry x:Name="MessageEntry"
+                       Placeholder="Messaggio per il tavolo..."
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}"
+                       PlaceholderColor="{AppThemeBinding Light=#94A3B8, Dark=#64748B}"
+                       HeightRequest="44"
+                       ReturnType="Send"
+                       Completed="OnSendClicked" />
+            </Border>
+            <Button Grid.Column="1"
+                    Text="Invia"
+                    Clicked="OnSendClicked"
+                    BackgroundColor="#4F46E5"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    CornerRadius="18"
+                    HeightRequest="44"
+                    Padding="18,0" />
+        </Grid>
+    </Grid>
+</ContentPage>

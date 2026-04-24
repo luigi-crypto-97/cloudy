@@ -145,6 +145,7 @@ public static class MessagingEndpoints
         ClaimsPrincipal principal,
         AppDbContext db,
         IHubContext<ChatHub> hubContext,
+        NotificationOutboxService outbox,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -189,6 +190,14 @@ public static class MessagingEndpoints
         });
 
         await db.SaveChangesAsync(ct);
+
+        await outbox.EnqueueAsync(
+            otherUserId,
+            "Nuovo messaggio",
+            "Hai ricevuto un nuovo messaggio su Cloudy.",
+            new { type = "direct_message", otherUserId = currentUserId },
+            ct,
+            outbox.BuildDeepLink("chat", currentUserId));
 
         await hubContext.Clients.Group(thread.Id.ToString()).SendAsync("ReceiveMessage", new
         {

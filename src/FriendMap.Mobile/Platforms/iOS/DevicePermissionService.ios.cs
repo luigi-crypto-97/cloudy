@@ -7,9 +7,24 @@ namespace FriendMap.Mobile.Services;
 
 public partial class DevicePermissionService
 {
-    private partial Task RequestPushNotificationsAsync()
+    public partial Task<bool> GetPushNotificationsEnabledAsync()
     {
-        var completion = new TaskCompletionSource();
+        var completion = new TaskCompletionSource<bool>();
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            UNUserNotificationCenter.Current.GetNotificationSettings(settings =>
+            {
+                completion.TrySetResult(settings.AuthorizationStatus is UNAuthorizationStatus.Authorized or UNAuthorizationStatus.Provisional);
+            });
+        });
+
+        return completion.Task;
+    }
+
+    public partial Task<bool> RequestPushNotificationsPermissionAsync()
+    {
+        var completion = new TaskCompletionSource<bool>();
 
         MainThread.BeginInvokeOnMainThread(() =>
         {
@@ -28,7 +43,7 @@ public partial class DevicePermissionService
                         UIApplication.SharedApplication.RegisterForRemoteNotifications();
                     }
 
-                    completion.TrySetResult();
+                    completion.TrySetResult(approved);
                 });
         });
 

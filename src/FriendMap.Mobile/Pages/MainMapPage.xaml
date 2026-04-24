@@ -805,7 +805,7 @@
                             Style="{StaticResource SecondaryButtonStyle}" />
                     <Button Grid.Column="2"
                             Text="Tavolo"
-                            Command="{Binding CreateTableCommand}"
+                            Clicked="OnCreateTableClicked"
                             ImageSource="icon_table_blue.svg"
                             ContentLayout="Left,8"
                             IsEnabled="{Binding AreVenueActionsEnabled}"
@@ -1167,7 +1167,7 @@
                                         Style="{StaticResource SecondaryButtonStyle}" />
                                 <Button Grid.Column="2"
                                         Text="Tavolo"
-                                        Command="{Binding CreateTableCommand}"
+                                        Clicked="OnCreateTableClicked"
                                         ImageSource="icon_table_blue.svg"
                                         ContentLayout="Left,8"
                                         MinimumHeightRequest="42"
@@ -1193,6 +1193,24 @@
                                         FontSize="13"
                                         Style="{StaticResource SecondaryButtonStyle}"
                                         IsVisible="{Binding HasSelectedWebsite}" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,*"
+                                  ColumnSpacing="8">
+                                <Button
+                                        Text="Vibe"
+                                        Clicked="OnVenueDetailVibeClicked"
+                                        MinimumHeightRequest="40"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
+                                <Button Grid.Column="1"
+                                        Text="Condividi"
+                                        Clicked="OnVenueDetailShareClicked"
+                                        MinimumHeightRequest="40"
+                                        Padding="10,10"
+                                        FontSize="13"
+                                        Style="{StaticResource SecondaryButtonStyle}" />
                             </Grid>
                         </VerticalStackLayout>
                     </ScrollView>

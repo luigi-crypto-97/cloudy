@@ -49,6 +49,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ApnsOptions>(builder.Configuration.GetSection("Apns"));
 builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.GetSection("Notifications"));
+builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -181,6 +182,66 @@ app.MapGet("/health/db", async (AppDbContext db, CancellationToken ct) =>
     return canConnect
         ? Results.Ok(new { status = "healthy", database = "connected", utc = DateTimeOffset.UtcNow })
         : Results.Problem("Database connection failed", statusCode: StatusCodes.Status503ServiceUnavailable);
+});
+
+app.MapGet("/.well-known/apple-app-site-association", (Microsoft.Extensions.Options.IOptions<UniversalLinksOptions> options) =>
+{
+    var appIds = options.Value.IosAppIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    return Results.Json(new
+    {
+        applinks = new
+        {
+            apps = Array.Empty<string>(),
+            details = appIds.Select(appId => new
+            {
+                appID = appId,
+                paths = new[] { "/l/*" }
+            }).ToArray()
+        },
+        webcredentials = new
+        {
+            apps = appIds
+        }
+    });
+});
+
+app.MapGet("/l/{type}/{id}", (string type, string id) =>
+{
+    var normalizedType = type.Trim().ToLowerInvariant();
+    var title = normalizedType switch
+    {
+        "table" => "Apri tavolo Cloudy",
+        "chat" => "Apri chat Cloudy",
+        "venue" => "Apri locale Cloudy",
+        _ => "Apri Cloudy"
+    };
+
+    var html = $$"""
+                 <!doctype html>
+                 <html lang="it">
+                 <head>
+                   <meta charset="utf-8">
+                   <meta name="viewport" content="width=device-width, initial-scale=1">
+                   <title>{{title}}</title>
+                   <style>
+                     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background:#0b1020; color:#f8fafc; margin:0; display:grid; place-items:center; min-height:100vh; }
+                     main { width:min(92vw,480px); padding:32px 24px; border-radius:24px; background:rgba(15,23,42,.88); box-shadow:0 24px 80px rgba(0,0,0,.35); }
+                     h1 { margin:0 0 12px; font-size:28px; }
+                     p { margin:0 0 18px; line-height:1.5; color:#cbd5e1; }
+                     code { color:#a78bfa; }
+                   </style>
+                 </head>
+                 <body>
+                   <main>
+                     <h1>{{title}}</h1>
+                     <p>Se Cloudy è installata, iOS aprirà direttamente l'app. Altrimenti puoi copiare questo link o aprirlo dopo l'installazione.</p>
+                     <p><code>/l/{{normalizedType}}/{{id}}</code></p>
+                   </main>
+                 </body>
+                 </html>
+                 """;
+
+    return Results.Content(html, "text/html; charset=utf-8");
 });
 
 app.MapAuthEndpoints();

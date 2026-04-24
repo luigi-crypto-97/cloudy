@@ -19,6 +19,8 @@ public sealed class SocialTableSummary
     public DateTimeOffset StartsAtUtc { get; set; }
     public string VenueName { get; set; } = string.Empty;
     public string VenueCategory { get; set; } = string.Empty;
+    public string JoinPolicy { get; set; } = "approval";
+    public string JoinPolicyLabel => JoinPolicy == "auto" ? "Aperto" : "Su approvazione";
     public bool IsHost { get; set; }
     public string MembershipStatus { get; set; } = "none";
     public int Capacity { get; set; }

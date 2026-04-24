@@ -40,4 +40,16 @@ public class AppDelegate : MauiUIApplicationDelegate
         }
         return base.OpenUrl(app, url, options);
     }
+
+    public override bool ContinueUserActivity(UIApplication application, NSUserActivity userActivity, UIApplicationRestorationHandler completionHandler)
+    {
+        var url = userActivity.WebPageUrl;
+        if (url is not null && Uri.TryCreate(url.AbsoluteString, UriKind.Absolute, out var uri))
+        {
+            DeepLinkService.HandleUrl(uri);
+            return true;
+        }
+
+        return base.ContinueUserActivity(application, userActivity, completionHandler);
+    }
 }

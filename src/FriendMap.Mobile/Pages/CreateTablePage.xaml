@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FriendMap.Mobile.Pages.CreateTablePage"
+             Shell.NavBarIsVisible="False"
+             Title="Nuovo tavolo">
+
+    <ScrollView BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#020617}">
+        <VerticalStackLayout Padding="18,18,18,28"
+                             Spacing="16">
+            <Grid ColumnDefinitions="Auto,*">
+                <ImageButton Source="icon_back"
+                             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                             WidthRequest="42"
+                             HeightRequest="42"
+                             CornerRadius="21"
+                             Clicked="OnBackClicked" />
+                <Label Grid.Column="1"
+                       Text="Nuovo tavolo"
+                       VerticalOptions="Center"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+            </Grid>
+
+            <Border BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#111827}"
+                    Stroke="{AppThemeBinding Light=#E2E8F0, Dark=#1F2937}"
+                    StrokeShape="RoundRectangle 24"
+                    Padding="18">
+                <VerticalStackLayout Spacing="14">
+                    <Label x:Name="VenueLabel"
+                           Text="Locale"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                    <Label x:Name="VenueMetaLabel"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+
+                    <Entry x:Name="TitleEntry"
+                           Placeholder="Titolo del tavolo"
+                           TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+
+                    <Editor x:Name="DescriptionEditor"
+                            Placeholder="Descrizione opzionale"
+                            AutoSize="TextChanges"
+                            TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
+                        <DatePicker x:Name="StartDatePicker" />
+                        <TimePicker x:Name="StartTimePicker"
+                                    Grid.Column="1" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          ColumnSpacing="12">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Posti"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light=#64748B, Dark=#94A3B8}" />
+                            <Label x:Name="CapacityLabel"
+                                   FontSize="20"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light=#0F172A, Dark=#F8FAFC}" />
+                        </VerticalStackLayout>
+                        <Stepper x:Name="CapacityStepper"
+                                 Grid.Column="1"
+                                 Minimum="2"
+                                 Maximum="20"
+                                 Increment="1"
+                                 Value="6"
+                                 ValueChanged="OnCapacityChanged" />
+                    </Grid>
+
+                    <Picker x:Name="JoinPolicyPicker"
+                            Title="Accesso al tavolo" />
+
+                    <Label x:Name="StatusLabel"
+                           FontSize="12"
+                           IsVisible="False" />
+
+                    <Button Text="Crea tavolo"
+                            Clicked="OnCreateClicked"
+                            BackgroundColor="#4F46E5"
+                            TextColor="White"
+                            FontAttributes="Bold"
+                            CornerRadius="18"
+                            HeightRequest="46" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

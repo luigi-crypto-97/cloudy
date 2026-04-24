@@ -20,6 +20,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<ApiClient>();
         builder.Services.AddSingleton<IDevicePermissionService, DevicePermissionService>();
+        builder.Services.AddSingleton<AppIntentService>();
 
         // ViewModels
         builder.Services.AddSingleton<LoginViewModel>();
@@ -46,6 +47,11 @@ public static class MauiProgram
         builder.Services.AddTransient<DiscoveryPage>();
         builder.Services.AddTransient<GamificationPage>();
         builder.Services.AddTransient<InvitePage>();
+        builder.Services.AddTransient<SocialChatPage>();
+        builder.Services.AddTransient<SocialProfilePage>();
+        builder.Services.AddTransient<SocialTablePage>();
+        builder.Services.AddTransient<SocialRecapPage>();
+        builder.Services.AddTransient<CreateTablePage>();
 
         builder.Services.AddSingleton<ChatHubService>();
 
