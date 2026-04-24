@@ -214,20 +214,15 @@
                         </Border.StrokeShape>
                         <Label Text="Dev login"
                                FontSize="{StaticResource FontSizeFootnote}"
-                              
                                TextColor="#94A3B8" />
                     </Border>
                 </HorizontalStackLayout>
 
-                <!-- Hint -->
                 <Label Grid.Row="3"
-                       Text="Prima di accedere: su simulatore usa localhost, su iPhone usa l'IP del Mac visibile negli script dev."
-                       FontSize="{StaticResource FontSizeFootnote}"
-                      
-                       TextColor="#475569"
-                       HorizontalOptions="Center"
+                       Text="Modalità sviluppo"
+                       FontSize="{StaticResource FontSizeCaption}"
+                       TextColor="#64748B"
                        HorizontalTextAlignment="Center"
-                       LineBreakMode="WordWrap"
                        Opacity="0"
                        x:Name="HintLabel" />
             </Grid>

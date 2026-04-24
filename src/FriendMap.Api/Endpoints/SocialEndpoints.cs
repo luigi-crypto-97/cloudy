@@ -1037,6 +1037,63 @@ public static class SocialEndpoints
             return Results.Ok(new SocialActionResultDto("unblocked", "Utente sbloccato."));
         });
 
+        // ==========================================
+        // FEATURE VIRALI: FLARES E VIBE CHECK
+        // ==========================================
+
+        group.MapPost("/flares", async (
+            CreateFlareRequest request,
+            AppDbContext db,
+            NotificationOutboxService outbox,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty) return Results.Forbid();
+
+            var currentUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
+            if (currentUser == null) return Results.NotFound();
+
+            // Troviamo tutti gli amici fidati
+            var friendIds = await db.FriendRelations
+                .Where(x => (x.RequesterId == currentUserId || x.AddresseeId == currentUserId) && x.Status == "accepted")
+                .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
+                .ToListAsync(ct);
+
+            // Il motore FOMO: Notifichiamo tutti gli amici istantaneamente
+            foreach (var friendId in friendIds)
+            {
+                await outbox.EnqueueAsync(
+                    friendId,
+                    "🔥 Flare Lanciato!",
+                    $"{currentUser.DisplayName ?? currentUser.Nickname} ha lanciato un segnale: '{request.Message}'. Raggiungilo!",
+                    new { type = "flare", senderId = currentUserId, lat = request.Latitude, lng = request.Longitude },
+                    ct);
+            }
+
+            // In futuro: potrai salvare il Flare nel DB per mostrarlo sulla mappa per 1 ora
+            return Results.Ok(new SocialActionResultDto("flare_sent", $"Flare inviato a {friendIds.Count} amici!"));
+        });
+
+        group.MapPost("/venues/{venueId:guid}/vibe", async (
+            Guid venueId,
+            SubmitVibeRequest request,
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty) return Results.Forbid();
+
+            var venueExists = await db.Venues.AnyAsync(x => x.Id == venueId, ct);
+            if (!venueExists) return Results.NotFound("Locale non trovato.");
+
+            // Il Vibe check funziona in "fire and forget".
+            // In futuro: Aggrega i Vibe in Redis per mostrarli anonimamente sulla mappa.
+            
+            return Results.Ok(new SocialActionResultDto("vibe_submitted", $"Hai votato il vibe del locale: {request.VibeEmoji}"));
+        });
+
         return group;
     }
 
@@ -1202,19 +1259,4 @@ public static class SocialEndpoints
         return new SocialConnectionDto(
             user.Id,
             user.Nickname,
-            user.DisplayName,
-            user.AvatarUrl,
-            relationshipStatus,
-            mutualFriendsCount,
-            snapshot.PresenceState,
-            snapshot.StatusLabel,
-            snapshot.CurrentVenueName,
-            snapshot.CurrentVenueCategory);
-    }
-
-    private sealed record PresenceSnapshot(
-        string PresenceState,
-        string StatusLabel,
-        string? CurrentVenueName,
-        string? CurrentVenueCategory);
-}
+            user.Display

@@ -54,7 +54,7 @@
       <string>com.friendmap.mobile</string>
       <key>CFBundleURLSchemes</key>
       <array>
-        <string>friendmap</string>
+        <string>cloudy</string>
       </array>
     </dict>
   </array>
