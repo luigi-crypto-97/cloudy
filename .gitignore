@@ -21,6 +21,7 @@ coverage/
 # iOS / Xcode
 .swiftpm/
 DerivedData/
+FriendMapSeed/build/
 FriendMapSeed/Packages/CloudyCore/.build/
 xcuserdata/
 *.xcuserstate

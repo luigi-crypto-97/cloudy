@@ -74,9 +74,34 @@ swift test
 
 Il backend produzione gira su **`https://api.iron-quote.it`** (HTTPS valido → nessuna eccezione ATS necessaria). Questa è la URL di default dell'app.
 
+### Flusso da terminale (analogo al vecchio MAUI)
+
+```bash
+./scripts/run-ios-device.sh
+```
+
+Lo script (sostituisce il vecchio `run-mobile-device.sh`):
+
+1. lista i device collegati (`xcrun devicectl list devices`)
+2. risolve il package SPM `CloudyCore`
+3. builda con `xcodebuild` per `iphoneos` (arm64)
+4. firma con automatic signing usando `DEVELOPMENT_TEAM=9YUM32FPQU` e `BUNDLE_ID=it.luiginegri.FriendMapSeed` (gli stessi del MAUI)
+5. installa l'`.app` sull'iPhone con `xcrun devicectl device install app`
+6. lancia l'app sull'iPhone con `xcrun devicectl device process launch`
+
+Variabili sovrascrivibili: `DEVELOPMENT_TEAM`, `BUNDLE_ID`, `CONFIGURATION` (default `Debug`).
+
+Prerequisiti una tantum:
+
+- Xcode 16+ in `/Applications/Xcode.app` (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`)
+- Apple ID configurato in Xcode → Settings → Accounts (team `9YUM32FPQU`)
+- iPhone collegato via USB, "Modalità sviluppatore" attiva (Impostazioni → Privacy e sicurezza), "Autorizza questo computer" accettato
+
+### In alternativa, da Xcode
+
 1. Aprire `FriendMapSeed.xcodeproj` in Xcode 16+.
-2. Selezionare schema `FriendMapSeed`, dispositivo (iPhone) o simulator iPhone 15+.
-3. Run (⌘R) → schermata login → nickname + display name → "Entra".
+2. Schema `FriendMapSeed`, target il device (iPhone) o simulator iPhone 15+.
+3. Run (⌘R).
 
 La URL backend è modificabile dalla schermata di login (utile per puntare a un backend di sviluppo locale).
 
