@@ -47,8 +47,8 @@ final class APIClient {
     private let encoder: JSONEncoder
 
     private init() {
-        // Default per simulatore iOS (localhost). Sovrascrivibile da login screen.
-        self.baseURL = URL(string: "http://localhost:8080")!
+        // Default produzione. Sovrascrivibile da login screen (es. backend dev locale).
+        self.baseURL = URL(string: "https://api.iron-quote.it")!
 
         let cfg = URLSessionConfiguration.default
         cfg.timeoutIntervalForRequest = 15

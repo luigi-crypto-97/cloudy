@@ -43,7 +43,7 @@ struct LoginView: View {
                     Text("Backend URL")
                         .font(Theme.Font.caption(11, weight: .bold))
                         .foregroundStyle(Theme.Palette.inkMuted)
-                    TextField("http://localhost:8080", text: $backendString)
+                    TextField("https://api.iron-quote.it", text: $backendString)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled(true)
                         .keyboardType(.URL)

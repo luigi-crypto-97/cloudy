@@ -70,26 +70,15 @@ swift test
 | Auth | JWT bearer | salvato in Keychain, restore() al boot |
 | URL backend | configurabile | `UserDefaults.standard.string(forKey: "backendURL")` |
 
-## Setup locale
+## Setup
+
+Il backend produzione gira su **`https://api.iron-quote.it`** (HTTPS valido → nessuna eccezione ATS necessaria). Questa è la URL di default dell'app.
 
 1. Aprire `FriendMapSeed.xcodeproj` in Xcode 16+.
-2. Selezionare schema `FriendMapSeed`, simulator iPhone 15+.
-3. Avviare `dotnet run` su `src/FriendMap.Api/` (default `http://localhost:8080`).
-4. Lanciare app → schermata login → nickname + URL backend → "Entra".
+2. Selezionare schema `FriendMapSeed`, dispositivo (iPhone) o simulator iPhone 15+.
+3. Run (⌘R) → schermata login → nickname + display name → "Entra".
 
-### Nota: ATS per HTTP localhost
-
-Il backend di sviluppo gira su `http://localhost:8080`. iOS blocca HTTP cleartext di default. **In dev**, aggiungere a `Info.plist` (oppure via Build Settings → "Custom iOS Target Properties"):
-
-```xml
-<key>NSAppTransportSecurity</key>
-<dict>
-  <key>NSAllowsLocalNetworking</key>
-  <true/>
-</dict>
-```
-
-In produzione il backend dev'essere HTTPS.
+La URL backend è modificabile dalla schermata di login (utile per puntare a un backend di sviluppo locale).
 
 ## Test
 

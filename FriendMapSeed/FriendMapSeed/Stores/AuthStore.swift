@@ -44,8 +44,8 @@ final class AuthStore {
     }
 
     init() {
-        let urlString = UserDefaults.standard.string(forKey: Keys.backendURL) ?? "http://localhost:8080"
-        self.backendURL = URL(string: urlString) ?? URL(string: "http://localhost:8080")!
+        let urlString = UserDefaults.standard.string(forKey: Keys.backendURL) ?? "https://api.iron-quote.it"
+        self.backendURL = URL(string: urlString) ?? URL(string: "https://api.iron-quote.it")!
         self.token = Keychain.load(Keys.token)
         APIClient.shared.configure(baseURL: backendURL, token: token)
     }
