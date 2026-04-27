@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		CC0000000000000000000003 /* CloudyCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000002 /* CloudyCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		11440BB52F90E8D600A9E15B /* FriendMapSeed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FriendMapSeed.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0000000000000000000003 /* CloudyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = FriendMapSeed;
 			packageProductDependencies = (
+				CC0000000000000000000002 /* CloudyCore */,
 			);
 			productName = FriendMapSeed;
 			productReference = 11440BB52F90E8D600A9E15B /* FriendMapSeed.app */;
@@ -97,6 +103,9 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11440BB62F90E8D600A9E15B /* Products */;
 			projectDirPath = "";
+			packageReferences = (
+				CC0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/CloudyCore" */,
+			);
 			projectRoot = "";
 			targets = (
 				11440BB42F90E8D600A9E15B /* FriendMapSeed */,
@@ -261,6 +270,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -299,6 +309,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -347,5 +358,19 @@
 		};
 /* End XCConfigurationList section */
 	};
+/* Begin XCLocalSwiftPackageReference section */
+		CC0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/CloudyCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CloudyCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		CC0000000000000000000002 /* CloudyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CloudyCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+
 	rootObject = 11440BAD2F90E8D600A9E15B /* Project object */;
 }
