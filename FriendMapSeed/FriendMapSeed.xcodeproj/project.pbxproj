@@ -357,7 +357,7 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-	};
+
 /* Begin XCLocalSwiftPackageReference section */
 		CC0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/CloudyCore" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -371,6 +371,6 @@
 			productName = CloudyCore;
 		};
 /* End XCSwiftPackageProductDependency section */
-
+	};
 	rootObject = 11440BAD2F90E8D600A9E15B /* Project object */;
 }
