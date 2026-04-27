@@ -31,21 +31,19 @@ enum API {
         centerLat: Double? = nil, centerLng: Double? = nil,
         maxDistanceKm: Double? = nil
     ) async throws -> [VenueMarker] {
-        try await APIClient.shared.get(
-            "/api/venues/map",
-            query: [
-                "minLat": String(minLat),
-                "minLng": String(minLng),
-                "maxLat": String(maxLat),
-                "maxLng": String(maxLng),
-                "q": query,
-                "category": category,
-                "openNow": openNow ? "true" : nil,
-                "centerLat": centerLat.map(String.init),
-                "centerLng": centerLng.map(String.init),
-                "maxDistanceKm": maxDistanceKm.map(String.init)
-            ]
-        )
+        var q: [String: String] = [
+            "minLat": String(minLat),
+            "minLng": String(minLng),
+            "maxLat": String(maxLat),
+            "maxLng": String(maxLng)
+        ]
+        if let v = query { q["q"] = v }
+        if let v = category { q["category"] = v }
+        if openNow { q["openNow"] = "true" }
+        if let v = centerLat { q["centerLat"] = String(v) }
+        if let v = centerLng { q["centerLng"] = String(v) }
+        if let v = maxDistanceKm { q["maxDistanceKm"] = String(v) }
+        return try await APIClient.shared.get("/api/venues/map", query: q.mapValues { Optional($0) })
     }
 
     static func venueMapLayer(
@@ -55,18 +53,16 @@ enum API {
         category: String? = nil,
         openNow: Bool = false
     ) async throws -> VenueMapLayer {
-        try await APIClient.shared.get(
-            "/api/venues/map-layer",
-            query: [
-                "minLat": String(minLat),
-                "minLng": String(minLng),
-                "maxLat": String(maxLat),
-                "maxLng": String(maxLng),
-                "q": query,
-                "category": category,
-                "openNow": openNow ? "true" : nil
-            ]
-        )
+        var q: [String: String] = [
+            "minLat": String(minLat),
+            "minLng": String(minLng),
+            "maxLat": String(maxLat),
+            "maxLng": String(maxLng)
+        ]
+        if let v = query { q["q"] = v }
+        if let v = category { q["category"] = v }
+        if openNow { q["openNow"] = "true" }
+        return try await APIClient.shared.get("/api/venues/map-layer", query: q.mapValues { Optional($0) })
     }
 
     // MARK: - Social hub
