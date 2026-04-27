@@ -79,3 +79,42 @@ public class VenueEditModel
         };
     }
 }
+
+public class VenueImportModel
+{
+    public string? Query { get; set; }
+    public string? Area { get; set; } = "Tradate";
+    public string? CountryCodesCsv { get; set; } = "it";
+    public double Latitude { get; set; } = 45.7118;
+    public double Longitude { get; set; } = 8.9076;
+    public int RadiusMeters { get; set; } = 3000;
+    public string? CategoriesCsv { get; set; }
+    public int Limit { get; set; } = 250;
+    public string VisibilityStatus { get; set; } = "review";
+    public bool UpdateExisting { get; set; } = true;
+}
+
+public record VenueImportCandidateDto(
+    string ExternalProviderId,
+    string Name,
+    string Category,
+    string AddressLine,
+    string City,
+    string CountryCode,
+    string? PhoneNumber,
+    string? WebsiteUrl,
+    string? HoursSummary,
+    string? CoverImageUrl,
+    string? Description,
+    string? TagsCsv,
+    double Latitude,
+    double Longitude,
+    bool AlreadyExists,
+    Guid? ExistingVenueId);
+
+public record VenueImportResultDto(
+    int Found,
+    int Created,
+    int Updated,
+    int Skipped,
+    IEnumerable<AdminVenueDto> Venues);

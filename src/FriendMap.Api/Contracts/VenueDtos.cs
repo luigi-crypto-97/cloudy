@@ -113,6 +113,43 @@ public record UpsertVenueRequest(
     bool IsClaimed,
     string VisibilityStatus);
 
+public record VenueImportRequest(
+    string? Query,
+    string? Area,
+    string? CountryCodesCsv,
+    double Latitude,
+    double Longitude,
+    int RadiusMeters,
+    string? CategoriesCsv,
+    int Limit,
+    string VisibilityStatus,
+    bool UpdateExisting);
+
+public record VenueImportCandidateDto(
+    string ExternalProviderId,
+    string Name,
+    string Category,
+    string AddressLine,
+    string City,
+    string CountryCode,
+    string? PhoneNumber,
+    string? WebsiteUrl,
+    string? HoursSummary,
+    string? CoverImageUrl,
+    string? Description,
+    string? TagsCsv,
+    double Latitude,
+    double Longitude,
+    bool AlreadyExists,
+    Guid? ExistingVenueId);
+
+public record VenueImportResultDto(
+    int Found,
+    int Created,
+    int Updated,
+    int Skipped,
+    IEnumerable<AdminVenueDto> Venues);
+
 public record SocialTableDto(
     Guid Id,
     string Title,

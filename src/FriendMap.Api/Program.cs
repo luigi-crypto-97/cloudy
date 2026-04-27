@@ -50,6 +50,8 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ApnsOptions>(builder.Configuration.GetSection("Apns"));
 builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.GetSection("Notifications"));
 builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
+builder.Services.Configure<FoursquareOptions>(builder.Configuration.GetSection("Foursquare"));
+builder.Services.Configure<OverpassOptions>(builder.Configuration.GetSection("Overpass"));
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -61,6 +63,28 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AffluenceAggregationService>();
 builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<VenueAnalyticsService>();
+var foursquareOptions = builder.Configuration.GetSection("Foursquare").Get<FoursquareOptions>() ?? new FoursquareOptions();
+var overpassOptions = builder.Configuration.GetSection("Overpass").Get<OverpassOptions>() ?? new OverpassOptions();
+builder.Services.AddHttpClient<FoursquareVenueImportService>(client =>
+{
+    client.BaseAddress = new Uri(foursquareOptions.BaseUrl);
+    client.DefaultRequestVersion = System.Net.HttpVersion.Version11;
+    client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("FriendMap/1.0");
+});
+builder.Services.AddHttpClient<OverpassVenueImportService>(client =>
+{
+    client.BaseAddress = new Uri(overpassOptions.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(overpassOptions.TimeoutSeconds + 10, 15, 240));
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("FriendMap/1.0 (local development venue import)");
+});
+builder.Services.AddHttpClient("nominatim", client =>
+{
+    client.BaseAddress = new Uri(overpassOptions.NominatimBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("FriendMap/1.0 (local development venue import; contact: api.iron-quote.it)");
+});
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<NotificationOutboxService>();
 builder.Services.AddSingleton<ApnsClient>();

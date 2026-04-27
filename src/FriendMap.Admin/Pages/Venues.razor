@@ -14,6 +14,92 @@
     <button @onclick="NewVenue">Nuova venue</button>
 </section>
 
+<section class="panel import-panel">
+    <h2>Import venue</h2>
+    <div class="import-grid">
+        <label>
+            Area / Comune
+            <input @bind="_import.Area" />
+        </label>
+        <label>
+            Paesi ricerca
+            <input @bind="_import.CountryCodesCsv" />
+        </label>
+        <label>
+            Filtro nome
+            <input @bind="_import.Query" />
+        </label>
+        <label>
+            Latitudine
+            <input type="number" step="0.000001" @bind="_import.Latitude" />
+        </label>
+        <label>
+            Longitudine
+            <input type="number" step="0.000001" @bind="_import.Longitude" />
+        </label>
+        <label>
+            Raggio metri
+            <input type="number" min="1" max="100000" @bind="_import.RadiusMeters" />
+        </label>
+        <label>
+            Categorie FSQ CSV
+            <input @bind="_import.CategoriesCsv" />
+        </label>
+        <label>
+            Limite
+            <input type="number" min="1" max="500" @bind="_import.Limit" />
+        </label>
+        <label>
+            Visibilita import
+            <select @bind="_import.VisibilityStatus">
+                <option value="review">review</option>
+                <option value="public">public</option>
+                <option value="hidden">hidden</option>
+            </select>
+        </label>
+        <label class="check">
+            <input type="checkbox" @bind="_import.UpdateExisting" />
+            Aggiorna esistenti non claimed
+        </label>
+    </div>
+    <div class="toolbar">
+        <button disabled="@_isImporting" @onclick="PreviewImportAsync">Preview</button>
+        <button disabled="@(_isImporting || _importCandidates.Count == 0)" @onclick="RunImportAsync">Importa preview</button>
+        <button disabled="@_isImporting" @onclick="PreviewOsmImportAsync">Preview OSM</button>
+        <button disabled="@(_isImporting || _importCandidates.Count == 0)" @onclick="RunOsmImportAsync">Importa OSM</button>
+        @if (_importMessage is not null)
+        {
+            <span class="muted">@_importMessage</span>
+        }
+    </div>
+    @if (_importCandidates.Count > 0)
+    {
+        <table class="grid compact">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Citta</th>
+                    <th>Provider</th>
+                    <th>Stato</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var candidate in _importCandidates)
+                {
+                    <tr>
+                        <td>@candidate.Name</td>
+                        <td>@candidate.Category</td>
+                        <td>@candidate.City</td>
+                        <td><code>@candidate.ExternalProviderId</code></td>
+                        <td>@(candidate.AlreadyExists ? "esistente" : "nuova")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
 <section class="split">
     <table class="grid">
         <thead>
@@ -105,10 +191,14 @@
 
 @code {
     private readonly List<AdminVenueDto> _venues = new();
+    private readonly List<VenueImportCandidateDto> _importCandidates = new();
     private VenueEditModel _edit = new();
+    private VenueImportModel _import = new();
     private string? _query;
     private string? _error;
+    private string? _importMessage;
     private bool _isSaving;
+    private bool _isImporting;
 
     protected override async Task OnInitializedAsync()
     {
@@ -193,5 +283,97 @@
         {
             _error = $"Impossibile eliminare la venue: {ex.Message}";
         }
+    }
+
+    private async Task PreviewImportAsync()
+    {
+        await PreviewProviderImportAsync("api/admin/venues/import/foursquare/preview", "Foursquare");
+    }
+
+    private async Task RunImportAsync()
+    {
+        await RunProviderImportAsync("api/admin/venues/import/foursquare", "Foursquare");
+    }
+
+    private async Task PreviewOsmImportAsync()
+    {
+        await PreviewProviderImportAsync("api/admin/venues/import/osm/preview", "OpenStreetMap");
+    }
+
+    private async Task RunOsmImportAsync()
+    {
+        await RunProviderImportAsync("api/admin/venues/import/osm", "OpenStreetMap");
+    }
+
+    private async Task PreviewProviderImportAsync(string path, string providerName)
+    {
+        _isImporting = true;
+        _error = null;
+        _importMessage = null;
+        _importCandidates.Clear();
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.PostAsJsonAsync(path, _import);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = await ReadErrorAsync(response, "Impossibile recuperare preview import.");
+                return;
+            }
+
+            var candidates = await response.Content.ReadFromJsonAsync<List<VenueImportCandidateDto>>();
+            _importCandidates.AddRange(candidates ?? new List<VenueImportCandidateDto>());
+            _importMessage = $"{providerName}: {_importCandidates.Count} risultati trovati.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile recuperare preview import {providerName}: {ex.Message}";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private async Task RunProviderImportAsync(string path, string providerName)
+    {
+        _isImporting = true;
+        _error = null;
+        _importMessage = null;
+
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.PostAsJsonAsync(path, _import);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = await ReadErrorAsync(response, "Impossibile importare venue.");
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<VenueImportResultDto>();
+            _importMessage = result is null
+                ? $"Import {providerName} completato."
+                : $"Import {providerName} completato: {result.Created} create, {result.Updated} aggiornate, {result.Skipped} saltate.";
+            _importCandidates.Clear();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile importare venue {providerName}: {ex.Message}";
+        }
+        finally
+        {
+            _isImporting = false;
+        }
+    }
+
+    private static async Task<string> ReadErrorAsync(HttpResponseMessage response, string fallback)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        return string.IsNullOrWhiteSpace(body)
+            ? fallback
+            : $"{fallback} {body}";
     }
 }

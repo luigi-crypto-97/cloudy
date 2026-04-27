@@ -88,6 +88,86 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
+        group.MapPost("/venues/import/foursquare/preview", async (
+            VenueImportRequest request,
+            FoursquareVenueImportService importer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var candidates = await importer.PreviewAsync(request, ct);
+                return Results.Ok(candidates);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        });
+
+        group.MapPost("/venues/import/foursquare", async (
+            VenueImportRequest request,
+            FoursquareVenueImportService importer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var result = await importer.ImportAsync(request, ct);
+                return Results.Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        });
+
+        group.MapPost("/venues/import/osm/preview", async (
+            VenueImportRequest request,
+            OverpassVenueImportService importer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var candidates = await importer.PreviewAsync(request, ct);
+                return Results.Ok(candidates);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        });
+
+        group.MapPost("/venues/import/osm", async (
+            VenueImportRequest request,
+            OverpassVenueImportService importer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var result = await importer.ImportAsync(request, ct);
+                return Results.Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
+        });
+
         return group;
     }
 
