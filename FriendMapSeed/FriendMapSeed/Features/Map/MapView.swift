@@ -23,6 +23,7 @@ struct MapView: View {
     @State private var camera: MapCameraPosition = .region(MapStore.milanDefault)
     @State private var selectedVenue: VenueMarker?
     @State private var showsFilters: Bool = false
+    @State private var showsFlareLaunch: Bool = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -41,6 +42,32 @@ struct MapView: View {
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, 110)  // sopra la tab bar
             }
+
+            // FAB Flare in basso a destra
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button {
+                        Haptics.tap()
+                        showsFlareLaunch = true
+                    } label: {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(Theme.Gradients.honeyCTA))
+                            .shadow(color: Theme.Palette.honeyDeep.opacity(0.45), radius: 14, x: 0, y: 8)
+                    }
+                    .padding(.trailing, Theme.Spacing.lg)
+                    .padding(.bottom, 170)
+                }
+            }
+        }
+        .sheet(isPresented: $showsFlareLaunch) {
+            FlareLaunchView(
+                coordinate: store.lastViewport?.center ?? MapStore.milanDefault.center
+            )
         }
         .sheet(item: $selectedVenue) { venue in
             VenueDetailSheet(venue: venue)

@@ -218,6 +218,159 @@ struct NotificationItem: Codable, Hashable, Identifiable {
     let deepLink: String?
 }
 
+// MARK: - Editable profile
+
+struct EditableUserProfile: Codable, Hashable {
+    let userId: UUID
+    let nickname: String
+    var displayName: String?
+    var avatarUrl: String?
+    var discoverablePhone: String?
+    var discoverableEmail: String?
+    var bio: String?
+    var birthYear: Int?
+    var gender: String
+    var interests: [String]
+}
+
+struct UpdateMyProfileRequest: Codable {
+    let displayName: String?
+    let avatarUrl: String?
+    let bio: String?
+    let birthYear: Int?
+    let gender: String?
+    let interests: [String]?
+}
+
+// MARK: - User search
+
+struct UserSearchResult: Codable, Hashable, Identifiable {
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let relationshipStatus: String
+    let isBlockedByViewer: Bool
+    let hasBlockedViewer: Bool
+    let interests: [String]
+    var id: UUID { userId }
+}
+
+// MARK: - Direct messages
+
+struct DirectMessageThreadSummary: Codable, Hashable, Identifiable {
+    let otherUserId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let lastMessagePreview: String
+    let lastMessageAtUtc: Date
+    var id: UUID { otherUserId }
+}
+
+struct DirectMessage: Codable, Hashable, Identifiable {
+    let messageId: UUID
+    let senderUserId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let body: String
+    let sentAtUtc: Date
+    let isMine: Bool
+    var id: UUID { messageId }
+}
+
+struct DirectMessagePeer: Codable, Hashable {
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let isBlockedByViewer: Bool
+    let hasBlockedViewer: Bool
+}
+
+struct DirectMessageThread: Codable {
+    let otherUser: DirectMessagePeer
+    let messages: [DirectMessage]
+}
+
+struct SendDirectMessageRequest: Codable {
+    let body: String
+}
+
+// MARK: - Social table thread
+
+struct SocialTableMessage: Codable, Hashable, Identifiable {
+    let messageId: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let body: String
+    let sentAtUtc: Date
+    let isMine: Bool
+    var id: UUID { messageId }
+}
+
+struct SocialTableRequest: Codable, Hashable, Identifiable {
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let status: String
+    var id: UUID { userId }
+}
+
+struct SocialTableThread: Codable {
+    let table: SocialTableSummary
+    let requests: [SocialTableRequest]
+    let messages: [SocialTableMessage]
+}
+
+struct SendSocialTableMessageRequest: Codable {
+    let body: String
+}
+
+// MARK: - Flares
+
+struct CreateFlareRequest: Codable {
+    let latitude: Double
+    let longitude: Double
+    let message: String
+}
+
+// MARK: - Privacy
+
+struct SocialMeState: Codable, Hashable {
+    let isGhostModeEnabled: Bool
+    let sharePresenceWithFriends: Bool
+    let shareIntentionsWithFriends: Bool
+    let activeCheckInVenueId: UUID?
+    let activeCheckInVenueName: String?
+    let activeIntentionVenueId: UUID?
+    let activeIntentionVenueName: String?
+}
+
+struct UpdatePrivacySettingsRequest: Codable {
+    let isGhostModeEnabled: Bool?
+    let sharePresenceWithFriends: Bool?
+    let shareIntentionsWithFriends: Bool?
+}
+
+// MARK: - Social action result
+
+struct SocialActionResult: Codable {
+    let status: String
+    let message: String
+}
+
+// MARK: - Stories
+
+struct CreateStoryRequest: Codable {
+    let mediaUrl: String
+    let caption: String?
+}
+
 // MARK: - Helpers
 
 extension UUID {

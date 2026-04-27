@@ -34,6 +34,7 @@ final class FeedStore {
 struct FeedView: View {
     @State private var store = FeedStore()
     @State private var likedIds: Set<UUID> = []
+    @State private var showCreateStory: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -66,11 +67,18 @@ struct FeedView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {} label: {
+                    NavigationLink {
+                        ChatThreadsView()
+                    } label: {
                         Image(systemName: "paperplane")
                             .foregroundStyle(Theme.Palette.ink)
                     }
                 }
+            }
+            .sheet(isPresented: $showCreateStory) {
+                CreateStoryView(onCreated: {
+                    Task { await store.load() }
+                })
             }
             .task { await store.load() }
         }
@@ -112,34 +120,40 @@ struct FeedView: View {
     }
 
     private var myStoryButton: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .bottomTrailing) {
-                Circle()
-                    .fill(Theme.Palette.surface)
-                    .frame(width: 64, height: 64)
-                    .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
-                    .overlay(
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(Theme.Palette.inkMuted)
-                    )
-                Circle()
-                    .fill(Theme.Gradients.honeyCTA)
-                    .frame(width: 22, height: 22)
-                    .overlay(
-                        Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(.white)
-                    )
-                    .offset(x: 2, y: 2)
+        Button {
+            Haptics.tap()
+            showCreateStory = true
+        } label: {
+            VStack(spacing: 6) {
+                ZStack(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(Theme.Palette.surface)
+                        .frame(width: 64, height: 64)
+                        .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
+                        .overlay(
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 56))
+                                .foregroundStyle(Theme.Palette.inkMuted)
+                        )
+                    Circle()
+                        .fill(Theme.Gradients.honeyCTA)
+                        .frame(width: 22, height: 22)
+                        .overlay(
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .heavy))
+                                .foregroundStyle(.white)
+                        )
+                        .offset(x: 2, y: 2)
+                }
+                .frame(width: 72, height: 72)
+                Text("La tua storia")
+                    .font(Theme.Font.caption(11))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+                    .lineLimit(1)
+                    .frame(width: 72)
             }
-            .frame(width: 72, height: 72)
-            Text("La tua storia")
-                .font(Theme.Font.caption(11))
-                .foregroundStyle(Theme.Palette.inkSoft)
-                .lineLimit(1)
-                .frame(width: 72)
         }
+        .buttonStyle(.plain)
     }
 
     private var uniqueStorytellers: [UserStory] {

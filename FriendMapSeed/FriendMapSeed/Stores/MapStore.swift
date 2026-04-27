@@ -152,8 +152,11 @@ final class MapStore {
 }
 
 // MARK: - Adapter VenueMarker -> CloudyCore.VenueClusterInput
-
-private struct ClusterInputAdapter: VenueClusterInput, Sendable {
+//
+// Esplicitamente `nonisolated` per evitare il warning di Swift 6:
+// l'adapter viene usato da Task.detached (nonisolated context) e quindi
+// la sua conformance al protocol non puo' essere MainActor-isolated.
+nonisolated private struct ClusterInputAdapter: VenueClusterInput, Sendable {
     let marker: VenueMarker
     var clusterId: String { marker.venueId.uuidString }
     var location: LatLon { LatLon(lat: marker.latitude, lng: marker.longitude) }

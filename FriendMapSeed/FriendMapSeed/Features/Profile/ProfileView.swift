@@ -7,6 +7,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @Environment(AuthStore.self) private var auth
+    @State private var showEditProfile = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,9 @@ struct ProfileView: View {
             .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
             .navigationTitle("Profilo")
             .navigationBarTitleDisplayMode(.large)
+            .sheet(isPresented: $showEditProfile) {
+                EditProfileView()
+            }
         }
     }
 
@@ -69,11 +73,33 @@ struct ProfileView: View {
 
     private var actionsList: some View {
         VStack(spacing: 0) {
-            row(icon: "pencil.circle.fill", label: "Modifica profilo")
+            Button {
+                showEditProfile = true
+            } label: {
+                row(icon: "pencil.circle.fill", label: "Modifica profilo")
+            }
+            .buttonStyle(.plain)
             divider
-            row(icon: "lock.shield.fill", label: "Privacy")
+            NavigationLink {
+                PrivacyView()
+            } label: {
+                row(icon: "lock.shield.fill", label: "Privacy")
+            }
+            .buttonStyle(.plain)
             divider
-            row(icon: "bell.fill", label: "Notifiche")
+            NavigationLink {
+                NotificationsView()
+            } label: {
+                row(icon: "bell.fill", label: "Notifiche")
+            }
+            .buttonStyle(.plain)
+            divider
+            NavigationLink {
+                AddFriendsView()
+            } label: {
+                row(icon: "person.badge.plus", label: "Aggiungi amici")
+            }
+            .buttonStyle(.plain)
             divider
             row(icon: "questionmark.circle.fill", label: "Aiuto e supporto")
             divider

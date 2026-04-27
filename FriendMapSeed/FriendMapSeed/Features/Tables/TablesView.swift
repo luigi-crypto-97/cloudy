@@ -92,7 +92,13 @@ struct TablesView: View {
             ForEach(Array(pending.prefix(3).enumerated()).reversed(), id: \.offset) { (offset, invite) in
                 InviteCard(
                     invite: invite,
-                    onAccept: { advance() },
+                    onAccept: {
+                        Task {
+                            _ = try? await API.joinTable(tableId: invite.tableId)
+                            await store.load()
+                        }
+                        advance()
+                    },
                     onReject: { advance() }
                 )
                 .scaleEffect(1 - CGFloat(offset) * 0.04)
@@ -133,7 +139,12 @@ struct TablesView: View {
                 )
             } else {
                 ForEach(store.myTables) { t in
-                    MyTableRow(table: t)
+                    NavigationLink {
+                        TableThreadView(tableId: t.tableId)
+                    } label: {
+                        MyTableRow(table: t)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
