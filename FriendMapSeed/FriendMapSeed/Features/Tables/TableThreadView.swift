@@ -65,11 +65,11 @@ struct TableThreadView: View {
                     .foregroundStyle(Theme.Palette.inkSoft)
             }
             HStack {
-                CloudyPill(text: "\(t.acceptedCount)/\(t.capacity) accettati", tint: Theme.Palette.honeySoft)
+                CloudyPill(text: "\(t.acceptedCount)/\(t.capacity) accettati", icon: "person.2.fill", tone: .honey)
                 if t.requestedCount > 0 {
-                    CloudyPill(text: "\(t.requestedCount) in attesa", tint: Theme.Palette.skyTint)
+                    CloudyPill(text: "\(t.requestedCount) in attesa", icon: "hourglass", tone: .warning)
                 }
-                if t.isHost { CloudyPill(text: "Host", tint: Theme.Palette.honeyDeep.opacity(0.25)) }
+                if t.isHost { CloudyPill(text: "Host", icon: "crown.fill", tone: .honey) }
             }
             if let desc = t.description, !desc.isEmpty {
                 Text(desc).font(Theme.Font.body(14)).foregroundStyle(Theme.Palette.inkSoft)
