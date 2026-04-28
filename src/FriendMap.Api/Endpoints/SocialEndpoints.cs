@@ -20,6 +20,7 @@ public static class SocialEndpoints
         group.MapGet("/hub", async (
             AppDbContext db,
             ClaimsPrincipal user,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
@@ -88,23 +89,23 @@ public static class SocialEndpoints
 
             var friends = friendIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "friend", friendSet, currentUserId, presence, connectionFriendSets))
+                .Select(id => BuildConnectionDto(users[id], mediaStorage, "friend", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var incoming = incomingRequestIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "pending_received", friendSet, currentUserId, presence, connectionFriendSets))
+                .Select(id => BuildConnectionDto(users[id], mediaStorage, "pending_received", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             var outgoing = outgoingRequestIds
                 .Where(users.ContainsKey)
-                .Select(id => BuildConnectionDto(users[id], "pending_sent", friendSet, currentUserId, presence, connectionFriendSets))
+                .Select(id => BuildConnectionDto(users[id], mediaStorage, "pending_sent", friendSet, currentUserId, presence, connectionFriendSets))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var tableInvites = await db.SocialTableParticipants
+            var tableInviteRows = await db.SocialTableParticipants
                 .AsNoTracking()
                 .Where(x => x.UserId == currentUserId && x.Status == "invited")
                 .Join(
@@ -124,17 +125,31 @@ public static class SocialEndpoints
                     (tuple, host) => new { tuple.Table, tuple.Venue, HostUser = host })
                 .Where(x => !blockedUserIds.Contains(x.HostUser.Id))
                 .OrderBy(x => x.Table.StartsAtUtc)
-                .Select(x => new SocialTableInviteDto(
+                .Select(x => new
+                {
                     x.Table.Id,
                     x.Table.Title,
                     x.Table.StartsAtUtc,
-                    x.Venue.Name,
-                    x.Venue.Category,
-                    x.HostUser.Id,
+                    VenueName = x.Venue.Name,
+                    VenueCategory = x.Venue.Category,
+                    HostUserId = x.HostUser.Id,
                     x.HostUser.Nickname,
                     x.HostUser.DisplayName,
-                    x.HostUser.AvatarUrl))
+                    x.HostUser.AvatarUrl
+                })
                 .ToListAsync(ct);
+            var tableInvites = tableInviteRows
+                .Select(x => new SocialTableInviteDto(
+                    x.Id,
+                    x.Title,
+                    x.StartsAtUtc,
+                    x.VenueName,
+                    x.VenueCategory,
+                    x.HostUserId,
+                    x.Nickname,
+                    x.DisplayName,
+                    mediaStorage.ResolveUrl(x.AvatarUrl)))
+                .ToList();
 
             return Results.Ok(new SocialHubDto(friends, incoming, outgoing, tableInvites));
         });
@@ -905,6 +920,7 @@ public static class SocialEndpoints
             Guid tableId,
             AppDbContext db,
             ClaimsPrincipal user,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
@@ -940,7 +956,7 @@ public static class SocialEndpoints
                     x.UserId,
                     users[x.UserId].Nickname,
                     users[x.UserId].DisplayName,
-                    users[x.UserId].AvatarUrl,
+                    mediaStorage.ResolveUrl(users[x.UserId].AvatarUrl),
                     x.Status))
                 .OrderBy(x => x.DisplayName ?? x.Nickname, StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -968,7 +984,7 @@ public static class SocialEndpoints
                         message.UserId,
                         author?.Nickname ?? "utente",
                         author?.DisplayName,
-                        author?.AvatarUrl,
+                        mediaStorage.ResolveUrl(author?.AvatarUrl),
                         message.Body,
                         message.CreatedAtUtc,
                         message.UserId == currentUserId);
@@ -1011,6 +1027,7 @@ public static class SocialEndpoints
             AppDbContext db,
             NotificationOutboxService outbox,
             ClaimsPrincipal user,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
@@ -1321,6 +1338,7 @@ public static class SocialEndpoints
             AppDbContext db,
             NotificationOutboxService outbox,
             ClaimsPrincipal user,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
@@ -1375,7 +1393,7 @@ public static class SocialEndpoints
                 flare.UserId,
                 currentUser.Nickname,
                 currentUser.DisplayName,
-                currentUser.AvatarUrl,
+                mediaStorage.ResolveUrl(currentUser.AvatarUrl),
                 flare.Latitude,
                 flare.Longitude,
                 flare.Message,
@@ -1387,6 +1405,7 @@ public static class SocialEndpoints
         group.MapGet("/flares", async (
             AppDbContext db,
             ClaimsPrincipal user,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
@@ -1438,7 +1457,7 @@ public static class SocialEndpoints
                 flare.UserId,
                 flare.Nickname,
                 flare.DisplayName,
-                flare.AvatarUrl,
+                mediaStorage.ResolveUrl(flare.AvatarUrl),
                 flare.Latitude,
                 flare.Longitude,
                 flare.Message,
@@ -1714,6 +1733,7 @@ public static class SocialEndpoints
 
     private static SocialConnectionDto BuildConnectionDto(
         AppUser user,
+        MediaStorageService mediaStorage,
         string relationshipStatus,
         HashSet<Guid> currentFriendIds,
         Guid currentUserId,
@@ -1730,7 +1750,7 @@ public static class SocialEndpoints
             user.Id,
             user.Nickname,
             user.DisplayName,
-            user.AvatarUrl,
+            mediaStorage.ResolveUrl(user.AvatarUrl),
             relationshipStatus,
             mutualFriendsCount,
             snapshot.PresenceState,

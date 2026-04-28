@@ -27,6 +27,7 @@ public static class StoriesEndpoints
     private static async Task<IResult> GetStoriesAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -75,8 +76,8 @@ public static class StoriesEndpoints
             story.UserId,
             story.Nickname,
             story.DisplayName,
-            story.AvatarUrl,
-            story.MediaUrl,
+            mediaStorage.ResolveUrl(story.AvatarUrl),
+            mediaStorage.ResolveUrl(story.MediaUrl) ?? story.MediaUrl,
             story.Caption,
             story.VenueId,
             null,
@@ -91,6 +92,7 @@ public static class StoriesEndpoints
         CreateStoryRequest request,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -135,8 +137,8 @@ public static class StoriesEndpoints
             story.UserId,
             currentUser?.Nickname ?? "utente",
             currentUser?.DisplayName,
-            currentUser?.AvatarUrl,
-            story.MediaUrl,
+            mediaStorage.ResolveUrl(currentUser?.AvatarUrl),
+            mediaStorage.ResolveUrl(story.MediaUrl) ?? story.MediaUrl,
             story.Caption,
             story.VenueId,
             venueName,
@@ -154,6 +156,7 @@ public static class StoriesEndpoints
         double? maxLng,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -219,8 +222,8 @@ public static class StoriesEndpoints
             row.UserId,
             row.Nickname,
             row.DisplayName,
-            row.AvatarUrl,
-            row.MediaUrl,
+            mediaStorage.ResolveUrl(row.AvatarUrl),
+            mediaStorage.ResolveUrl(row.MediaUrl) ?? row.MediaUrl,
             row.Caption,
             row.VenueId.GetValueOrDefault(),
             row.VenueName,
@@ -355,6 +358,7 @@ public static class StoriesEndpoints
         Guid id,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -383,7 +387,7 @@ public static class StoriesEndpoints
                     comment.UserId,
                     u.Nickname,
                     u.DisplayName,
-                    u.AvatarUrl,
+                    mediaStorage.ResolveUrl(u.AvatarUrl),
                     comment.Body,
                     comment.CreatedAtUtc,
                     comment.UserId == currentUserId))
@@ -397,6 +401,7 @@ public static class StoriesEndpoints
         AddStoryCommentRequest request,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -432,7 +437,7 @@ public static class StoriesEndpoints
             comment.UserId,
             author.Nickname,
             author.DisplayName,
-            author.AvatarUrl,
+            mediaStorage.ResolveUrl(author.AvatarUrl),
             comment.Body,
             comment.CreatedAtUtc,
             true));
@@ -443,6 +448,7 @@ public static class StoriesEndpoints
         ShareStoryRequest request,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -479,9 +485,10 @@ public static class StoriesEndpoints
             db.DirectMessageThreads.Add(thread);
         }
 
+        var storyUrl = mediaStorage.ResolveUrl(story.MediaUrl) ?? story.MediaUrl;
         var text = string.IsNullOrWhiteSpace(request.Message)
-            ? $"Ti ho inviato una storia: {story.MediaUrl}"
-            : $"{request.Message.Trim()}\n\nStoria: {story.MediaUrl}";
+            ? $"Ti ho inviato una storia: {storyUrl}"
+            : $"{request.Message.Trim()}\n\nStoria: {storyUrl}";
         thread.LastMessageAtUtc = DateTimeOffset.UtcNow;
         thread.UpdatedAtUtc = DateTimeOffset.UtcNow;
         db.DirectMessages.Add(new DirectMessage

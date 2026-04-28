@@ -79,7 +79,7 @@ public static class MessagingEndpoints
         try
         {
             var url = await mediaStorage.UploadAsync(file, "uploads/messages", currentUserId, request, ct);
-            return Results.Ok(new UploadMediaResult(url));
+            return Results.Ok(new UploadMediaResult(mediaStorage.ResolveUrl(url) ?? url));
         }
         catch (InvalidOperationException ex)
         {
@@ -94,6 +94,7 @@ public static class MessagingEndpoints
     private static async Task<IResult> GetThreadsAsync(
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -156,7 +157,7 @@ public static class MessagingEndpoints
                     user.Id,
                     user.Nickname,
                     user.DisplayName,
-                    user.AvatarUrl,
+                    mediaStorage.ResolveUrl(user.AvatarUrl),
                     BuildLastMessagePreview(lastMessage?.Body),
                     thread.LastMessageAtUtc,
                     unreadCounts.TryGetValue(thread.Id, out var unreadCount) ? unreadCount : 0);
@@ -170,6 +171,7 @@ public static class MessagingEndpoints
         Guid otherUserId,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -184,7 +186,7 @@ public static class MessagingEndpoints
             return validation;
         }
 
-        var otherProfile = await BuildDirectMessagePeerAsync(db, currentUserId, otherUserId, ct);
+        var otherProfile = await BuildDirectMessagePeerAsync(db, mediaStorage, currentUserId, otherUserId, ct);
         if (otherProfile is null)
         {
             return Results.NotFound();
@@ -204,27 +206,41 @@ public static class MessagingEndpoints
                     .SetProperty(x => x.UpdatedAtUtc, now), ct);
         }
 
-        var messages = thread is null
-            ? new List<DirectMessageDto>()
-            : await db.DirectMessages
-                .AsNoTracking()
-                .Where(x => x.ThreadId == thread.Id)
-                .OrderBy(x => x.CreatedAtUtc)
-                .Take(200)
-                .Join(
-                    db.Users.AsNoTracking(),
-                    message => message.SenderUserId,
-                    user => user.Id,
-                    (message, user) => new DirectMessageDto(
-                        message.Id,
-                        message.SenderUserId,
-                        user.Nickname,
-                        user.DisplayName,
-                        user.AvatarUrl,
-                        message.Body,
-                        message.CreatedAtUtc,
-                        message.SenderUserId == currentUserId))
-                .ToListAsync(ct);
+        var messages = new List<DirectMessageDto>();
+        if (thread is not null)
+        {
+            var messageRows = await db.DirectMessages
+                    .AsNoTracking()
+                    .Where(x => x.ThreadId == thread.Id)
+                    .OrderBy(x => x.CreatedAtUtc)
+                    .Take(200)
+                    .Join(
+                        db.Users.AsNoTracking(),
+                        message => message.SenderUserId,
+                        user => user.Id,
+                        (message, user) => new
+                        {
+                            message.Id,
+                            message.SenderUserId,
+                            user.Nickname,
+                            user.DisplayName,
+                            user.AvatarUrl,
+                            message.Body,
+                            message.CreatedAtUtc
+                        })
+                    .ToListAsync(ct);
+            messages = messageRows
+                .Select(message => new DirectMessageDto(
+                    message.Id,
+                    message.SenderUserId,
+                    message.Nickname,
+                    message.DisplayName,
+                    mediaStorage.ResolveUrl(message.AvatarUrl),
+                    message.Body,
+                    message.CreatedAtUtc,
+                    message.SenderUserId == currentUserId))
+                .ToList();
+        }
 
         return Results.Ok(new DirectMessageThreadDto(otherProfile, messages));
     }
@@ -234,6 +250,7 @@ public static class MessagingEndpoints
         SendDirectMessageRequest request,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         IHubContext<ChatHub> hubContext,
         NotificationOutboxService outbox,
         CancellationToken ct)
@@ -305,7 +322,7 @@ public static class MessagingEndpoints
             message.SenderUserId,
             currentUser.Nickname,
             currentUser.DisplayName,
-            currentUser.AvatarUrl,
+            mediaStorage.ResolveUrl(currentUser.AvatarUrl),
             message.Body,
             message.CreatedAtUtc,
             true));
@@ -394,6 +411,7 @@ public static class MessagingEndpoints
         Guid chatId,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -411,7 +429,7 @@ public static class MessagingEndpoints
                 .SetProperty(x => x.UpdatedAtUtc, now), ct);
 
         var summary = (await BuildGroupChatSummariesAsync(db, new[] { chat }, currentUserId, null, ct)).Single();
-        var messages = await BuildGroupMessagesAsync(db, chatId, currentUserId, ct);
+        var messages = await BuildGroupMessagesAsync(db, mediaStorage, chatId, currentUserId, ct);
         return Results.Ok(new GroupChatThreadDto(summary, messages));
     }
 
@@ -420,6 +438,7 @@ public static class MessagingEndpoints
         SendGroupChatMessageRequest request,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
@@ -453,7 +472,7 @@ public static class MessagingEndpoints
             currentUserId,
             author.Nickname,
             author.DisplayName,
-            author.AvatarUrl,
+            mediaStorage.ResolveUrl(author.AvatarUrl),
             message.Body,
             message.CreatedAtUtc,
             true));
@@ -463,13 +482,14 @@ public static class MessagingEndpoints
         Guid venueId,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
         if (currentUserId == Guid.Empty) return Results.Forbid();
         var chat = await GetOrCreateVenueChatAsync(db, venueId, currentUserId, ct);
         if (chat is null) return Results.NotFound("Locale non trovato.");
-        return await GetGroupChatThreadAsync(chat.Id, principal, db, ct);
+        return await GetGroupChatThreadAsync(chat.Id, principal, db, mediaStorage, ct);
     }
 
     private static async Task<IResult> PostVenueChatMessageAsync(
@@ -477,13 +497,14 @@ public static class MessagingEndpoints
         SendGroupChatMessageRequest request,
         ClaimsPrincipal principal,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(principal);
         if (currentUserId == Guid.Empty) return Results.Forbid();
         var chat = await GetOrCreateVenueChatAsync(db, venueId, currentUserId, ct);
         if (chat is null) return Results.NotFound("Locale non trovato.");
-        return await PostGroupChatMessageAsync(chat.Id, request, principal, db, ct);
+        return await PostGroupChatMessageAsync(chat.Id, request, principal, db, mediaStorage, ct);
     }
 
     private static async Task<bool> EnsureGroupMembershipAsync(AppDbContext db, GroupChat chat, Guid userId, CancellationToken ct)
@@ -620,11 +641,12 @@ public static class MessagingEndpoints
 
     private static async Task<List<GroupChatMessageDto>> BuildGroupMessagesAsync(
         AppDbContext db,
+        MediaStorageService mediaStorage,
         Guid chatId,
         Guid currentUserId,
         CancellationToken ct)
     {
-        return await db.GroupChatMessages
+        var rows = await db.GroupChatMessages
             .AsNoTracking()
             .Where(x => x.GroupChatId == chatId)
             .OrderBy(x => x.CreatedAtUtc)
@@ -633,16 +655,29 @@ public static class MessagingEndpoints
                 db.Users.AsNoTracking(),
                 message => message.UserId,
                 user => user.Id,
-                (message, user) => new GroupChatMessageDto(
+                (message, user) => new
+                {
                     message.Id,
                     message.UserId,
                     user.Nickname,
                     user.DisplayName,
                     user.AvatarUrl,
                     message.Body,
-                    message.CreatedAtUtc,
-                    message.UserId == currentUserId))
+                    message.CreatedAtUtc
+                })
             .ToListAsync(ct);
+
+        return rows
+            .Select(message => new GroupChatMessageDto(
+                message.Id,
+                message.UserId,
+                message.Nickname,
+                message.DisplayName,
+                mediaStorage.ResolveUrl(message.AvatarUrl),
+                message.Body,
+                message.CreatedAtUtc,
+                message.UserId == currentUserId))
+            .ToList();
     }
 
     private static async Task<IResult?> ValidateMessagingAccessAsync(AppDbContext db, Guid currentUserId, Guid otherUserId, CancellationToken ct)
@@ -688,7 +723,12 @@ public static class MessagingEndpoints
         return blocked.ToHashSet();
     }
 
-    private static async Task<DirectMessagePeerDto?> BuildDirectMessagePeerAsync(AppDbContext db, Guid viewerUserId, Guid otherUserId, CancellationToken ct)
+    private static async Task<DirectMessagePeerDto?> BuildDirectMessagePeerAsync(
+        AppDbContext db,
+        MediaStorageService mediaStorage,
+        Guid viewerUserId,
+        Guid otherUserId,
+        CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == otherUserId, ct);
         if (user is null)
@@ -707,7 +747,7 @@ public static class MessagingEndpoints
             user.Id,
             user.Nickname,
             user.DisplayName,
-            user.AvatarUrl,
+            mediaStorage.ResolveUrl(user.AvatarUrl),
             blocks.Any(x => x.BlockerUserId == viewerUserId),
             blocks.Any(x => x.BlockerUserId == otherUserId));
     }

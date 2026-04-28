@@ -70,15 +70,8 @@ public class MediaStorageService
             throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint, bucket, access key e secret sono obbligatori.");
         }
 
-        var config = new AmazonS3Config
-        {
-            ServiceURL = _options.Endpoint.TrimEnd('/'),
-            AuthenticationRegion = _options.Region,
-            ForcePathStyle = _options.ForcePathStyle,
-            DisableS3ExpressSessionAuth = true
-        };
-
         Amazon.AWSConfigsS3.UseSignatureVersion4 = true;
+        var config = BuildS3Config();
 
         using var client = new AmazonS3Client(
             new BasicAWSCredentials(_options.AccessKeyId, _options.SecretAccessKey),
@@ -95,7 +88,81 @@ public class MediaStorageService
             DisablePayloadSigning = true
         }, ct);
 
-        return BuildPublicUrl(key);
+        return _options.UsePrivateBucket ? key : BuildPublicUrl(key);
+    }
+
+    public string? ResolveUrl(string? storedValue)
+    {
+        if (string.IsNullOrWhiteSpace(storedValue))
+        {
+            return storedValue;
+        }
+
+        var key = TryExtractStorageKey(storedValue.Trim());
+        if (key is null)
+        {
+            return storedValue;
+        }
+
+        if (!IsS3Provider())
+        {
+            if (Uri.TryCreate(storedValue, UriKind.Absolute, out _))
+            {
+                return storedValue;
+            }
+
+            var baseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
+                ? ""
+                : _options.PublicBaseUrl.TrimEnd('/');
+            return string.IsNullOrWhiteSpace(baseUrl) ? storedValue : $"{baseUrl}/{key}";
+        }
+
+        if (!_options.UsePrivateBucket && !string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
+        {
+            return $"{_options.PublicBaseUrl.TrimEnd('/')}/{key}";
+        }
+
+        EnsureS3Configured();
+        Amazon.AWSConfigsS3.UseSignatureVersion4 = true;
+        using var client = new AmazonS3Client(
+            new BasicAWSCredentials(_options.AccessKeyId, _options.SecretAccessKey),
+            BuildS3Config());
+
+        return client.GetPreSignedURL(new GetPreSignedUrlRequest
+        {
+            BucketName = _options.Bucket,
+            Key = key,
+            Verb = HttpVerb.GET,
+            Expires = DateTime.UtcNow.AddMinutes(Math.Clamp(_options.SignedUrlMinutes, 1, 120))
+        });
+    }
+
+    private AmazonS3Config BuildS3Config()
+    {
+        EnsureS3Configured();
+        return new AmazonS3Config
+        {
+            ServiceURL = _options.Endpoint.TrimEnd('/'),
+            AuthenticationRegion = _options.Region,
+            ForcePathStyle = _options.ForcePathStyle,
+            DisableS3ExpressSessionAuth = true
+        };
+    }
+
+    private void EnsureS3Configured()
+    {
+        if (!IsS3Provider())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.Endpoint) ||
+            string.IsNullOrWhiteSpace(_options.Bucket) ||
+            string.IsNullOrWhiteSpace(_options.AccessKeyId) ||
+            string.IsNullOrWhiteSpace(_options.SecretAccessKey))
+        {
+            throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint, bucket, access key e secret sono obbligatori.");
+        }
     }
 
     private string BuildPublicUrl(string key)
@@ -106,6 +173,42 @@ public class MediaStorageService
         }
 
         return $"{_options.Endpoint.TrimEnd('/')}/{_options.Bucket}/{key}";
+    }
+
+    private bool IsS3Provider()
+    {
+        return string.Equals(_options.Provider, "s3", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(_options.Provider, "supabase", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string? TryExtractStorageKey(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return LooksLikeStorageKey(value) ? value.TrimStart('/') : null;
+        }
+
+        var path = uri.AbsolutePath.TrimStart('/');
+        var publicPrefix = $"storage/v1/object/public/{_options.Bucket}/";
+        if (!string.IsNullOrWhiteSpace(_options.Bucket) &&
+            path.StartsWith(publicPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return Uri.UnescapeDataString(path[publicPrefix.Length..]);
+        }
+
+        var s3Prefix = $"{_options.Bucket}/";
+        if (!string.IsNullOrWhiteSpace(_options.Bucket) &&
+            path.StartsWith(s3Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return Uri.UnescapeDataString(path[s3Prefix.Length..]);
+        }
+
+        return null;
+    }
+
+    private static bool LooksLikeStorageKey(string value)
+    {
+        return value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeFolder(string folder)

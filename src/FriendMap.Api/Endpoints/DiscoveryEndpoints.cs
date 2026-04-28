@@ -22,6 +22,7 @@ public static class DiscoveryEndpoints
         int radiusMeters,
         ClaimsPrincipal user,
         AppDbContext db,
+        MediaStorageService mediaStorage,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -133,7 +134,7 @@ public static class DiscoveryEndpoints
                 u.Id,
                 Nickname = nickname,
                 u.DisplayName,
-                u.AvatarUrl,
+                AvatarUrl = mediaStorage.ResolveUrl(u.AvatarUrl),
                 CurrentVenueName = venueName
             };
         }).ToList();

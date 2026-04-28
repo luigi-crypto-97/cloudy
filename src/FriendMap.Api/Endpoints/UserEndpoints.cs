@@ -18,16 +18,18 @@ public static class UserEndpoints
             Guid userId,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var viewerUserId = CurrentUser.GetUserId(principal);
-            var profile = await BuildUserProfileDtoAsync(db, viewerUserId, userId, ct);
+            var profile = await BuildUserProfileDtoAsync(db, mediaStorage, viewerUserId, userId, ct);
             return profile is null ? Results.NotFound() : Results.Ok(profile);
         });
 
         group.MapGet("/me/profile", async (
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -48,7 +50,7 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
@@ -64,6 +66,7 @@ public static class UserEndpoints
             UpdateMyProfileRequest request,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct)
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -82,7 +85,11 @@ public static class UserEndpoints
             }
 
             user.DisplayName = NormalizeOptionalText(request.DisplayName, 60);
-            user.AvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
+            var requestedAvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
+            if (request.AvatarUrl is not null && !IsTemporarySignedStorageUrl(requestedAvatarUrl))
+            {
+                user.AvatarUrl = requestedAvatarUrl;
+            }
             user.Bio = NormalizeOptionalText(request.Bio, 280);
             user.BirthYear = request.BirthYear is >= 1940 and <= 2012 ? request.BirthYear : null;
             user.Gender = NormalizeGender(request.Gender);
@@ -117,7 +124,7 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
@@ -163,6 +170,7 @@ public static class UserEndpoints
             MatchContactsRequest request,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -243,7 +251,7 @@ public static class UserEndpoints
                     user.Id,
                     user.Nickname,
                     user.DisplayName,
-                    user.AvatarUrl,
+                    mediaStorage.ResolveUrl(user.AvatarUrl),
                     ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
                     matchSource,
                     snapshot.CurrentVenueName,
@@ -258,6 +266,7 @@ public static class UserEndpoints
             string q,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -310,7 +319,7 @@ public static class UserEndpoints
                     user.Id,
                     user.Nickname,
                     user.DisplayName,
-                    user.AvatarUrl,
+                    mediaStorage.ResolveUrl(user.AvatarUrl),
                     ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
                     false,
                     false,
@@ -419,7 +428,7 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
@@ -432,6 +441,7 @@ public static class UserEndpoints
             string? period,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -490,7 +500,7 @@ public static class UserEndpoints
                 .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
                 .ToListAsync(ct);
 
-            var topPeople = sharedFriendIds.Count == 0
+            var topPeopleRows = sharedFriendIds.Count == 0
                 ? new List<FriendRecapItemDto>()
                 : await db.Users
                     .AsNoTracking()
@@ -504,6 +514,9 @@ public static class UserEndpoints
                         x.AvatarUrl,
                         0))
                     .ToListAsync(ct);
+            var topPeople = topPeopleRows
+                .Select(x => x with { AvatarUrl = mediaStorage.ResolveUrl(x.AvatarUrl) })
+                .ToList();
 
             var recap = new UserRecapDto(
                 normalizedPeriod,
@@ -528,6 +541,7 @@ public static class UserEndpoints
 
     internal static async Task<UserProfileDto?> BuildUserProfileDtoAsync(
         AppDbContext db,
+        MediaStorageService mediaStorage,
         Guid viewerUserId,
         Guid userId,
         CancellationToken ct)
@@ -659,7 +673,7 @@ public static class UserEndpoints
             user.Id,
             user.Nickname,
             user.DisplayName,
-            user.AvatarUrl,
+            mediaStorage.ResolveUrl(user.AvatarUrl),
             user.Bio,
             user.BirthYear,
             user.Gender,
@@ -838,7 +852,24 @@ public static class UserEndpoints
         }
 
         var trimmed = value.Trim();
+        if (trimmed.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
         return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ? uri.ToString() : null;
+    }
+
+    private static bool IsTemporarySignedStorageUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("X-Amz-Signature=", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("X-Amz-Credential=", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("/storage/v1/s3/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeGender(string? value)

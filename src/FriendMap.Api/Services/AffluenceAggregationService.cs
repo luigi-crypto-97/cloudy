@@ -16,12 +16,18 @@ public class AffluenceAggregationService
     private readonly AppDbContext _db;
     private readonly IMemoryCache _cache;
     private readonly PrivacyOptions _privacy;
+    private readonly MediaStorageService _mediaStorage;
 
-    public AffluenceAggregationService(AppDbContext db, IMemoryCache cache, IOptions<PrivacyOptions> privacy)
+    public AffluenceAggregationService(
+        AppDbContext db,
+        IMemoryCache cache,
+        IOptions<PrivacyOptions> privacy,
+        MediaStorageService mediaStorage)
     {
         _db = db;
         _cache = cache;
         _privacy = privacy.Value;
+        _mediaStorage = mediaStorage;
     }
 
     public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(
@@ -275,7 +281,7 @@ public class AffluenceAggregationService
                             user.Id,
                             string.IsNullOrWhiteSpace(user.DisplayName) ? user.Nickname : user.DisplayName!,
                             user.Nickname,
-                            user.AvatarUrl);
+                            _mediaStorage.ResolveUrl(user.AvatarUrl));
                     })
                     .ToList());
         }).ToList();

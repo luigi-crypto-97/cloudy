@@ -121,7 +121,7 @@ Endpoint utili:
 
 Di default avatar, stories e allegati chat vengono salvati localmente in
 `wwwroot/uploads/...`. Per usare Supabase Storage via protocollo S3, crea un
-bucket pubblico su Supabase e genera una coppia di credenziali S3 da Storage
+bucket privato su Supabase e genera una coppia di credenziali S3 da Storage
 settings. Poi avvia l'API con queste variabili:
 
 ```bash
@@ -131,15 +131,17 @@ export MediaStorage__Endpoint=https://<project-ref>.storage.supabase.co/storage/
 export MediaStorage__Region=<region-from-supabase>
 export MediaStorage__AccessKeyId=<supabase-s3-access-key>
 export MediaStorage__SecretAccessKey=<supabase-s3-secret-key>
-export MediaStorage__PublicBaseUrl=https://<project-ref>.supabase.co/storage/v1/object/public/cloudy-media
 export MediaStorage__ForcePathStyle=true
+export MediaStorage__UsePrivateBucket=true
+export MediaStorage__SignedUrlMinutes=15
 
 ./scripts/run-api.sh
 ```
 
 Le chiavi S3 Supabase sono server-side: non inserirle mai nell'app iOS. Il
-bucket deve essere pubblico se vuoi che l'app possa mostrare direttamente le
-immagini tramite URL.
+bucket puo restare privato: il backend salva la chiave interna del file e,
+quando l'app chiede profilo, stories o chat, restituisce un URL firmato
+temporaneo.
 
 Se durante l'upload vedi `SignatureDoesNotMatch`, ricontrolla questi punti:
 
@@ -148,8 +150,11 @@ Se durante l'upload vedi `SignatureDoesNotMatch`, ricontrolla questi punti:
   `service_role`.
 - `Region` deve essere copiata dalla stessa schermata Supabase S3.
 - `Endpoint` deve includere anche `/storage/v1/s3`.
-- `Bucket` deve essere esattamente il nome del bucket pubblico, ad esempio
+- `Bucket` deve essere esattamente il nome del bucket Supabase, ad esempio
   `cloudy-media`.
+- il bucket deve esistere e puo avere `Public bucket` disattivato.
+- `UsePrivateBucket=true` richiede che gli URL vengano sempre letti tramite API,
+  non copiati direttamente dal pannello Supabase.
 - dopo aver cambiato gli `export`, devi fermare e riavviare l'API.
 
 Dev-login app:

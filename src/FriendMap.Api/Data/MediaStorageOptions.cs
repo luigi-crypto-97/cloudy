@@ -11,4 +11,6 @@ public class MediaStorageOptions
     public string AccessKeyId { get; set; } = "";
     public string SecretAccessKey { get; set; } = "";
     public bool ForcePathStyle { get; set; } = true;
+    public bool UsePrivateBucket { get; set; } = true;
+    public int SignedUrlMinutes { get; set; } = 15;
 }
