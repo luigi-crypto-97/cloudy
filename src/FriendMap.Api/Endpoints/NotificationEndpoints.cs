@@ -13,6 +13,100 @@ public static class NotificationEndpoints
     {
         var group = app.MapGroup("/api/notifications").WithTags("Notifications").RequireAuthorization();
 
+        group.MapGet("/", async (
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var items = await db.NotificationOutboxItems
+                .AsNoTracking()
+                .Where(x => x.UserId == currentUserId && x.DeletedAtUtc == null)
+                .OrderByDescending(x => x.CreatedAtUtc)
+                .Take(80)
+                .Select(x => new NotificationOutboxItemDto(
+                    x.Id,
+                    x.Title,
+                    x.Body,
+                    ResolveNotificationType(x.PayloadJson),
+                    x.CreatedAtUtc,
+                    x.IsRead,
+                    x.DeepLink))
+                .ToListAsync(ct);
+
+            return Results.Ok(items);
+        });
+
+        group.MapGet("/unread-count", async (
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var count = await db.NotificationOutboxItems
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == currentUserId && !x.IsRead && x.DeletedAtUtc == null, ct);
+
+            return Results.Ok(new NotificationUnreadCountDto(count));
+        });
+
+        group.MapPost("/mark-read", async (
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var updated = await db.NotificationOutboxItems
+                .Where(x => x.UserId == currentUserId && !x.IsRead && x.DeletedAtUtc == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.IsRead, true)
+                    .SetProperty(x => x.ReadAtUtc, now)
+                    .SetProperty(x => x.UpdatedAtUtc, now), ct);
+
+            return Results.Ok(new { updated });
+        });
+
+        group.MapDelete("/{notificationId:guid}", async (
+            Guid notificationId,
+            AppDbContext db,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var updated = await db.NotificationOutboxItems
+                .Where(x => x.Id == notificationId && x.UserId == currentUserId && x.DeletedAtUtc == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.DeletedAtUtc, now)
+                    .SetProperty(x => x.UpdatedAtUtc, now), ct);
+
+            return updated == 0 ? Results.NotFound() : Results.NoContent();
+        });
+
+        group.MapDelete("", DeleteAllAsync);
+        group.MapDelete("/", DeleteAllAsync);
+
         group.MapPost("/device-tokens", async (
             RegisterDeviceTokenRequest request,
             AppDbContext db,
@@ -81,5 +175,50 @@ public static class NotificationEndpoints
         });
 
         return group;
+    }
+
+    private static async Task<IResult> DeleteAllAsync(
+        AppDbContext db,
+        ClaimsPrincipal user,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(user);
+        if (currentUserId == Guid.Empty)
+        {
+            return Results.Forbid();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var updated = await db.NotificationOutboxItems
+            .Where(x => x.UserId == currentUserId && x.DeletedAtUtc == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.DeletedAtUtc, now)
+                .SetProperty(x => x.UpdatedAtUtc, now), ct);
+
+        return Results.Ok(new { deleted = updated });
+    }
+
+    private static string ResolveNotificationType(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson))
+        {
+            return "notification";
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(payloadJson);
+            if (doc.RootElement.TryGetProperty("type", out var type) &&
+                type.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return type.GetString() ?? "notification";
+            }
+        }
+        catch
+        {
+            // Payload is best-effort metadata for the inbox.
+        }
+
+        return "notification";
     }
 }

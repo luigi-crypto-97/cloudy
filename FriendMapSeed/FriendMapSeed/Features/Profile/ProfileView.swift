@@ -8,6 +8,8 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(AuthStore.self) private var auth
     @State private var showEditProfile = false
+    @State private var profile: EditableUserProfile?
+    @State private var isLoadingProfile = false
 
     var body: some View {
         NavigationStack {
@@ -26,15 +28,19 @@ struct ProfileView: View {
             .navigationTitle("Profilo")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showEditProfile) {
-                EditProfileView()
+                EditProfileView {
+                    Task { await loadProfile() }
+                }
             }
+            .task { await loadProfile() }
+            .refreshable { await loadProfile() }
         }
     }
 
     private func header(user: AuthUser) -> some View {
         VStack(spacing: 12) {
             StoryAvatar(
-                url: nil,
+                url: APIClient.shared.mediaURL(from: profile?.avatarUrl),
                 size: 110,
                 hasStory: false,
                 initials: String((user.displayName ?? user.nickname).prefix(1)).uppercased()
@@ -135,5 +141,12 @@ struct ProfileView: View {
         }
         .padding(Theme.Spacing.md)
         .contentShape(Rectangle())
+    }
+
+    private func loadProfile() async {
+        guard case .loggedIn = auth.state else { return }
+        isLoadingProfile = true
+        defer { isLoadingProfile = false }
+        profile = try? await API.myEditableProfile()
     }
 }

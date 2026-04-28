@@ -14,6 +14,7 @@ import SwiftUI
 struct TableThreadView: View {
     let tableId: UUID
 
+    @Environment(\.dismiss) private var dismiss
     @State private var thread: SocialTableThread?
     @State private var draft: String = ""
     @State private var isSending = false
@@ -48,7 +49,19 @@ struct TableThreadView: View {
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
         .navigationTitle(thread?.table.title ?? "Tavolo")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .toolbar {
+            if thread?.table.isHost == true {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(role: .destructive) {
+                        Task { await deleteTable() }
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .accessibilityLabel("Cancella tavolo")
+                }
+            }
+        }
+        .task { await pollThread() }
     }
 
     // MARK: - Sections
@@ -209,6 +222,15 @@ struct TableThreadView: View {
         }
     }
 
+    private func pollThread() async {
+        await load()
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if Task.isCancelled { return }
+            await load()
+        }
+    }
+
     private func send() async {
         let body = draft.trimmingCharacters(in: .whitespaces)
         guard !body.isEmpty else { return }
@@ -241,6 +263,17 @@ struct TableThreadView: View {
             Haptics.tap()
             await load()
         } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func deleteTable() async {
+        do {
+            _ = try await API.deleteTable(tableId: tableId)
+            Haptics.success()
+            dismiss()
+        } catch {
+            Haptics.error()
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }

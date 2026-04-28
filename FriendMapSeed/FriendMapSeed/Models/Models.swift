@@ -30,6 +30,10 @@ struct DevLoginRequest: Codable {
     let displayName: String?
 }
 
+struct UploadMediaResult: Codable {
+    let url: String
+}
+
 // MARK: - Geo
 
 struct GeoPoint: Codable, Hashable {
@@ -202,8 +206,55 @@ struct UserStory: Codable, Hashable, Identifiable {
     let avatarUrl: String?
     let mediaUrl: String?
     let caption: String?
+    let venueId: UUID?
+    let venueName: String?
+    var likeCount: Int
+    var commentCount: Int
+    var hasLiked: Bool
     let createdAtUtc: Date
     let expiresAtUtc: Date
+}
+
+struct VenueStory: Codable, Hashable, Identifiable {
+    let id: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let mediaUrl: String?
+    let caption: String?
+    let venueId: UUID
+    let venueName: String
+    let latitude: Double
+    let longitude: Double
+    var likeCount: Int
+    var commentCount: Int
+    var hasLiked: Bool
+    let createdAtUtc: Date
+    let expiresAtUtc: Date
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+struct StoryLikeResult: Codable, Hashable {
+    let storyId: UUID
+    let liked: Bool
+    let likeCount: Int
+}
+
+struct StoryComment: Codable, Hashable, Identifiable {
+    let commentId: UUID
+    let storyId: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let body: String
+    let createdAtUtc: Date
+    let isMine: Bool
+    var id: UUID { commentId }
 }
 
 // MARK: - Notifications
@@ -216,6 +267,10 @@ struct NotificationItem: Codable, Hashable, Identifiable {
     let createdAtUtc: Date
     let isRead: Bool
     let deepLink: String?
+}
+
+struct NotificationUnreadCount: Codable, Hashable {
+    let count: Int
 }
 
 // MARK: - Editable profile
@@ -265,6 +320,7 @@ struct DirectMessageThreadSummary: Codable, Hashable, Identifiable {
     let avatarUrl: String?
     let lastMessagePreview: String
     let lastMessageAtUtc: Date
+    let unreadCount: Int
     var id: UUID { otherUserId }
 }
 
@@ -295,6 +351,47 @@ struct DirectMessageThread: Codable {
 }
 
 struct SendDirectMessageRequest: Codable {
+    let body: String
+}
+
+// MARK: - Group / venue chats
+
+struct CreateGroupChatRequest: Codable {
+    let title: String
+    let memberUserIds: [UUID]
+}
+
+struct GroupChatSummary: Codable, Hashable, Identifiable {
+    let chatId: UUID
+    let title: String
+    let kind: String
+    let venueId: UUID?
+    let venueName: String?
+    let memberCount: Int
+    let lastMessagePreview: String
+    let lastMessageAtUtc: Date
+    let unreadCount: Int
+    var id: UUID { chatId }
+}
+
+struct GroupChatMessage: Codable, Hashable, Identifiable {
+    let messageId: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let body: String
+    let sentAtUtc: Date
+    let isMine: Bool
+    var id: UUID { messageId }
+}
+
+struct GroupChatThread: Codable {
+    let chat: GroupChatSummary
+    let messages: [GroupChatMessage]
+}
+
+struct SendGroupChatMessageRequest: Codable {
     let body: String
 }
 
@@ -331,12 +428,92 @@ struct SendSocialTableMessageRequest: Codable {
     let body: String
 }
 
+struct CreateCheckInRequest: Codable {
+    let userId: UUID
+    let venueId: UUID
+    let ttlMinutes: Int
+}
+
+struct UpdateLiveLocationRequest: Codable {
+    let userId: UUID
+    let latitude: Double
+    let longitude: Double
+    let accuracyMeters: Double?
+}
+
+struct LiveLocationUpdateResult: Codable, Hashable {
+    let status: String
+    let venueId: UUID?
+    let venueName: String?
+    let expiresAtUtc: Date?
+    let distanceMeters: Double?
+}
+
+struct CreateIntentionRequest: Codable {
+    let userId: UUID
+    let venueId: UUID
+    let startsAtUtc: Date
+    let endsAtUtc: Date
+    let note: String?
+}
+
+struct RegisterDeviceTokenRequest: Codable {
+    let userId: UUID
+    let platform: String
+    let deviceToken: String
+}
+
+struct DeviceTokenRegistrationResult: Codable {
+    let id: UUID
+    let userId: UUID
+    let platform: String
+    let isActive: Bool
+}
+
 // MARK: - Flares
 
 struct CreateFlareRequest: Codable {
     let latitude: Double
     let longitude: Double
     let message: String
+    let durationHours: Int?
+}
+
+struct FlareSignal: Codable, Hashable, Identifiable {
+    let flareId: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let latitude: Double
+    let longitude: Double
+    let message: String
+    let responseCount: Int
+    let createdAtUtc: Date
+    let expiresAtUtc: Date
+    var id: UUID { flareId }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
+struct RespondToFlareRequest: Codable {
+    let body: String
+}
+
+struct CreateSocialTableRequest: Codable {
+    let hostUserId: UUID
+    let venueId: UUID
+    let title: String
+    let description: String?
+    let startsAtUtc: Date
+    let capacity: Int
+    let joinPolicy: String
+}
+
+struct InviteToHostedTableRequest: Codable {
+    let targetUserId: UUID
 }
 
 // MARK: - Privacy
@@ -364,11 +541,23 @@ struct SocialActionResult: Codable {
     let message: String
 }
 
+struct IgnoredResponse: Codable {}
+
 // MARK: - Stories
 
 struct CreateStoryRequest: Codable {
     let mediaUrl: String
     let caption: String?
+    let venueId: UUID?
+}
+
+struct AddStoryCommentRequest: Codable {
+    let body: String
+}
+
+struct ShareStoryRequest: Codable {
+    let targetUserId: UUID
+    let message: String?
 }
 
 // MARK: - Helpers

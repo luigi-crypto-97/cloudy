@@ -59,7 +59,8 @@ public record DirectMessageThreadSummaryDto(
     string? DisplayName,
     string? AvatarUrl,
     string LastMessagePreview,
-    DateTimeOffset LastMessageAtUtc);
+    DateTimeOffset LastMessageAtUtc,
+    int UnreadCount);
 
 public record DirectMessageDto(
     Guid MessageId,

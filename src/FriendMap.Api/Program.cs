@@ -4,6 +4,7 @@ using FriendMap.Api.Hubs;
 using FriendMap.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -52,6 +53,16 @@ builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.Ge
 builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
 builder.Services.Configure<FoursquareOptions>(builder.Configuration.GetSection("Foursquare"));
 builder.Services.Configure<OverpassOptions>(builder.Configuration.GetSection("Overpass"));
+builder.Services.Configure<MediaStorageOptions>(builder.Configuration.GetSection("MediaStorage"));
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedHost |
+        ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -63,6 +74,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AffluenceAggregationService>();
 builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<VenueAnalyticsService>();
+builder.Services.AddScoped<MediaStorageService>();
 var foursquareOptions = builder.Configuration.GetSection("Foursquare").Get<FoursquareOptions>() ?? new FoursquareOptions();
 var overpassOptions = builder.Configuration.GetSection("Overpass").Get<OverpassOptions>() ?? new OverpassOptions();
 builder.Services.AddHttpClient<FoursquareVenueImportService>(client =>
@@ -113,7 +125,9 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Global rate limit: 100 req/min per IP (anonymous) or per user ID (authenticated)
+    // Global rate limit per IP (anonymous) or per user ID (authenticated).
+    // The mobile app refreshes map overlays, stories and chat in parallel; keep this
+    // protective without blocking normal in-app bursts.
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
         var key = context.User.Identity?.IsAuthenticated == true
@@ -123,14 +137,15 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: key,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = 240,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 2
+                QueueLimit = 8
             });
     });
 
-    // Stricter policy for write-heavy social endpoints
+    // Social endpoints include reads and writes for map overlays, stories, chat and
+    // flares. A small queue avoids false 429s when the app fires concurrent actions.
     options.AddPolicy("social", context =>
     {
         var userId = context.User.Identity?.IsAuthenticated == true
@@ -140,10 +155,10 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: userId,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 30,
+                PermitLimit = 120,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
+                QueueLimit = 6
             });
     });
 });
@@ -160,6 +175,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 app.UseRateLimiter();
 app.UseCors("default");
@@ -281,3 +297,5 @@ app.MapDiscoveryEndpoints();
 app.MapGamificationEndpoints();
 
 app.Run();
+
+public partial class Program;

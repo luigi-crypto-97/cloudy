@@ -185,6 +185,19 @@ public record CreateCheckInRequest(
     Guid VenueId,
     int TtlMinutes);
 
+public record UpdateLiveLocationRequest(
+    Guid UserId,
+    double Latitude,
+    double Longitude,
+    double? AccuracyMeters);
+
+public record LiveLocationUpdateResultDto(
+    string Status,
+    Guid? VenueId,
+    string? VenueName,
+    DateTimeOffset? ExpiresAtUtc,
+    double? DistanceMeters);
+
 public record CreateSocialTableRequest(
     Guid HostUserId,
     Guid VenueId,

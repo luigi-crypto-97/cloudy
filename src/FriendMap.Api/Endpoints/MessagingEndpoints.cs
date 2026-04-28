@@ -17,7 +17,67 @@ public static class MessagingEndpoints
         group.MapGet("/threads", GetThreadsAsync);
         group.MapGet("/threads/{otherUserId:guid}", GetThreadAsync);
         group.MapPost("/threads/{otherUserId:guid}", PostThreadMessageAsync);
+        group.MapPost("/files", UploadMessageFileAsync);
+        group.MapGet("/groups", GetGroupChatsAsync);
+        group.MapPost("/groups", CreateGroupChatAsync);
+        group.MapGet("/groups/{chatId:guid}", GetGroupChatThreadAsync);
+        group.MapPost("/groups/{chatId:guid}/messages", PostGroupChatMessageAsync);
+        group.MapGet("/venues/{venueId:guid}/chat", GetVenueChatThreadAsync);
+        group.MapPost("/venues/{venueId:guid}/chat/messages", PostVenueChatMessageAsync);
         return group;
+    }
+
+    private static async Task<IResult> UploadMessageFileAsync(
+        HttpRequest request,
+        ClaimsPrincipal principal,
+        MediaStorageService mediaStorage,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty)
+        {
+            return Results.Forbid();
+        }
+
+        if (!request.HasFormContentType)
+        {
+            return Results.BadRequest(new { message = "Upload multipart/form-data richiesto." });
+        }
+
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync(ct);
+        }
+        catch (InvalidDataException)
+        {
+            return Results.BadRequest(new { message = "Upload multipart/form-data non valido." });
+        }
+
+        var file = form.Files.GetFile("file");
+        if (file is null || file.Length == 0)
+        {
+            return Results.BadRequest(new { message = "File mancante." });
+        }
+
+        const long maxBytes = 25 * 1024 * 1024;
+        if (file.Length > maxBytes)
+        {
+            return Results.BadRequest(new { message = "File troppo grande. Massimo 25MB." });
+        }
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf", ".txt", ".mov", ".mp4"
+        };
+        if (!allowed.Contains(extension))
+        {
+            return Results.BadRequest(new { message = "Formato file non supportato." });
+        }
+
+        var url = await mediaStorage.UploadAsync(file, "uploads/messages", currentUserId, request, ct);
+        return Results.Ok(new UploadMediaResult(url));
     }
 
     private static async Task<IResult> GetThreadsAsync(
@@ -53,6 +113,15 @@ public static class MessagingEndpoints
                 .Select(g => g.OrderByDescending(x => x.CreatedAtUtc).First())
                 .ToDictionaryAsync(x => x.ThreadId, ct);
 
+        var unreadCounts = threadIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await db.DirectMessages
+                .AsNoTracking()
+                .Where(x => threadIds.Contains(x.ThreadId) && x.SenderUserId != currentUserId && x.ReadAtUtc == null)
+                .GroupBy(x => x.ThreadId)
+                .Select(g => new { ThreadId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.ThreadId, x => x.Count, ct);
+
         var otherUserIds = threads
             .Select(x => x.UserLowId == currentUserId ? x.UserHighId : x.UserLowId)
             .Distinct()
@@ -78,7 +147,8 @@ public static class MessagingEndpoints
                     user.DisplayName,
                     user.AvatarUrl,
                     BuildLastMessagePreview(lastMessage?.Body),
-                    thread.LastMessageAtUtc);
+                    thread.LastMessageAtUtc,
+                    unreadCounts.TryGetValue(thread.Id, out var unreadCount) ? unreadCount : 0);
             })
             .ToList();
 
@@ -111,8 +181,17 @@ public static class MessagingEndpoints
 
         var (lowId, highId) = NormalizePair(currentUserId, otherUserId);
         var thread = await db.DirectMessageThreads
-            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.UserLowId == lowId && x.UserHighId == highId, ct);
+
+        if (thread is not null)
+        {
+            var now = DateTimeOffset.UtcNow;
+            await db.DirectMessages
+                .Where(x => x.ThreadId == thread.Id && x.SenderUserId != currentUserId && x.ReadAtUtc == null)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.ReadAtUtc, now)
+                    .SetProperty(x => x.UpdatedAtUtc, now), ct);
+        }
 
         var messages = thread is null
             ? new List<DirectMessageDto>()
@@ -182,12 +261,14 @@ public static class MessagingEndpoints
         thread.LastMessageAtUtc = DateTimeOffset.UtcNow;
         thread.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        db.DirectMessages.Add(new DirectMessage
+        var message = new DirectMessage
         {
             ThreadId = thread.Id,
             SenderUserId = currentUserId,
-            Body = request.Body.Trim()
-        });
+            Body = request.Body.Trim(),
+            ReadAtUtc = DateTimeOffset.UtcNow
+        };
+        db.DirectMessages.Add(message);
 
         await db.SaveChangesAsync(ct);
 
@@ -207,7 +288,350 @@ public static class MessagingEndpoints
             SentAt = DateTimeOffset.UtcNow
         }, ct);
 
-        return Results.Ok(new SocialActionResultDto("sent", "Messaggio inviato."));
+        var currentUser = await db.Users.AsNoTracking().FirstAsync(x => x.Id == currentUserId, ct);
+        return Results.Ok(new DirectMessageDto(
+            message.Id,
+            message.SenderUserId,
+            currentUser.Nickname,
+            currentUser.DisplayName,
+            currentUser.AvatarUrl,
+            message.Body,
+            message.CreatedAtUtc,
+            true));
+    }
+
+    private static async Task<IResult> GetGroupChatsAsync(
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+
+        var memberships = await db.GroupChatMembers
+            .AsNoTracking()
+            .Where(x => x.UserId == currentUserId)
+            .ToListAsync(ct);
+        var chatIds = memberships.Select(x => x.GroupChatId).ToList();
+
+        var chats = chatIds.Count == 0
+            ? new List<GroupChat>()
+            : await db.GroupChats.AsNoTracking()
+                .Where(x => chatIds.Contains(x.Id) && !x.IsArchived)
+                .OrderByDescending(x => x.LastMessageAtUtc)
+                .Take(80)
+                .ToListAsync(ct);
+
+        var summaries = await BuildGroupChatSummariesAsync(db, chats, currentUserId, memberships, ct);
+        return Results.Ok(summaries);
+    }
+
+    private static async Task<IResult> CreateGroupChatAsync(
+        CreateGroupChatRequest request,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+
+        var title = request.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 80)
+        {
+            return Results.BadRequest("Titolo chat richiesto, massimo 80 caratteri.");
+        }
+
+        var targetIds = request.MemberUserIds
+            .Where(x => x != Guid.Empty && x != currentUserId)
+            .Distinct()
+            .Take(30)
+            .ToList();
+        if (targetIds.Count == 0)
+        {
+            return Results.BadRequest("Seleziona almeno un amico.");
+        }
+
+        var friendIds = await db.FriendRelations.AsNoTracking()
+            .Where(x => x.Status == "accepted" && (x.RequesterId == currentUserId || x.AddresseeId == currentUserId))
+            .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
+            .ToListAsync(ct);
+        if (targetIds.Any(x => !friendIds.Contains(x)))
+        {
+            return Results.Conflict("Puoi aggiungere solo amici alla chat.");
+        }
+
+        var chat = new GroupChat
+        {
+            CreatedByUserId = currentUserId,
+            Title = title,
+            Kind = "group",
+            LastMessageAtUtc = DateTimeOffset.UtcNow
+        };
+        db.GroupChats.Add(chat);
+        db.GroupChatMembers.Add(new GroupChatMember { GroupChatId = chat.Id, UserId = currentUserId, Role = "owner", LastReadAtUtc = DateTimeOffset.UtcNow });
+        foreach (var userId in targetIds)
+        {
+            db.GroupChatMembers.Add(new GroupChatMember { GroupChatId = chat.Id, UserId = userId });
+        }
+        await db.SaveChangesAsync(ct);
+
+        var summary = (await BuildGroupChatSummariesAsync(db, new[] { chat }, currentUserId, null, ct)).Single();
+        return Results.Created($"/api/messages/groups/{chat.Id}", summary);
+    }
+
+    private static async Task<IResult> GetGroupChatThreadAsync(
+        Guid chatId,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+
+        var chat = await db.GroupChats.AsNoTracking().FirstOrDefaultAsync(x => x.Id == chatId && !x.IsArchived, ct);
+        if (chat is null) return Results.NotFound();
+        if (!await EnsureGroupMembershipAsync(db, chat, currentUserId, ct)) return Results.Forbid();
+
+        var now = DateTimeOffset.UtcNow;
+        await db.GroupChatMembers
+            .Where(x => x.GroupChatId == chatId && x.UserId == currentUserId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.LastReadAtUtc, now)
+                .SetProperty(x => x.UpdatedAtUtc, now), ct);
+
+        var summary = (await BuildGroupChatSummariesAsync(db, new[] { chat }, currentUserId, null, ct)).Single();
+        var messages = await BuildGroupMessagesAsync(db, chatId, currentUserId, ct);
+        return Results.Ok(new GroupChatThreadDto(summary, messages));
+    }
+
+    private static async Task<IResult> PostGroupChatMessageAsync(
+        Guid chatId,
+        SendGroupChatMessageRequest request,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+
+        var chat = await db.GroupChats.FirstOrDefaultAsync(x => x.Id == chatId && !x.IsArchived, ct);
+        if (chat is null) return Results.NotFound();
+        if (!await EnsureGroupMembershipAsync(db, chat, currentUserId, ct)) return Results.Forbid();
+
+        var body = request.Body?.Trim();
+        if (string.IsNullOrWhiteSpace(body) || body.Length > 1000)
+        {
+            return Results.BadRequest("Messaggio richiesto, massimo 1000 caratteri.");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        chat.LastMessageAtUtc = now;
+        chat.UpdatedAtUtc = now;
+        var message = new GroupChatMessage { GroupChatId = chat.Id, UserId = currentUserId, Body = body };
+        db.GroupChatMessages.Add(message);
+        await db.GroupChatMembers
+            .Where(x => x.GroupChatId == chatId && x.UserId == currentUserId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(x => x.LastReadAtUtc, now)
+                .SetProperty(x => x.UpdatedAtUtc, now), ct);
+        await db.SaveChangesAsync(ct);
+
+        var author = await db.Users.AsNoTracking().FirstAsync(x => x.Id == currentUserId, ct);
+        return Results.Ok(new GroupChatMessageDto(
+            message.Id,
+            currentUserId,
+            author.Nickname,
+            author.DisplayName,
+            author.AvatarUrl,
+            message.Body,
+            message.CreatedAtUtc,
+            true));
+    }
+
+    private static async Task<IResult> GetVenueChatThreadAsync(
+        Guid venueId,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+        var chat = await GetOrCreateVenueChatAsync(db, venueId, currentUserId, ct);
+        if (chat is null) return Results.NotFound("Locale non trovato.");
+        return await GetGroupChatThreadAsync(chat.Id, principal, db, ct);
+    }
+
+    private static async Task<IResult> PostVenueChatMessageAsync(
+        Guid venueId,
+        SendGroupChatMessageRequest request,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty) return Results.Forbid();
+        var chat = await GetOrCreateVenueChatAsync(db, venueId, currentUserId, ct);
+        if (chat is null) return Results.NotFound("Locale non trovato.");
+        return await PostGroupChatMessageAsync(chat.Id, request, principal, db, ct);
+    }
+
+    private static async Task<bool> EnsureGroupMembershipAsync(AppDbContext db, GroupChat chat, Guid userId, CancellationToken ct)
+    {
+        if (chat.Kind == "venue")
+        {
+            var membership = await db.GroupChatMembers
+                .FirstOrDefaultAsync(x => x.GroupChatId == chat.Id && x.UserId == userId, ct);
+            if (membership is null)
+            {
+                db.GroupChatMembers.Add(new GroupChatMember
+                {
+                    GroupChatId = chat.Id,
+                    UserId = userId,
+                    Role = "member",
+                    LastReadAtUtc = DateTimeOffset.UtcNow
+                });
+                await db.SaveChangesAsync(ct);
+            }
+            return true;
+        }
+
+        return await db.GroupChatMembers
+            .AsNoTracking()
+            .AnyAsync(x => x.GroupChatId == chat.Id && x.UserId == userId, ct);
+    }
+
+    private static async Task<GroupChat?> GetOrCreateVenueChatAsync(AppDbContext db, Guid venueId, Guid currentUserId, CancellationToken ct)
+    {
+        var venue = await db.Venues.AsNoTracking().FirstOrDefaultAsync(x => x.Id == venueId, ct);
+        if (venue is null)
+        {
+            return null;
+        }
+
+        var chat = await db.GroupChats
+            .FirstOrDefaultAsync(x => x.Kind == "venue" && x.VenueId == venueId && !x.IsArchived, ct);
+        if (chat is null)
+        {
+            chat = new GroupChat
+            {
+                CreatedByUserId = currentUserId,
+                VenueId = venueId,
+                Title = $"Chat di {venue.Name}",
+                Kind = "venue",
+                LastMessageAtUtc = DateTimeOffset.UtcNow
+            };
+            db.GroupChats.Add(chat);
+        }
+
+        var hasMembership = await db.GroupChatMembers
+            .AnyAsync(x => x.GroupChatId == chat.Id && x.UserId == currentUserId, ct);
+        if (!hasMembership)
+        {
+            db.GroupChatMembers.Add(new GroupChatMember
+            {
+                GroupChatId = chat.Id,
+                UserId = currentUserId,
+                Role = "member",
+                LastReadAtUtc = DateTimeOffset.UtcNow
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return chat;
+    }
+
+    private static async Task<List<GroupChatSummaryDto>> BuildGroupChatSummariesAsync(
+        AppDbContext db,
+        IReadOnlyCollection<GroupChat> chats,
+        Guid currentUserId,
+        IReadOnlyCollection<GroupChatMember>? currentMemberships,
+        CancellationToken ct)
+    {
+        if (chats.Count == 0)
+        {
+            return new List<GroupChatSummaryDto>();
+        }
+
+        var chatIds = chats.Select(x => x.Id).ToList();
+        var venueIds = chats.Where(x => x.VenueId.HasValue).Select(x => x.VenueId!.Value).Distinct().ToList();
+        var venues = venueIds.Count == 0
+            ? new Dictionary<Guid, Venue>()
+            : await db.Venues.AsNoTracking().Where(x => venueIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
+
+        var memberships = currentMemberships is not null
+            ? currentMemberships.Where(x => chatIds.Contains(x.GroupChatId)).ToDictionary(x => x.GroupChatId)
+            : await db.GroupChatMembers.AsNoTracking()
+                .Where(x => chatIds.Contains(x.GroupChatId) && x.UserId == currentUserId)
+                .ToDictionaryAsync(x => x.GroupChatId, ct);
+
+        var memberCounts = await db.GroupChatMembers.AsNoTracking()
+            .Where(x => chatIds.Contains(x.GroupChatId))
+            .GroupBy(x => x.GroupChatId)
+            .Select(g => new { ChatId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ChatId, x => x.Count, ct);
+
+        var lastMessages = await db.GroupChatMessages.AsNoTracking()
+            .Where(x => chatIds.Contains(x.GroupChatId))
+            .GroupBy(x => x.GroupChatId)
+            .Select(g => g.OrderByDescending(x => x.CreatedAtUtc).First())
+            .ToDictionaryAsync(x => x.GroupChatId, ct);
+
+        var unreadRows = await db.GroupChatMessages.AsNoTracking()
+            .Where(x => chatIds.Contains(x.GroupChatId) && x.UserId != currentUserId)
+            .Select(x => new { x.GroupChatId, x.CreatedAtUtc })
+            .ToListAsync(ct);
+
+        return chats
+            .Where(chat => memberships.ContainsKey(chat.Id))
+            .Select(chat =>
+            {
+                memberships.TryGetValue(chat.Id, out var membership);
+                lastMessages.TryGetValue(chat.Id, out var lastMessage);
+                var lastReadAt = membership?.LastReadAtUtc ?? DateTimeOffset.MinValue;
+                var unreadCount = unreadRows.Count(x => x.GroupChatId == chat.Id && x.CreatedAtUtc > lastReadAt);
+                var venueName = chat.VenueId.HasValue && venues.TryGetValue(chat.VenueId.Value, out var venue)
+                    ? venue.Name
+                    : null;
+                return new GroupChatSummaryDto(
+                    chat.Id,
+                    chat.Title,
+                    chat.Kind,
+                    chat.VenueId,
+                    venueName,
+                    memberCounts.TryGetValue(chat.Id, out var count) ? count : 0,
+                    BuildLastMessagePreview(lastMessage?.Body),
+                    chat.LastMessageAtUtc,
+                    unreadCount);
+            })
+            .OrderByDescending(x => x.LastMessageAtUtc)
+            .ToList();
+    }
+
+    private static async Task<List<GroupChatMessageDto>> BuildGroupMessagesAsync(
+        AppDbContext db,
+        Guid chatId,
+        Guid currentUserId,
+        CancellationToken ct)
+    {
+        return await db.GroupChatMessages
+            .AsNoTracking()
+            .Where(x => x.GroupChatId == chatId)
+            .OrderBy(x => x.CreatedAtUtc)
+            .Take(300)
+            .Join(
+                db.Users.AsNoTracking(),
+                message => message.UserId,
+                user => user.Id,
+                (message, user) => new GroupChatMessageDto(
+                    message.Id,
+                    message.UserId,
+                    user.Nickname,
+                    user.DisplayName,
+                    user.AvatarUrl,
+                    message.Body,
+                    message.CreatedAtUtc,
+                    message.UserId == currentUserId))
+            .ToListAsync(ct);
     }
 
     private static async Task<IResult?> ValidateMessagingAccessAsync(AppDbContext db, Guid currentUserId, Guid otherUserId, CancellationToken ct)

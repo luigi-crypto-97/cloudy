@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -8,23 +8,34 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FriendMap.Admin", "src\Frie
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FriendMap.Mobile", "src\FriendMap.Mobile\FriendMap.Mobile.csproj", "{A9B6C74D-1A17-45EC-92E2-000000000003}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B46CBE9F-7C40-47CC-920F-BEAE203CF37E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FriendMap.Api.Tests", "tests\FriendMap.Api.Tests\FriendMap.Api.Tests.csproj", "{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664}"
+EndProject
 Global
-    GlobalSection(SolutionConfigurationPlatforms) = preSolution
-        Debug|Any CPU = Debug|Any CPU
-        Release|Any CPU = Release|Any CPU
-    EndGlobalSection
-    GlobalSection(ProjectConfigurationPlatforms) = postSolution
-        {A9B6C74D-1A17-45EC-92E2-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {A9B6C74D-1A17-45EC-92E2-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
-    EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A9B6C74D-1A17-45EC-92E2-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000002}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000002}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000003}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9B6C74D-1A17-45EC-92E2-000000000003}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F19969D0-BBD0-4D47-B5CD-B1B80A6BB664} = {B46CBE9F-7C40-47CC-920F-BEAE203CF37E}
+	EndGlobalSection
 EndGlobal

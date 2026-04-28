@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import MapKit
 
 @MainActor
 @Observable
@@ -34,6 +35,7 @@ final class TablesStore {
 struct TablesView: View {
     @State private var store = TablesStore()
     @State private var swipingIndex: Int = 0
+    @State private var showCreateTable = false
 
     var body: some View {
         NavigationStack {
@@ -56,6 +58,23 @@ struct TablesView: View {
             }
             .navigationTitle("Tavoli")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showCreateTable = true
+                        Haptics.tap()
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .heavy))
+                    }
+                    .accessibilityLabel("Crea tavolo")
+                }
+            }
+            .sheet(isPresented: $showCreateTable) {
+                CreateTableFlowView(onCreated: {
+                    Task { await store.load() }
+                })
+            }
             .refreshable { await store.load() }
             .task { await store.load() }
         }
@@ -148,6 +167,207 @@ struct TablesView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Create table
+
+private struct CreateTableFlowView: View {
+    var onCreated: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AuthStore.self) private var auth
+    @Environment(LiveLocationStore.self) private var liveLocation
+
+    @State private var venueQuery = ""
+    @State private var venues: [VenueMarker] = []
+    @State private var selectedVenue: VenueMarker?
+    @State private var title = ""
+    @State private var description = ""
+    @State private var startsAt = Date().addingTimeInterval(60 * 60)
+    @State private var capacity = 4
+    @State private var joinPolicy = "auto"
+    @State private var friends: [SocialConnection] = []
+    @State private var selectedFriendIds: Set<UUID> = []
+    @State private var isLoadingVenues = false
+    @State private var isSaving = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Luogo") {
+                    TextField("Cerca locale", text: $venueQuery)
+                        .textInputAutocapitalization(.words)
+                        .onSubmit { Task { await searchVenues() } }
+                    Button(isLoadingVenues ? "Cerco…" : "Cerca") {
+                        Task { await searchVenues() }
+                    }
+                    .disabled(isLoadingVenues)
+
+                    ForEach(venues.prefix(8)) { venue in
+                        Button {
+                            selectedVenue = venue
+                            if title.isEmpty {
+                                title = "Tavolo da \(venue.name)"
+                            }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(venue.name)
+                                        .foregroundStyle(Theme.Palette.ink)
+                                    Text(venue.city)
+                                        .font(Theme.Font.caption(12))
+                                        .foregroundStyle(Theme.Palette.inkMuted)
+                                }
+                                Spacer()
+                                if selectedVenue?.venueId == venue.venueId {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Theme.Palette.blue500)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Section("Tavolo") {
+                    TextField("Tema del tavolo", text: $title)
+                    TextField("Nota opzionale", text: $description, axis: .vertical)
+                    DatePicker("Data e ora", selection: $startsAt, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                    Stepper("Posti: \(capacity)", value: $capacity, in: 2...20)
+                    Picker("Ingresso", selection: $joinPolicy) {
+                        Text("Libero finché ci sono posti").tag("auto")
+                        Text("Con approvazione").tag("approval")
+                    }
+                }
+
+                if !friends.isEmpty {
+                    Section("Invita amici") {
+                        ForEach(friends) { friend in
+                            Toggle(isOn: binding(for: friend.userId)) {
+                                HStack(spacing: 10) {
+                                    StoryAvatar(
+                                        url: APIClient.shared.mediaURL(from: friend.avatarUrl),
+                                        size: 34,
+                                        initials: String((friend.displayName ?? friend.nickname).prefix(1)).uppercased()
+                                    )
+                                    Text(friend.displayName ?? friend.nickname)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let error {
+                    Section {
+                        Text(error).foregroundStyle(Theme.Palette.densityHigh)
+                    }
+                }
+            }
+            .navigationTitle("Nuovo tavolo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annulla") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? "Creo…" : "Crea") {
+                        Task { await create() }
+                    }
+                    .disabled(isSaving || selectedVenue == nil || cleanTitle.isEmpty)
+                }
+            }
+            .task {
+                async let venueLoad: Void = searchVenues()
+                async let friendLoad: Void = loadFriends()
+                _ = await (venueLoad, friendLoad)
+            }
+        }
+    }
+
+    private var cleanTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var currentUserId: UUID? {
+        if case .loggedIn(let user) = auth.state {
+            return user.userId
+        }
+        return nil
+    }
+
+    private func binding(for userId: UUID) -> Binding<Bool> {
+        Binding(
+            get: { selectedFriendIds.contains(userId) },
+            set: { isSelected in
+                if isSelected {
+                    selectedFriendIds.insert(userId)
+                } else {
+                    selectedFriendIds.remove(userId)
+                }
+            }
+        )
+    }
+
+    private func searchVenues() async {
+        isLoadingVenues = true
+        defer { isLoadingVenues = false }
+        let center = liveLocation.currentLocation?.coordinate ?? MapStore.milanDefault.center
+        let delta = 0.22
+        do {
+            venues = try await API.venueMap(
+                minLat: center.latitude - delta,
+                minLng: center.longitude - delta,
+                maxLat: center.latitude + delta,
+                maxLng: center.longitude + delta,
+                query: venueQuery.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                centerLat: center.latitude,
+                centerLng: center.longitude,
+                maxDistanceKm: 30
+            )
+            if selectedVenue == nil {
+                selectedVenue = venues.first
+            }
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadFriends() async {
+        friends = (try? await API.socialHub().friends) ?? []
+    }
+
+    private func create() async {
+        guard let currentUserId, let selectedVenue else { return }
+        isSaving = true
+        error = nil
+        defer { isSaving = false }
+        do {
+            let table = try await API.createTable(CreateSocialTableRequest(
+                hostUserId: currentUserId,
+                venueId: selectedVenue.venueId,
+                title: cleanTitle,
+                description: description.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                startsAtUtc: startsAt,
+                capacity: capacity,
+                joinPolicy: joinPolicy
+            ))
+            for userId in selectedFriendIds {
+                _ = try? await API.inviteToTable(tableId: table.tableId, targetUserId: userId)
+            }
+            Haptics.success()
+            onCreated()
+            dismiss()
+        } catch {
+            Haptics.error()
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

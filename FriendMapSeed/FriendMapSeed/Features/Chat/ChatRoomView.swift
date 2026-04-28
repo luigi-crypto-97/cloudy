@@ -8,6 +8,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 struct ChatRoomView: View {
     let otherUserId: UUID
@@ -17,6 +19,8 @@ struct ChatRoomView: View {
     @State private var draft: String = ""
     @State private var isSending = false
     @State private var errorMessage: String?
+    @State private var photoItem: PhotosPickerItem?
+    @State private var showsFileImporter = false
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
@@ -54,7 +58,13 @@ struct ChatRoomView: View {
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
         .navigationTitle(peerName)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await load() }
+        .task { await pollThread() }
+        .onChange(of: photoItem) { _, item in
+            Task { await sendPhoto(item) }
+        }
+        .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.item], allowsMultipleSelection: false) { result in
+            Task { await sendImportedFile(result) }
+        }
     }
 
     // MARK: - UI
@@ -82,6 +92,24 @@ struct ChatRoomView: View {
 
     private var composer: some View {
         HStack(spacing: 10) {
+            Menu {
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("Foto", systemImage: "photo")
+                }
+                Button {
+                    showsFileImporter = true
+                } label: {
+                    Label("File", systemImage: "paperclip")
+                }
+            } label: {
+                Image(systemName: isSending ? "hourglass" : "plus")
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Theme.Palette.blue50))
+            }
+            .disabled(isSending)
+
             TextField("Scrivi un messaggio…", text: $draft, axis: .vertical)
                 .focused($fieldFocused)
                 .lineLimit(1...4)
@@ -118,9 +146,19 @@ struct ChatRoomView: View {
     private func load() async {
         do {
             thread = try await API.messageThread(otherUserId: otherUserId)
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func pollThread() async {
+        await load()
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if Task.isCancelled { return }
+            await load()
         }
     }
 
@@ -137,6 +175,56 @@ struct ChatRoomView: View {
         } catch {
             Haptics.error()
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+    }
+
+    private func sendPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else { return }
+            await uploadAndSend(data: data, fileName: "foto-\(UUID().uuidString).jpg", mimeType: "image/jpeg")
+            photoItem = nil
+        } catch {
+            Haptics.error()
+            errorMessage = "Impossibile leggere la foto."
         }
+    }
+
+    private func sendImportedFile(_ result: Result<[URL], Error>) async {
+        do {
+            guard let url = try result.get().first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didAccess { url.stopAccessingSecurityScopedResource() }
+            }
+            let data = try Data(contentsOf: url)
+            await uploadAndSend(data: data, fileName: url.lastPathComponent, mimeType: mimeType(for: url))
+        } catch {
+            Haptics.error()
+            errorMessage = "Impossibile allegare il file."
+        }
+    }
+
+    private func uploadAndSend(data: Data, fileName: String, mimeType: String) async {
+        isSending = true
+        defer { isSending = false }
+        do {
+            let url = try await API.uploadChatFile(data: data, fileName: fileName, mimeType: mimeType)
+            let body = "📎 \(fileName)\n\(url)"
+            _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
+            Haptics.success()
+            await load()
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func mimeType(for url: URL) -> String {
+        if let type = UTType(filenameExtension: url.pathExtension),
+           let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
     }
 }

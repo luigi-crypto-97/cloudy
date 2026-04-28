@@ -117,6 +117,30 @@ Endpoint utili:
 - `http://localhost:8080/api/venues/map?minLat=45.40&minLng=9.10&maxLat=45.55&maxLng=9.30`
 - `http://localhost:8080/api/admin/dashboard`
 
+### Media storage: locale o Supabase S3
+
+Di default avatar, stories e allegati chat vengono salvati localmente in
+`wwwroot/uploads/...`. Per usare Supabase Storage via protocollo S3, crea un
+bucket pubblico su Supabase e genera una coppia di credenziali S3 da Storage
+settings. Poi avvia l'API con queste variabili:
+
+```bash
+export MediaStorage__Provider=s3
+export MediaStorage__Bucket=cloudy-media
+export MediaStorage__Endpoint=https://<project-ref>.storage.supabase.co/storage/v1/s3
+export MediaStorage__Region=<region-from-supabase>
+export MediaStorage__AccessKeyId=<supabase-s3-access-key>
+export MediaStorage__SecretAccessKey=<supabase-s3-secret-key>
+export MediaStorage__PublicBaseUrl=https://<project-ref>.supabase.co/storage/v1/object/public/cloudy-media
+export MediaStorage__ForcePathStyle=true
+
+./scripts/run-api.sh
+```
+
+Le chiavi S3 Supabase sono server-side: non inserirle mai nell'app iOS. Il
+bucket deve essere pubblico se vuoi che l'app possa mostrare direttamente le
+immagini tramite URL.
+
 Dev-login app:
 
 ```bash

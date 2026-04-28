@@ -60,11 +60,11 @@ public static class UserEndpoints
                     .ToList()));
         }).RequireAuthorization();
 
-        group.MapPut("/me/profile", async (
+        async Task<IResult> UpdateMyProfileAsync(
             UpdateMyProfileRequest request,
             ClaimsPrincipal principal,
             AppDbContext db,
-            CancellationToken ct) =>
+            CancellationToken ct)
         {
             var currentUserId = CurrentUser.GetUserId(principal);
             if (currentUserId == Guid.Empty)
@@ -98,9 +98,10 @@ public static class UserEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            await db.UserInterests
+            var previousInterests = await db.UserInterests
                 .Where(x => x.UserId == user.Id)
-                .ExecuteDeleteAsync(ct);
+                .ToListAsync(ct);
+            db.UserInterests.RemoveRange(previousInterests);
 
             if (normalizedInterests.Count > 0)
             {
@@ -123,7 +124,10 @@ public static class UserEndpoints
                 user.BirthYear,
                 user.Gender,
                 normalizedInterests));
-        }).RequireAuthorization();
+        }
+
+        group.MapPut("/me/profile", UpdateMyProfileAsync).RequireAuthorization();
+        group.MapPost("/me/profile", UpdateMyProfileAsync).RequireAuthorization();
 
         group.MapPut("/me/discovery-identity", async (
             UpdateDiscoveryIdentityRequest request,
@@ -343,7 +347,7 @@ public static class UserEndpoints
         group.MapPost("/me/avatar", async (
             HttpRequest request,
             ClaimsPrincipal principal,
-            IWebHostEnvironment env,
+            MediaStorageService mediaStorage,
             AppDbContext db,
             CancellationToken ct) =>
         {
@@ -358,8 +362,16 @@ public static class UserEndpoints
                 return Results.BadRequest(new { message = "Upload multipart/form-data richiesto." });
             }
 
-            var form = await request.ReadFormAsync(ct);
-            var file = form.Files["file"];
+            IFormCollection form;
+            try
+            {
+                form = await request.ReadFormAsync(ct);
+            }
+            catch (InvalidDataException)
+            {
+                return Results.BadRequest(new { message = "Upload multipart/form-data non valido." });
+            }
+            var file = form.Files.GetFile("file");
             if (file is null || file.Length == 0)
             {
                 return Results.BadRequest(new { message = "File avatar mancante." });
@@ -387,20 +399,7 @@ public static class UserEndpoints
                 return Results.NotFound();
             }
 
-            var webRootPath = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
-            var relativeFolder = Path.Combine("uploads", "avatars");
-            var targetFolder = Path.Combine(webRootPath, relativeFolder);
-            Directory.CreateDirectory(targetFolder);
-
-            var fileName = $"{currentUserId:N}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{extension}";
-            var physicalPath = Path.Combine(targetFolder, fileName);
-            await using (var stream = File.Create(physicalPath))
-            {
-                await file.CopyToAsync(stream, ct);
-            }
-
-            var baseUri = $"{request.Scheme}://{request.Host}";
-            user.AvatarUrl = $"{baseUri}/{relativeFolder.Replace('\\', '/')}/{fileName}";
+            user.AvatarUrl = await mediaStorage.UploadAsync(file, "uploads/avatars", currentUserId, request, ct);
             user.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
 

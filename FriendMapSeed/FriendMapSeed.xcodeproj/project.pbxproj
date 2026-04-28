@@ -100,12 +100,12 @@
 			);
 			mainGroup = 11440BAC2F90E8D600A9E15B;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = 11440BB62F90E8D600A9E15B /* Products */;
-			projectDirPath = "";
 			packageReferences = (
 				CC0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/CloudyCore" */,
 			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 11440BB62F90E8D600A9E15B /* Products */;
+			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				11440BB42F90E8D600A9E15B /* FriendMapSeed */,
@@ -268,9 +268,11 @@
 				DEVELOPMENT_TEAM = 9YUM32FPQU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Cloudy;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudy usa la fotocamera per scattare foto da pubblicare nelle storie.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -307,9 +309,11 @@
 				DEVELOPMENT_TEAM = 9YUM32FPQU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Cloudy;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudy usa la fotocamera per scattare foto da pubblicare nelle storie.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = "";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

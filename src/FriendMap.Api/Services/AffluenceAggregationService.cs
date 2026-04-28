@@ -161,7 +161,14 @@ public class AffluenceAggregationService
         var previewByVenue = venueIds.ToDictionary(x => x, _ => new HashSet<Guid>());
         foreach (var checkIn in activeCheckIns)
         {
-            presenceByVenue[checkIn.VenueId].Add(checkIn.UserId);
+            // Filtra per sharePresenceWithFriends se è un amico, o se è lo stesso utente
+            if (checkIn.UserId == viewerUserId ||
+                (friendIds.Contains(checkIn.UserId) &&
+                 socialUsers.TryGetValue(checkIn.UserId, out var user) &&
+                 user.SharePresenceWithFriends))
+            {
+                presenceByVenue[checkIn.VenueId].Add(checkIn.UserId);
+            }
             if (CanRevealIdentity(checkIn.UserId, viewerUserId, friendIds, socialUsers, revealIntentions: false))
             {
                 previewByVenue[checkIn.VenueId].Add(checkIn.UserId);
@@ -170,7 +177,14 @@ public class AffluenceAggregationService
 
         foreach (var intention in activeIntentions)
         {
-            presenceByVenue[intention.VenueId].Add(intention.UserId);
+            // Filtra per shareIntentionsWithFriends se è un amico, o se è lo stesso utente
+            if (intention.UserId == viewerUserId ||
+                (friendIds.Contains(intention.UserId) &&
+                 socialUsers.TryGetValue(intention.UserId, out var user) &&
+                 user.ShareIntentionsWithFriends))
+            {
+                presenceByVenue[intention.VenueId].Add(intention.UserId);
+            }
             if (CanRevealIdentity(intention.UserId, viewerUserId, friendIds, socialUsers, revealIntentions: true))
             {
                 previewByVenue[intention.VenueId].Add(intention.UserId);
@@ -180,7 +194,14 @@ public class AffluenceAggregationService
         var tableVenueMap = openTables.ToDictionary(x => x.Id, x => x.VenueId);
         foreach (var table in openTables)
         {
-            presenceByVenue[table.VenueId].Add(table.HostUserId);
+            // Host della tavola è sempre visibile (condivide intenzione di hosting)
+            if (table.HostUserId == viewerUserId ||
+                (friendIds.Contains(table.HostUserId) &&
+                 socialUsers.TryGetValue(table.HostUserId, out var hostUser) &&
+                 hostUser.ShareIntentionsWithFriends))
+            {
+                presenceByVenue[table.VenueId].Add(table.HostUserId);
+            }
             if (CanRevealIdentity(table.HostUserId, viewerUserId, friendIds, socialUsers, revealIntentions: false))
             {
                 previewByVenue[table.VenueId].Add(table.HostUserId);
@@ -191,7 +212,14 @@ public class AffluenceAggregationService
         {
             if (tableVenueMap.TryGetValue(participant.SocialTableId, out var venueId))
             {
-                presenceByVenue[venueId].Add(participant.UserId);
+                // Partecipanti alla tavola: visibili se hanno accettato e condividono presenza
+                if (participant.UserId == viewerUserId ||
+                    (friendIds.Contains(participant.UserId) &&
+                     socialUsers.TryGetValue(participant.UserId, out var pUser) &&
+                     pUser.SharePresenceWithFriends))
+                {
+                    presenceByVenue[venueId].Add(participant.UserId);
+                }
                 if (CanRevealIdentity(participant.UserId, viewerUserId, friendIds, socialUsers, revealIntentions: false))
                 {
                     previewByVenue[venueId].Add(participant.UserId);

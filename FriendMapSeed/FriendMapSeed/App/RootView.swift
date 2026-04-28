@@ -1,6 +1,6 @@
 //
 //  RootView.swift
-//  Cloudy — Root composer: gestisce auth gate e tab bar.
+//  Cloudy — Root composer + custom tab bar.
 //
 
 import SwiftUI
@@ -17,13 +17,13 @@ struct RootView: View {
                 splash
             case .loggedOut:
                 LoginView()
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             case .loggedIn:
                 MainTabs()
-                    .transition(.opacity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: stateKey)
+        .animation(.cloudySoft, value: stateKey)
         .task {
             if case .loading = auth.state {
                 await auth.restore()
@@ -31,14 +31,17 @@ struct RootView: View {
         }
     }
 
+    // MARK: — Hero moment
+    // Splash minimale ma vivo: mesh notturna + logo che respira invece di spinner.
     private var splash: some View {
         ZStack {
-            Theme.Palette.surfaceAlt.ignoresSafeArea()
-            VStack(spacing: 16) {
+            MeshGradientBackground(preset: .auroraNight, speed: 0.10)
+            VStack(spacing: 18) {
                 Image(systemName: "cloud.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Theme.Palette.honey)
-                ProgressView()
+                    .font(.system(size: 64, weight: .black))
+                    .foregroundStyle(Theme.Gradients.solar)
+                    .breathingScale(amount: 1.08, duration: 1.8)
+                LoadingDots()
             }
         }
     }
@@ -56,40 +59,74 @@ struct RootView: View {
 
 struct MainTabs: View {
     @Environment(AppRouter.self) private var router
+    @State private var unreadMessages = 0
+    @State private var unreadNotifications = 0
+
+    private var items: [CloudyTabItem<AppRouter.Tab>] {
+        [
+            .init(id: .map, title: "Mappa", icon: "map.fill"),
+            .init(id: .feed, title: "In giro", icon: "sparkles", badge: unreadMessages),
+            .init(id: .tables, title: "Tavoli", icon: "person.3.fill"),
+            .init(id: .notifications, title: "Attività", icon: "bell.fill", badge: unreadNotifications),
+            .init(id: .profile, title: "Profilo", icon: "person.crop.circle.fill")
+        ]
+    }
 
     var body: some View {
         @Bindable var router = router
-        TabView(selection: $router.selectedTab) {
-            MapView()
-                .tabItem {
-                    Label("Mappa", systemImage: "map.fill")
+        ZStack(alignment: .bottom) {
+            Group {
+                switch router.selectedTab {
+                case .map:
+                    MapView()
+                case .feed:
+                    FeedView()
+                case .tables:
+                    TablesView()
+                case .notifications:
+                    NotificationsView()
+                case .profile:
+                    ProfileView()
                 }
-                .tag(AppRouter.Tab.map)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.opacity.combined(with: .scale(scale: 0.985)))
 
-            FeedView()
-                .tabItem {
-                    Label("In giro", systemImage: "sparkles")
-                }
-                .tag(AppRouter.Tab.feed)
-
-            TablesView()
-                .tabItem {
-                    Label("Tavoli", systemImage: "person.3.fill")
-                }
-                .tag(AppRouter.Tab.tables)
-
-            NotificationsView()
-                .tabItem {
-                    Label("Attività", systemImage: "bell.fill")
-                }
-                .tag(AppRouter.Tab.notifications)
-
-            ProfileView()
-                .tabItem {
-                    Label("Profilo", systemImage: "person.circle.fill")
-                }
-                .tag(AppRouter.Tab.profile)
+            AnimatedTabBar(selection: $router.selectedTab, items: items)
         }
-        .tint(Theme.Palette.honeyDeep)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+        .animation(.cloudySnappy, value: router.selectedTab)
+        .task { await refreshBadges() }
+        .onChange(of: router.selectedTab) {
+            Task { await refreshBadges() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cloudyBadgesShouldRefresh)) { _ in
+            Task { await refreshBadges() }
+        }
+        .sheet(item: $router.presentedChat) { route in
+            NavigationStack {
+                ChatRoomView(otherUserId: route.userId, peerName: route.title)
+            }
+        }
+        .sheet(item: $router.presentedTable) { route in
+            NavigationStack {
+                TableThreadView(tableId: route.tableId)
+            }
+        }
     }
+
+    private func refreshBadges() async {
+        do {
+            async let notifications = API.notificationUnreadCount()
+            async let threads = API.messageThreads()
+            unreadNotifications = try await notifications.count
+            unreadMessages = try await threads.reduce(0) { $0 + $1.unreadCount }
+        } catch {
+            // Badge refresh is non-blocking UI metadata.
+        }
+    }
+}
+
+extension Notification.Name {
+    static let cloudyBadgesShouldRefresh = Notification.Name("cloudyBadgesShouldRefresh")
 }

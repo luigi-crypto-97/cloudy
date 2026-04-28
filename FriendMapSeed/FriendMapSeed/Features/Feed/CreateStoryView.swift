@@ -4,13 +4,20 @@
 //
 
 import SwiftUI
+import PhotosUI
+import UIKit
 
 struct CreateStoryView: View {
+    var venue: VenueMarker? = nil
     var onCreated: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @State private var mediaUrl: String = ""
+    @State private var title: String = ""
     @State private var caption: String = ""
+    @State private var photoItem: PhotosPickerItem?
+    @State private var selectedImageData: Data?
+    @State private var showsCamera: Bool = false
     @State private var isSending: Bool = false
     @State private var error: String?
 
@@ -20,13 +27,47 @@ struct CreateStoryView: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     header
 
+                    if let venue {
+                        CloudyPill(text: venue.name, icon: "mappin.circle.fill", tone: .honey)
+                    }
+
                     SectionCard {
                         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                            Text("Media (URL)")
+                            Text("Media")
                                 .font(Theme.Font.title(15, weight: .bold))
-                            Text("Incolla il link a un'immagine o video. Più avanti potrai caricare direttamente dalla galleria.")
+                            Text("Scegli una foto dalla galleria oppure incolla un URL pubblico.")
                                 .font(Theme.Font.caption(11))
                                 .foregroundStyle(Theme.Palette.inkSoft)
+                            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                                Button {
+                                    showsCamera = true
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "camera.fill")
+                                        Text("Scatta adesso")
+                                        Spacer()
+                                    }
+                                    .padding(12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                                            .fill(Theme.Palette.surfaceAlt)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            PhotosPicker(selection: $photoItem, matching: .images) {
+                                HStack {
+                                    Image(systemName: "photo.on.rectangle.angled")
+                                    Text(selectedImageData == nil ? "Scegli dalla galleria" : "Foto selezionata")
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                }
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                                        .fill(Theme.Palette.honeySoft)
+                                )
+                            }
                             TextField("https://...", text: $mediaUrl)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
@@ -41,6 +82,15 @@ struct CreateStoryView: View {
 
                     SectionCard {
                         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                            Text("Titolo")
+                                .font(Theme.Font.title(15, weight: .bold))
+                            TextField("Es. Serata ai Navigli", text: $title)
+                                .textInputAutocapitalization(.sentences)
+                                .padding(12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                                        .fill(Theme.Palette.surfaceAlt)
+                                )
                             Text("Caption (opzionale)")
                                 .font(Theme.Font.title(15, weight: .bold))
                             TextEditor(text: $caption)
@@ -55,7 +105,14 @@ struct CreateStoryView: View {
                         }
                     }
 
-                    if !mediaUrl.isEmpty, let url = URL(string: mediaUrl) {
+                    if let selectedImageData, let image = UIImage(data: selectedImageData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 220)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous))
+                    } else if !mediaUrl.isEmpty, let url = URL(string: mediaUrl) {
                         AsyncImage(url: url) { phase in
                             switch phase {
                             case .success(let img):
@@ -87,7 +144,7 @@ struct CreateStoryView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.honey)
-                    .disabled(isSending || mediaUrl.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(isSending || (mediaUrl.trimmingCharacters(in: .whitespaces).isEmpty && selectedImageData == nil))
                 }
                 .padding(Theme.Spacing.lg)
             }
@@ -99,6 +156,16 @@ struct CreateStoryView: View {
                     Button("Annulla") { dismiss() }
                 }
             }
+        }
+        .onChange(of: photoItem) { _, newValue in
+            Task { await loadPhoto(newValue) }
+        }
+        .sheet(isPresented: $showsCamera) {
+            CameraCaptureView { image in
+                selectedImageData = image.jpegData(compressionQuality: 0.82)
+                mediaUrl = ""
+            }
+            .ignoresSafeArea()
         }
     }
 
@@ -113,15 +180,26 @@ struct CreateStoryView: View {
     }
 
     private func send() async {
-        let trimmed = mediaUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        let typedUrl = mediaUrl.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typedUrl.isEmpty || selectedImageData != nil else { return }
         isSending = true
         error = nil
         defer { isSending = false }
         do {
+            let finalMediaUrl: String
+            if let selectedImageData {
+                finalMediaUrl = try await API.uploadStoryMedia(
+                    data: selectedImageData,
+                    fileName: "story-\(UUID().uuidString).jpg",
+                    mimeType: "image/jpeg"
+                )
+            } else {
+                finalMediaUrl = typedUrl
+            }
             _ = try await API.createStory(
-                mediaUrl: trimmed,
-                caption: caption.isEmpty ? nil : caption
+                mediaUrl: finalMediaUrl,
+                caption: storyCaption,
+                venueId: venue?.venueId
             )
             Haptics.tap()
             onCreated()
@@ -129,6 +207,69 @@ struct CreateStoryView: View {
         } catch {
             Haptics.error()
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadPhoto(_ item: PhotosPickerItem?) async {
+        guard let item else { return }
+        do {
+            selectedImageData = try await item.loadTransferable(type: Data.self)
+            if selectedImageData != nil {
+                mediaUrl = ""
+            }
+        } catch {
+            self.error = "Impossibile leggere la foto selezionata."
+        }
+    }
+
+    private var storyCaption: String? {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch (cleanTitle.isEmpty, cleanCaption.isEmpty) {
+        case (true, true): return nil
+        case (false, true): return cleanTitle
+        case (true, false): return cleanCaption
+        case (false, false): return "\(cleanTitle)\n\n\(cleanCaption)"
+        }
+    }
+}
+
+private struct CameraCaptureView: UIViewControllerRepresentable {
+    var onCapture: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.cameraCaptureMode = .photo
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCapture: onCapture, dismiss: dismiss)
+    }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        private let onCapture: (UIImage) -> Void
+        private let dismiss: DismissAction
+
+        init(onCapture: @escaping (UIImage) -> Void, dismiss: DismissAction) {
+            self.onCapture = onCapture
+            self.dismiss = dismiss
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
+            }
+            dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss()
         }
     }
 }

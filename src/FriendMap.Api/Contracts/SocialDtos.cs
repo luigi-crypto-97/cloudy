@@ -82,3 +82,16 @@ public record SocialTableThreadDto(
 
 public record SendSocialTableMessageRequest(
     string Body);
+
+public record FlareDto(
+    Guid FlareId,
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    double Latitude,
+    double Longitude,
+    string Message,
+    int ResponseCount,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset ExpiresAtUtc);

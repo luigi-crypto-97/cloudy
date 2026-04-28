@@ -5,17 +5,31 @@
 
 import SwiftUI
 import CoreLocation
+import MapKit
 
 struct FlareLaunchView: View {
     let coordinate: CLLocationCoordinate2D
-    var onSent: () -> Void = {}
+    var onSent: (String, CLLocationCoordinate2D) -> Void = { _, _ in }
 
     @Environment(\.dismiss) private var dismiss
+    @State private var selectedCoordinate: CLLocationCoordinate2D
+    @State private var camera: MapCameraPosition
     @State private var message: String = ""
+    @State private var durationHours: Int = 1
     @State private var isSending: Bool = false
     @State private var error: String?
 
     private let maxLen = 200
+
+    init(coordinate: CLLocationCoordinate2D, onSent: @escaping (String, CLLocationCoordinate2D) -> Void = { _, _ in }) {
+        self.coordinate = coordinate
+        self.onSent = onSent
+        self._selectedCoordinate = State(initialValue: coordinate)
+        self._camera = State(initialValue: .region(MKCoordinateRegion(
+            center: coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.012, longitudeDelta: 0.012)
+        )))
+    }
 
     var body: some View {
         NavigationStack {
@@ -55,18 +69,55 @@ struct FlareLaunchView: View {
                     }
 
                     SectionCard {
-                        HStack(spacing: 12) {
-                            Image(systemName: "mappin.and.ellipse")
-                                .font(.system(size: 22))
-                                .foregroundStyle(Theme.Palette.honeyDeep)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Posizione del flare")
-                                    .font(Theme.Font.body(13, weight: .semibold))
-                                Text(String(format: "%.4f, %.4f", coordinate.latitude, coordinate.longitude))
-                                    .font(Theme.Font.caption(12))
-                                    .foregroundStyle(Theme.Palette.inkSoft)
+                        Stepper("Durata: \(durationHours) \(durationHours == 1 ? "ora" : "ore")", value: $durationHours, in: 1...4)
+                            .font(Theme.Font.body(15, weight: .semibold))
+                    }
+
+                    SectionCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .font(.system(size: 22))
+                                    .foregroundStyle(Theme.Palette.honeyDeep)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Posizione del flare")
+                                        .font(Theme.Font.body(13, weight: .semibold))
+                                    Text(String(format: "%.4f, %.4f", selectedCoordinate.latitude, selectedCoordinate.longitude))
+                                        .font(Theme.Font.caption(12))
+                                        .foregroundStyle(Theme.Palette.inkSoft)
+                                }
+                                Spacer()
                             }
-                            Spacer()
+                            MapReader { proxy in
+                                Map(position: $camera) {
+                                    Annotation("Flare", coordinate: selectedCoordinate, anchor: .center) {
+                                        Image(systemName: "flame.fill")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 40, height: 40)
+                                            .background(Circle().fill(Theme.Gradients.honeyCTA))
+                                            .shadow(color: Theme.Palette.honeyDeep.opacity(0.35), radius: 10, x: 0, y: 4)
+                                    }
+                                }
+                                .mapStyle(.standard(pointsOfInterest: .excludingAll))
+                                .frame(height: 190)
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous))
+                                .overlay(alignment: .bottom) {
+                                    Text("Tocca la mappa per spostare il flare")
+                                        .font(Theme.Font.caption(11, weight: .bold))
+                                        .foregroundStyle(Theme.Palette.ink)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(.thinMaterial, in: Capsule())
+                                        .padding(8)
+                                }
+                                .onTapGesture(coordinateSpace: .local) { point in
+                                    if let coordinate = proxy.convert(point, from: .local) {
+                                        selectedCoordinate = coordinate
+                                        Haptics.tap()
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -124,12 +175,13 @@ struct FlareLaunchView: View {
         defer { isSending = false }
         do {
             _ = try await API.launchFlare(
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude,
-                message: trimmed
+                latitude: selectedCoordinate.latitude,
+                longitude: selectedCoordinate.longitude,
+                message: trimmed,
+                durationHours: durationHours
             )
             Haptics.tap()
-            onSent()
+            onSent(trimmed, selectedCoordinate)
             dismiss()
         } catch {
             Haptics.error()
