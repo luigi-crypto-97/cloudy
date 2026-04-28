@@ -107,7 +107,7 @@ struct StoryViewerView: View {
         .overlay(alignment: .bottom) {
             storyActions
                 .padding(.top, 18)
-                .padding(.bottom, 112)
+                .padding(.bottom, 168)
                 .background(
                     LinearGradient(
                         colors: [.clear, .black.opacity(0.86)],
@@ -151,6 +151,9 @@ struct StoryViewerView: View {
                     }
                 }
         )
+        .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 38, pressing: { pressing in
+            isPaused = pressing
+        }, perform: {})
     }
 
     private var currentStory: UserStory {
@@ -273,6 +276,7 @@ struct StoryViewerView: View {
                 .padding(Theme.Spacing.md)
                 .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.md)
+                .frame(maxHeight: 230)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }

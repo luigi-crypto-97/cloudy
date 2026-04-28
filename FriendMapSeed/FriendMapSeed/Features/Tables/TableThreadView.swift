@@ -48,7 +48,7 @@ struct TableThreadView: View {
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             composer
-                .padding(.bottom, 88)
+                .padding(.bottom, 96)
         }
         .navigationTitle(thread?.table.title ?? "Tavolo")
         .navigationBarTitleDisplayMode(.inline)
@@ -217,7 +217,9 @@ struct TableThreadView: View {
         }
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.md)
-        .background(Theme.Palette.surface.ignoresSafeArea(edges: .bottom))
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous))
+        .padding(.horizontal, Theme.Spacing.md)
     }
 
     private func formatDate(_ d: Date) -> String {

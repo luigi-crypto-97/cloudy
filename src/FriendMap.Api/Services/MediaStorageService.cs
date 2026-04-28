@@ -1,8 +1,10 @@
-using Amazon.Runtime;
 using Amazon.S3;
-using Amazon.S3.Model;
 using FriendMap.Api.Data;
 using Microsoft.Extensions.Options;
+using System.Globalization;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FriendMap.Api.Services;
 
@@ -62,31 +64,61 @@ public class MediaStorageService
 
     private async Task<string> UploadToS3Async(IFormFile file, string key, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(_options.Endpoint) ||
-            string.IsNullOrWhiteSpace(_options.Bucket) ||
-            string.IsNullOrWhiteSpace(_options.AccessKeyId) ||
-            string.IsNullOrWhiteSpace(_options.SecretAccessKey))
+        EnsureS3Configured();
+
+        var endpoint = BuildEndpointUri();
+        var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType;
+        byte[] bytes;
+        await using (var stream = file.OpenReadStream())
+        using (var memory = new MemoryStream())
         {
-            throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint, bucket, access key e secret sono obbligatori.");
+            await stream.CopyToAsync(memory, ct);
+            bytes = memory.ToArray();
         }
 
-        Amazon.AWSConfigsS3.UseSignatureVersion4 = true;
-        var config = BuildS3Config();
-
-        using var client = new AmazonS3Client(
-            new BasicAWSCredentials(_options.AccessKeyId, _options.SecretAccessKey),
-            config);
-
-        await using var stream = file.OpenReadStream();
-        await client.PutObjectAsync(new PutObjectRequest
+        var now = DateTimeOffset.UtcNow;
+        var amzDate = now.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+        var dateStamp = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var payloadHash = ToHex(SHA256.HashData(bytes));
+        var canonicalUri = BuildS3CanonicalUri(endpoint, key);
+        var url = $"{endpoint.Scheme}://{endpoint.Authority}{canonicalUri}";
+        var canonicalHeaders =
+            $"content-type:{contentType}\n" +
+            $"host:{endpoint.Authority}\n" +
+            $"x-amz-content-sha256:{payloadHash}\n" +
+            $"x-amz-date:{amzDate}\n";
+        const string signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date";
+        var canonicalRequest = string.Join('\n', new[]
         {
-            BucketName = _options.Bucket,
-            Key = key,
-            InputStream = stream,
-            ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
-            AutoCloseStream = false,
-            UseChunkEncoding = false
-        }, ct);
+            "PUT",
+            canonicalUri,
+            "",
+            canonicalHeaders,
+            signedHeaders,
+            payloadHash
+        });
+        var credentialScope = $"{dateStamp}/{_options.Region}/s3/aws4_request";
+        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest);
+
+        using var http = new HttpClient();
+        using var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+        using var message = new HttpRequestMessage(HttpMethod.Put, url)
+        {
+            Content = content
+        };
+        message.Headers.TryAddWithoutValidation("x-amz-date", amzDate);
+        message.Headers.TryAddWithoutValidation("x-amz-content-sha256", payloadHash);
+        message.Headers.TryAddWithoutValidation(
+            "Authorization",
+            $"AWS4-HMAC-SHA256 Credential={_options.AccessKeyId}/{credentialScope}, SignedHeaders={signedHeaders}, Signature={signature}");
+
+        using var response = await http.SendAsync(message, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await response.Content.ReadAsStringAsync(ct);
+            throw new AmazonS3Exception($"Supabase S3 upload failed ({(int)response.StatusCode} {response.ReasonPhrase}): {detail}");
+        }
 
         return _options.UsePrivateBucket ? key : BuildPublicUrl(key);
     }
@@ -123,30 +155,17 @@ public class MediaStorageService
         }
 
         EnsureS3Configured();
-        Amazon.AWSConfigsS3.UseSignatureVersion4 = true;
-        using var client = new AmazonS3Client(
-            new BasicAWSCredentials(_options.AccessKeyId, _options.SecretAccessKey),
-            BuildS3Config());
-
-        return client.GetPreSignedURL(new GetPreSignedUrlRequest
-        {
-            BucketName = _options.Bucket,
-            Key = key,
-            Verb = HttpVerb.GET,
-            Expires = DateTime.UtcNow.AddMinutes(Math.Clamp(_options.SignedUrlMinutes, 1, 120))
-        });
+        return BuildPreSignedGetUrl(key);
     }
 
-    private AmazonS3Config BuildS3Config()
+    private Uri BuildEndpointUri()
     {
-        EnsureS3Configured();
-        return new AmazonS3Config
+        if (!Uri.TryCreate(_options.Endpoint.TrimEnd('/'), UriKind.Absolute, out var endpoint))
         {
-            ServiceURL = _options.Endpoint.TrimEnd('/'),
-            AuthenticationRegion = _options.Region,
-            ForcePathStyle = _options.ForcePathStyle,
-            DisableS3ExpressSessionAuth = true
-        };
+            throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint non valido.");
+        }
+
+        return endpoint;
     }
 
     private void EnsureS3Configured()
@@ -158,10 +177,11 @@ public class MediaStorageService
 
         if (string.IsNullOrWhiteSpace(_options.Endpoint) ||
             string.IsNullOrWhiteSpace(_options.Bucket) ||
+            string.IsNullOrWhiteSpace(_options.Region) ||
             string.IsNullOrWhiteSpace(_options.AccessKeyId) ||
             string.IsNullOrWhiteSpace(_options.SecretAccessKey))
         {
-            throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint, bucket, access key e secret sono obbligatori.");
+            throw new InvalidOperationException("MediaStorage S3 non configurato: endpoint, bucket, region, access key e secret sono obbligatori.");
         }
     }
 
@@ -209,6 +229,104 @@ public class MediaStorageService
     private static bool LooksLikeStorageKey(string value)
     {
         return value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string BuildPreSignedGetUrl(string key)
+    {
+        var endpoint = BuildEndpointUri();
+        var now = DateTimeOffset.UtcNow;
+        var amzDate = now.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+        var dateStamp = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+        var expires = Math.Clamp(_options.SignedUrlMinutes, 1, 120) * 60;
+        var credentialScope = $"{dateStamp}/{_options.Region}/s3/aws4_request";
+        var canonicalUri = BuildS3CanonicalUri(endpoint, key);
+        var query = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["X-Amz-Algorithm"] = "AWS4-HMAC-SHA256",
+            ["X-Amz-Credential"] = $"{_options.AccessKeyId}/{credentialScope}",
+            ["X-Amz-Date"] = amzDate,
+            ["X-Amz-Expires"] = expires.ToString(CultureInfo.InvariantCulture),
+            ["X-Amz-SignedHeaders"] = "host"
+        };
+        var canonicalQuery = BuildCanonicalQueryString(query);
+        var canonicalHeaders = $"host:{endpoint.Authority}\n";
+        var canonicalRequest = string.Join('\n', new[]
+        {
+            "GET",
+            canonicalUri,
+            canonicalQuery,
+            canonicalHeaders,
+            "host",
+            "UNSIGNED-PAYLOAD"
+        });
+        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest);
+        return $"{endpoint.Scheme}://{endpoint.Authority}{canonicalUri}?{canonicalQuery}&X-Amz-Signature={signature}";
+    }
+
+    private string SignString(string dateStamp, string credentialScope, string amzDate, string canonicalRequest)
+    {
+        var stringToSign = string.Join('\n', new[]
+        {
+            "AWS4-HMAC-SHA256",
+            amzDate,
+            credentialScope,
+            ToHex(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalRequest)))
+        });
+        var signingKey = GetSignatureKey(_options.SecretAccessKey, dateStamp, _options.Region, "s3");
+        return ToHex(HmacSha256(signingKey, stringToSign));
+    }
+
+    private string BuildS3CanonicalUri(Uri endpoint, string key)
+    {
+        var basePath = endpoint.AbsolutePath.TrimEnd('/');
+        if (string.IsNullOrEmpty(basePath) || basePath == "/")
+        {
+            basePath = "";
+        }
+
+        if (_options.ForcePathStyle)
+        {
+            return $"{basePath}/{S3UriEncode(_options.Bucket)}/{EncodePath(key)}";
+        }
+
+        return $"{basePath}/{EncodePath(key)}";
+    }
+
+    private static string BuildCanonicalQueryString(SortedDictionary<string, string> query)
+    {
+        return string.Join("&", query.Select(pair => $"{S3UriEncode(pair.Key)}={S3UriEncode(pair.Value)}"));
+    }
+
+    private static string EncodePath(string value)
+    {
+        return string.Join("/", value.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(S3UriEncode));
+    }
+
+    private static string S3UriEncode(string value)
+    {
+        var encoded = Uri.EscapeDataString(value);
+        return encoded
+            .Replace("%7E", "~", StringComparison.OrdinalIgnoreCase)
+            .Replace("+", "%20", StringComparison.Ordinal);
+    }
+
+    private static byte[] GetSignatureKey(string key, string dateStamp, string regionName, string serviceName)
+    {
+        var kDate = HmacSha256(Encoding.UTF8.GetBytes($"AWS4{key}"), dateStamp);
+        var kRegion = HmacSha256(kDate, regionName);
+        var kService = HmacSha256(kRegion, serviceName);
+        return HmacSha256(kService, "aws4_request");
+    }
+
+    private static byte[] HmacSha256(byte[] key, string data)
+    {
+        using var hmac = new HMACSHA256(key);
+        return hmac.ComputeHash(Encoding.UTF8.GetBytes(data));
+    }
+
+    private static string ToHex(byte[] bytes)
+    {
+        return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
     private static string NormalizeFolder(string folder)

@@ -41,7 +41,7 @@ struct MapView: View {
             // Top floating header (search + filtri)
             topBar
                 .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.top, 18)
+                .padding(.top, 2)
 
             // Legend / status nella parte bassa
             VStack {
