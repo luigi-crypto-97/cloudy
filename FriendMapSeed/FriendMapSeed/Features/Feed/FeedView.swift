@@ -13,6 +13,7 @@ import SwiftUI
 final class FeedStore {
     var stories: [UserStory] = []
     var hub: SocialHub?
+    var profile: EditableUserProfile?
     var isLoading: Bool = false
     var error: String?
     var hiddenPresenceIds: Set<UUID> = []
@@ -24,8 +25,10 @@ final class FeedStore {
         do {
             async let s = API.stories()
             async let h = API.socialHub()
+            async let p = API.myEditableProfile()
             self.stories = try await s
             self.hub = try await h
+            self.profile = try? await p
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -146,15 +149,12 @@ struct FeedView: View {
         } label: {
             VStack(spacing: 6) {
                 ZStack(alignment: .bottomTrailing) {
-                    Circle()
-                        .fill(Theme.Palette.surface)
-                        .frame(width: 64, height: 64)
-                        .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
-                        .overlay(
-                            Image(systemName: "person.crop.circle.fill")
-                                .font(.system(size: 56))
-                                .foregroundStyle(Theme.Palette.inkMuted)
-                        )
+                    StoryAvatar(
+                        url: APIClient.shared.mediaURL(from: store.profile?.avatarUrl),
+                        size: 64,
+                        hasStory: myStories.isEmpty == false,
+                        initials: myInitials
+                    )
                     Circle()
                         .fill(Theme.Gradients.honeyCTA)
                         .frame(width: 22, height: 22)
@@ -174,6 +174,16 @@ struct FeedView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var myStories: [UserStory] {
+        guard let myUserId = API.currentUserId else { return [] }
+        return storiesByUser(myUserId)
+    }
+
+    private var myInitials: String {
+        let name = store.profile?.displayName ?? store.profile?.nickname ?? "?"
+        return String(name.prefix(1)).uppercased()
     }
 
     private var uniqueStorytellers: [UserStory] {

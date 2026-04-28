@@ -97,7 +97,11 @@ if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
 fi
 echo "==> App: $APP_PATH"
 
-# 5. Install + launch via devicectl (Xcode 15+)
+# 5. Rimuovi la build precedente: evita cache/stale bundle sul device.
+echo "==> Rimozione eventuale build precedente..."
+xcrun devicectl device uninstall app --device "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+
+# 6. Install + launch via devicectl (Xcode 15+)
 echo "==> Installazione su device..."
 xcrun devicectl device install app --device "$DEVICE_ID" "$APP_PATH"
 

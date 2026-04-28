@@ -385,7 +385,7 @@ enum API {
         let _: DeviceTokenRegistrationResult = try await APIClient.shared.post("/api/notifications/device-tokens", body: req)
     }
 
-    private static var currentUserId: UUID? {
+    static var currentUserId: UUID? {
         guard let token = APIClient.shared.bearerToken else { return nil }
         let parts = token.split(separator: ".")
         guard parts.count >= 2 else { return nil }

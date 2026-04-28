@@ -103,7 +103,7 @@ struct VenueDetailSheet: View {
                         HStack(spacing: -10) {
                             ForEach(venue.presencePreview.prefix(6)) { p in
                                 StoryAvatar(
-                                    url: URL(string: p.avatarUrl ?? ""),
+                                    url: APIClient.shared.mediaURL(from: p.avatarUrl),
                                     size: 44,
                                     hasStory: true,
                                     initials: String(p.displayName.prefix(1))

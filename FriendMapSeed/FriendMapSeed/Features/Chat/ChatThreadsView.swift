@@ -255,7 +255,7 @@ struct NewChatSelectionView: View {
                         }) {
                             HStack(spacing: 12) {
                                 StoryAvatar(
-                                    url: URL(string: friend.avatarUrl ?? ""),
+                                    url: APIClient.shared.mediaURL(from: friend.avatarUrl),
                                     size: 40,
                                     hasStory: false,
                                     initials: String((friend.displayName ?? friend.nickname).prefix(1)).uppercased()
