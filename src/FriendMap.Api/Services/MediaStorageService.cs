@@ -85,7 +85,7 @@ public class MediaStorageService
             InputStream = stream,
             ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
             AutoCloseStream = false,
-            DisablePayloadSigning = true
+            UseChunkEncoding = false
         }, ct);
 
         return _options.UsePrivateBucket ? key : BuildPublicUrl(key);
