@@ -76,8 +76,19 @@ public static class MessagingEndpoints
             return Results.BadRequest(new { message = "Formato file non supportato." });
         }
 
-        var url = await mediaStorage.UploadAsync(file, "uploads/messages", currentUserId, request, ct);
-        return Results.Ok(new UploadMediaResult(url));
+        try
+        {
+            var url = await mediaStorage.UploadAsync(file, "uploads/messages", currentUserId, request, ct);
+            return Results.Ok(new UploadMediaResult(url));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+        catch (Amazon.S3.AmazonS3Exception ex)
+        {
+            return Results.Problem($"Storage media non configurato correttamente: {ex.Message}", statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private static async Task<IResult> GetThreadsAsync(

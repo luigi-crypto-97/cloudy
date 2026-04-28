@@ -101,12 +101,23 @@ struct StoryViewerView: View {
                         .background(Color.black.opacity(0.5))
                 }
 
-                storyActions
-
                 Spacer()
-
-                Color.clear.frame(height: 18)
             }
+        }
+        .overlay(alignment: .bottom) {
+            storyActions
+                .padding(.top, 18)
+                .padding(.bottom, 112)
+                .background(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.86)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea(edges: .bottom)
+                )
+                .animation(.cloudySnap, value: showsComments)
+                .animation(.cloudySnap, value: showsPrivateReply)
         }
         .onAppear {
             localStories = stories
@@ -262,6 +273,7 @@ struct StoryViewerView: View {
                 .padding(Theme.Spacing.md)
                 .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .padding(.horizontal, Theme.Spacing.md)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
     }
@@ -301,6 +313,7 @@ struct StoryViewerView: View {
                     .disabled(isSendingPrivateReply || privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
     }

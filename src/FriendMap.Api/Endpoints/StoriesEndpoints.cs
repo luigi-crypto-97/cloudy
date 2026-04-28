@@ -278,8 +278,19 @@ public static class StoriesEndpoints
             return Results.BadRequest(new { message = "Formato non supportato. Usa jpg, png, webp o heic." });
         }
 
-        var mediaUrl = await mediaStorage.UploadAsync(file, "uploads/stories", currentUserId, request, ct);
-        return Results.Ok(new UploadMediaResult(mediaUrl));
+        try
+        {
+            var mediaUrl = await mediaStorage.UploadAsync(file, "uploads/stories", currentUserId, request, ct);
+            return Results.Ok(new UploadMediaResult(mediaUrl));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Problem(ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+        }
+        catch (Amazon.S3.AmazonS3Exception ex)
+        {
+            return Results.Problem($"Storage media non configurato correttamente: {ex.Message}", statusCode: StatusCodes.Status502BadGateway);
+        }
     }
 
     private static async Task<IResult> DeleteStoryAsync(

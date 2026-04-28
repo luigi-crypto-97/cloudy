@@ -244,7 +244,7 @@ struct MapView: View {
     // MARK: - Top bar
 
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 10) {
             // Cloudy logo
             HStack(spacing: 6) {
                 Image(systemName: "cloud.fill")

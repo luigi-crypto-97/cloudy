@@ -804,7 +804,7 @@ public static class SocialEndpoints
             {
                 SocialTableId = table.Id,
                 UserId = request.TargetUserId,
-                Status = "invited"
+                Status = "accepted"
             });
 
             await db.SaveChangesAsync(ct);
@@ -812,12 +812,12 @@ public static class SocialEndpoints
             await outbox.EnqueueAsync(
                 request.TargetUserId,
                 "Invito a un tavolo",
-                $"Ti hanno invitato a {table.Title}.",
-                new { type = "social_table_invite", tableId = table.Id, hostUserId = currentUserId },
+                $"Sei dentro {table.Title}.",
+                new { type = "social_table_invite_accepted", tableId = table.Id, hostUserId = currentUserId },
                 ct,
                 outbox.BuildDeepLink("table", table.Id));
 
-            return Results.Ok(new SocialActionResultDto("invited", "Invito tavolo inviato."));
+            return Results.Ok(new SocialActionResultDto("accepted", "Amico aggiunto al tavolo."));
         });
 
         group.MapPost("/tables/{tableId:guid}/invite", async (
@@ -885,7 +885,7 @@ public static class SocialEndpoints
             {
                 SocialTableId = table.Id,
                 UserId = request.TargetUserId,
-                Status = "invited"
+                Status = "accepted"
             });
 
             await db.SaveChangesAsync(ct);
@@ -893,12 +893,12 @@ public static class SocialEndpoints
             await outbox.EnqueueAsync(
                 request.TargetUserId,
                 "Invito a un tavolo",
-                $"Ti hanno invitato a {table.Title}.",
-                new { type = "social_table_invite", tableId = table.Id, hostUserId = currentUserId },
+                $"Sei dentro {table.Title}.",
+                new { type = "social_table_invite_accepted", tableId = table.Id, hostUserId = currentUserId },
                 ct,
                 outbox.BuildDeepLink("table", table.Id));
 
-            return Results.Ok(new SocialActionResultDto("invited", "Invito tavolo inviato."));
+            return Results.Ok(new SocialActionResultDto("accepted", "Amico aggiunto al tavolo."));
         });
 
         group.MapGet("/tables/{tableId:guid}/thread", async (
@@ -934,7 +934,7 @@ public static class SocialEndpoints
                 ? new Dictionary<Guid, AppUser>()
                 : await db.Users.AsNoTracking().Where(x => userIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id, ct);
             var requests = participants
-                .Where(x => x.Status == "requested" || x.Status == "invited")
+                .Where(x => x.Status == "requested")
                 .Where(x => users.ContainsKey(x.UserId))
                 .Select(x => new SocialTableRequestDto(
                     x.UserId,

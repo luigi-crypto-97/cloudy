@@ -399,7 +399,19 @@ public static class UserEndpoints
                 return Results.NotFound();
             }
 
-            user.AvatarUrl = await mediaStorage.UploadAsync(file, "uploads/avatars", currentUserId, request, ct);
+            try
+            {
+                user.AvatarUrl = await mediaStorage.UploadAsync(file, "uploads/avatars", currentUserId, request, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+            }
+            catch (Amazon.S3.AmazonS3Exception ex)
+            {
+                return Results.Problem($"Storage media non configurato correttamente: {ex.Message}", statusCode: StatusCodes.Status502BadGateway);
+            }
+
             user.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
 

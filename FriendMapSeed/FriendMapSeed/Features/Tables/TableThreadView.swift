@@ -32,6 +32,7 @@ struct TableThreadView: View {
                         messagesSection(thread.messages)
                     }
                     .padding(Theme.Spacing.lg)
+                    .padding(.bottom, 120)
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -43,10 +44,12 @@ struct TableThreadView: View {
                     .foregroundStyle(Theme.Palette.densityHigh)
                     .padding(.horizontal)
             }
-
-            composer
         }
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            composer
+                .padding(.bottom, 88)
+        }
         .navigationTitle(thread?.table.title ?? "Tavolo")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -142,9 +145,23 @@ struct TableThreadView: View {
             Text("Conversazione del tavolo")
                 .font(Theme.Font.title(16, weight: .heavy))
             if ms.isEmpty {
-                Text("Nessun messaggio. Rompi il ghiaccio.")
-                    .font(Theme.Font.caption(12))
-                    .foregroundStyle(Theme.Palette.inkMuted)
+                VStack(spacing: 8) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 28, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.blue500)
+                    Text("La chat del tavolo è pronta")
+                        .font(Theme.Font.body(15, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                    Text("Scrivi il primo messaggio qui sotto.")
+                        .font(Theme.Font.caption(12))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Spacing.lg)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous)
+                        .fill(Theme.Palette.surface)
+                )
             } else {
                 ForEach(ms) { m in
                     bubble(m)

@@ -74,8 +74,11 @@ public class MediaStorageService
         {
             ServiceURL = _options.Endpoint.TrimEnd('/'),
             AuthenticationRegion = _options.Region,
-            ForcePathStyle = _options.ForcePathStyle
+            ForcePathStyle = _options.ForcePathStyle,
+            DisableS3ExpressSessionAuth = true
         };
+
+        Amazon.AWSConfigsS3.UseSignatureVersion4 = true;
 
         using var client = new AmazonS3Client(
             new BasicAWSCredentials(_options.AccessKeyId, _options.SecretAccessKey),
@@ -88,7 +91,8 @@ public class MediaStorageService
             Key = key,
             InputStream = stream,
             ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
-            AutoCloseStream = false
+            AutoCloseStream = false,
+            DisablePayloadSigning = true
         }, ct);
 
         return BuildPublicUrl(key);

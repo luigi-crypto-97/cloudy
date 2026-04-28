@@ -141,6 +141,17 @@ Le chiavi S3 Supabase sono server-side: non inserirle mai nell'app iOS. Il
 bucket deve essere pubblico se vuoi che l'app possa mostrare direttamente le
 immagini tramite URL.
 
+Se durante l'upload vedi `SignatureDoesNotMatch`, ricontrolla questi punti:
+
+- `AccessKeyId` e `SecretAccessKey` devono essere quelli generati in
+  **Storage > S3 Configuration > Access keys**, non `anon key` e non
+  `service_role`.
+- `Region` deve essere copiata dalla stessa schermata Supabase S3.
+- `Endpoint` deve includere anche `/storage/v1/s3`.
+- `Bucket` deve essere esattamente il nome del bucket pubblico, ad esempio
+  `cloudy-media`.
+- dopo aver cambiato gli `export`, devi fermare e riavviare l'API.
+
 Dev-login app:
 
 ```bash
