@@ -69,38 +69,40 @@ struct StoryViewerView: View {
     // MARK: - Body
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-                // MARK: Media + tap layer
-                mediaView(size: geo.size)
-                    .overlay {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture { goBack() }
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .onTapGesture { advance() }
-                        }
+            // MARK: Media (full screen, ignores safe area)
+            mediaView
+                .ignoresSafeArea()
+                .overlay {
+                    HStack(spacing: 0) {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { goBack() }
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture { advance() }
                     }
+                }
 
-                // MARK: UI overlay
+            // MARK: UI overlay (constrained to safe area)
+            GeometryReader { geo in
                 VStack(spacing: 0) {
                     progressBars(width: geo.size.width)
                     header
                     Spacer()
                     bottomOverlay
                 }
-
-                // MARK: Like burst
-                if showLikeBurst {
-                    likeBurst
-                }
             }
-            .offset(y: dragOffset.height)
-            .simultaneousGesture(
+
+            // MARK: Like burst
+            if showLikeBurst {
+                likeBurst
+            }
+        }
+        .offset(y: dragOffset.height)
+        .simultaneousGesture(
                 DragGesture()
                     .onChanged { value in
                         if value.translation.height > 0 && !showsComments && !showsShare {
@@ -153,7 +155,7 @@ struct StoryViewerView: View {
     // MARK: - Media
 
     @ViewBuilder
-    private func mediaView(size: CGSize) -> some View {
+    private var mediaView: some View {
         if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
             AsyncImage(url: mediaUrl) { phase in
                 switch phase {
@@ -161,32 +163,29 @@ struct StoryViewerView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .frame(width: size.width, height: size.height)
-                        .clipped()
-                        .ignoresSafeArea()
                 case .empty:
                     ProgressView()
                         .tint(.white)
-                        .frame(width: size.width, height: size.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failure:
-                    placeholder(size: size)
+                    placeholder
                 @unknown default:
-                    placeholder(size: size)
+                    placeholder
                 }
             }
         } else {
-            placeholder(size: size)
+            placeholder
         }
     }
 
-    private func placeholder(size: CGSize) -> some View {
+    private var placeholder: some View {
         ZStack {
             Color.gray.opacity(0.3)
             Image(systemName: "photo.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(.white.opacity(0.5))
         }
-        .frame(width: size.width, height: size.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Progress bars
