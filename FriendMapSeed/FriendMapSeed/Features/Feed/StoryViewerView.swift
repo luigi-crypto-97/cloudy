@@ -163,7 +163,7 @@ struct StoryViewerView: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
                 case .empty:
                     ProgressView()
                         .tint(.white)
