@@ -40,6 +40,20 @@ struct StoryViewerView: View {
 
     private let storyDuration: Double = 15
 
+    // MARK: - Init (backward compatible)
+
+    init(storiesByUser: [[UserStory]], initialUserIndex: Int = 0, onDismiss: @escaping () -> Void = {}) {
+        self.storiesByUser = storiesByUser
+        self.initialUserIndex = initialUserIndex
+        self.onDismiss = onDismiss
+    }
+
+    init(stories: [UserStory]) {
+        self.storiesByUser = [stories]
+        self.initialUserIndex = 0
+        self.onDismiss = {}
+    }
+
     // MARK: - Computed
 
     private var currentUserStories: [UserStory] {
