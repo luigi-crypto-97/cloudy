@@ -193,7 +193,7 @@ struct CreateStoryView: View {
                 if let selectedImageData, let image = UIImage(data: selectedImageData) {
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFit
+                        .scaledToFit()
                         .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else if let url = URL(string: mediaUrl.trimmingCharacters(in: .whitespaces)) {
@@ -202,7 +202,7 @@ struct CreateStoryView: View {
                         case .success(let img):
                             img
                                 .resizable()
-                                .scaledToFit
+                                .scaledToFit()
                                 .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
                                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         case .failure:

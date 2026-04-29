@@ -146,7 +146,7 @@ struct StoryViewerView: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .scaledToFit
+                        .scaledToFit()
                         .frame(width: size.width, height: size.height)
                 case .empty:
                     ProgressView()
