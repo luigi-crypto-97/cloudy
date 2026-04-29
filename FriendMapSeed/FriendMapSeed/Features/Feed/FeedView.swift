@@ -29,11 +29,27 @@ final class FeedStore {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+
+    var groupedStories: [[UserStory]] {
+        Dictionary(grouping: stories) { $0.userId }
+            .values
+            .sorted {
+                ($0.first?.createdAtUtc ?? .distantPast) > ($1.first?.createdAtUtc ?? .distantPast)
+            }
+    }
+}
+
+struct StoryViewerConfig: Identifiable {
+    let id = UUID()
+    let storiesByUser: [[UserStory]]
+    let initialUserIndex: Int
 }
 
 struct FeedView: View {
     @State private var store = FeedStore()
     @State private var likedIds: Set<UUID> = []
+    @State private var showCreateStory: Bool = false
+    @State private var viewerConfig: StoryViewerConfig? = nil
 
     var body: some View {
         NavigationStack {
@@ -66,11 +82,25 @@ struct FeedView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {} label: {
+                    NavigationLink {
+                        ChatThreadsView()
+                    } label: {
                         Image(systemName: "paperplane")
                             .foregroundStyle(Theme.Palette.ink)
                     }
                 }
+            }
+            .fullScreenCover(isPresented: $showCreateStory) {
+                CreateStoryView(onCreated: {
+                    Task { await store.load() }
+                })
+            }
+            .fullScreenCover(item: $viewerConfig) { config in
+                StoryViewerView(
+                    storiesByUser: config.storiesByUser,
+                    initialUserIndex: config.initialUserIndex,
+                    onDismiss: { viewerConfig = nil }
+                )
             }
             .task { await store.load() }
         }
@@ -85,19 +115,30 @@ struct FeedView: View {
                 myStoryButton
 
                 // Stories amici
-                ForEach(uniqueStorytellers, id: \.userId) { s in
-                    VStack(spacing: 6) {
-                        StoryAvatar(
-                            url: URL(string: s.avatarUrl ?? ""),
-                            size: 64,
-                            hasStory: true,
-                            initials: String((s.displayName ?? s.nickname).prefix(1)).uppercased()
-                        )
-                        Text(s.displayName ?? s.nickname)
-                            .font(Theme.Font.caption(11))
-                            .foregroundStyle(Theme.Palette.inkSoft)
-                            .lineLimit(1)
-                            .frame(width: 72)
+                ForEach(Array(store.groupedStories.enumerated()), id: \.offset) { index, userStories in
+                    if let first = userStories.first {
+                        Button {
+                            Haptics.tap()
+                            viewerConfig = StoryViewerConfig(
+                                storiesByUser: store.groupedStories,
+                                initialUserIndex: index
+                            )
+                        } label: {
+                            VStack(spacing: 6) {
+                                StoryAvatar(
+                                    url: URL(string: first.avatarUrl ?? ""),
+                                    size: 64,
+                                    hasStory: true,
+                                    initials: String((first.displayName ?? first.nickname).prefix(1)).uppercased()
+                                )
+                                Text(first.displayName ?? first.nickname)
+                                    .font(Theme.Font.caption(11))
+                                    .foregroundStyle(Theme.Palette.inkSoft)
+                                    .lineLimit(1)
+                                    .frame(width: 72)
+                            }
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -112,39 +153,40 @@ struct FeedView: View {
     }
 
     private var myStoryButton: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .bottomTrailing) {
-                Circle()
-                    .fill(Theme.Palette.surface)
-                    .frame(width: 64, height: 64)
-                    .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
-                    .overlay(
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(Theme.Palette.inkMuted)
-                    )
-                Circle()
-                    .fill(Theme.Gradients.honeyCTA)
-                    .frame(width: 22, height: 22)
-                    .overlay(
-                        Image(systemName: "plus")
-                            .font(.system(size: 12, weight: .heavy))
-                            .foregroundStyle(.white)
-                    )
-                    .offset(x: 2, y: 2)
+        Button {
+            Haptics.tap()
+            showCreateStory = true
+        } label: {
+            VStack(spacing: 6) {
+                ZStack(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(Theme.Palette.surface)
+                        .frame(width: 64, height: 64)
+                        .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
+                        .overlay(
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 56))
+                                .foregroundStyle(Theme.Palette.inkMuted)
+                        )
+                    Circle()
+                        .fill(Theme.Gradients.honeyCTA)
+                        .frame(width: 22, height: 22)
+                        .overlay(
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .heavy))
+                                .foregroundStyle(.white)
+                        )
+                        .offset(x: 2, y: 2)
+                }
+                .frame(width: 72, height: 72)
+                Text("La tua storia")
+                    .font(Theme.Font.caption(11))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+                    .lineLimit(1)
+                    .frame(width: 72)
             }
-            .frame(width: 72, height: 72)
-            Text("La tua storia")
-                .font(Theme.Font.caption(11))
-                .foregroundStyle(Theme.Palette.inkSoft)
-                .lineLimit(1)
-                .frame(width: 72)
         }
-    }
-
-    private var uniqueStorytellers: [UserStory] {
-        var seen: Set<UUID> = []
-        return store.stories.filter { seen.insert($0.userId).inserted }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Feed items
