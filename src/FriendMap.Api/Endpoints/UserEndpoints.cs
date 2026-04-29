@@ -18,16 +18,18 @@ public static class UserEndpoints
             Guid userId,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var viewerUserId = CurrentUser.GetUserId(principal);
-            var profile = await BuildUserProfileDtoAsync(db, viewerUserId, userId, ct);
+            var profile = await BuildUserProfileDtoAsync(db, mediaStorage, viewerUserId, userId, ct);
             return profile is null ? Results.NotFound() : Results.Ok(profile);
         });
 
         group.MapGet("/me/profile", async (
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -48,7 +50,7 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
@@ -60,11 +62,12 @@ public static class UserEndpoints
                     .ToList()));
         }).RequireAuthorization();
 
-        group.MapPut("/me/profile", async (
+        async Task<IResult> UpdateMyProfileAsync(
             UpdateMyProfileRequest request,
             ClaimsPrincipal principal,
             AppDbContext db,
-            CancellationToken ct) =>
+            MediaStorageService mediaStorage,
+            CancellationToken ct)
         {
             var currentUserId = CurrentUser.GetUserId(principal);
             if (currentUserId == Guid.Empty)
@@ -82,7 +85,11 @@ public static class UserEndpoints
             }
 
             user.DisplayName = NormalizeOptionalText(request.DisplayName, 60);
-            user.AvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
+            var requestedAvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
+            if (request.AvatarUrl is not null && !IsTemporarySignedStorageUrl(requestedAvatarUrl))
+            {
+                user.AvatarUrl = requestedAvatarUrl;
+            }
             user.Bio = NormalizeOptionalText(request.Bio, 280);
             user.BirthYear = request.BirthYear is >= 1940 and <= 2012 ? request.BirthYear : null;
             user.Gender = NormalizeGender(request.Gender);
@@ -98,9 +105,10 @@ public static class UserEndpoints
 
             await db.SaveChangesAsync(ct);
 
-            await db.UserInterests
+            var previousInterests = await db.UserInterests
                 .Where(x => x.UserId == user.Id)
-                .ExecuteDeleteAsync(ct);
+                .ToListAsync(ct);
+            db.UserInterests.RemoveRange(previousInterests);
 
             if (normalizedInterests.Count > 0)
             {
@@ -116,14 +124,17 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
                 user.BirthYear,
                 user.Gender,
                 normalizedInterests));
-        }).RequireAuthorization();
+        }
+
+        group.MapPut("/me/profile", UpdateMyProfileAsync).RequireAuthorization();
+        group.MapPost("/me/profile", UpdateMyProfileAsync).RequireAuthorization();
 
         group.MapPut("/me/discovery-identity", async (
             UpdateDiscoveryIdentityRequest request,
@@ -159,6 +170,7 @@ public static class UserEndpoints
             MatchContactsRequest request,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -239,7 +251,7 @@ public static class UserEndpoints
                     user.Id,
                     user.Nickname,
                     user.DisplayName,
-                    user.AvatarUrl,
+                    mediaStorage.ResolveUrl(user.AvatarUrl),
                     ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
                     matchSource,
                     snapshot.CurrentVenueName,
@@ -254,6 +266,7 @@ public static class UserEndpoints
             string q,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -306,7 +319,7 @@ public static class UserEndpoints
                     user.Id,
                     user.Nickname,
                     user.DisplayName,
-                    user.AvatarUrl,
+                    mediaStorage.ResolveUrl(user.AvatarUrl),
                     ResolveRelationshipStatus(currentUserId, user.Id, relation, false, false),
                     false,
                     false,
@@ -343,7 +356,7 @@ public static class UserEndpoints
         group.MapPost("/me/avatar", async (
             HttpRequest request,
             ClaimsPrincipal principal,
-            IWebHostEnvironment env,
+            MediaStorageService mediaStorage,
             AppDbContext db,
             CancellationToken ct) =>
         {
@@ -358,8 +371,16 @@ public static class UserEndpoints
                 return Results.BadRequest(new { message = "Upload multipart/form-data richiesto." });
             }
 
-            var form = await request.ReadFormAsync(ct);
-            var file = form.Files["file"];
+            IFormCollection form;
+            try
+            {
+                form = await request.ReadFormAsync(ct);
+            }
+            catch (InvalidDataException)
+            {
+                return Results.BadRequest(new { message = "Upload multipart/form-data non valido." });
+            }
+            var file = form.Files.GetFile("file");
             if (file is null || file.Length == 0)
             {
                 return Results.BadRequest(new { message = "File avatar mancante." });
@@ -387,20 +408,19 @@ public static class UserEndpoints
                 return Results.NotFound();
             }
 
-            var webRootPath = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
-            var relativeFolder = Path.Combine("uploads", "avatars");
-            var targetFolder = Path.Combine(webRootPath, relativeFolder);
-            Directory.CreateDirectory(targetFolder);
-
-            var fileName = $"{currentUserId:N}-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}{extension}";
-            var physicalPath = Path.Combine(targetFolder, fileName);
-            await using (var stream = File.Create(physicalPath))
+            try
             {
-                await file.CopyToAsync(stream, ct);
+                user.AvatarUrl = await mediaStorage.UploadAsync(file, "uploads/avatars", currentUserId, request, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Problem(ex.Message, statusCode: StatusCodes.Status500InternalServerError);
+            }
+            catch (Amazon.S3.AmazonS3Exception ex)
+            {
+                return Results.Problem($"Storage media non configurato correttamente: {ex.Message}", statusCode: StatusCodes.Status502BadGateway);
             }
 
-            var baseUri = $"{request.Scheme}://{request.Host}";
-            user.AvatarUrl = $"{baseUri}/{relativeFolder.Replace('\\', '/')}/{fileName}";
             user.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(ct);
 
@@ -408,7 +428,7 @@ public static class UserEndpoints
                 user.Id,
                 user.Nickname,
                 user.DisplayName,
-                user.AvatarUrl,
+                mediaStorage.ResolveUrl(user.AvatarUrl),
                 user.DiscoverablePhoneNormalized,
                 user.DiscoverableEmailNormalized,
                 user.Bio,
@@ -421,6 +441,7 @@ public static class UserEndpoints
             string? period,
             ClaimsPrincipal principal,
             AppDbContext db,
+            MediaStorageService mediaStorage,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(principal);
@@ -479,7 +500,7 @@ public static class UserEndpoints
                 .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
                 .ToListAsync(ct);
 
-            var topPeople = sharedFriendIds.Count == 0
+            var topPeopleRows = sharedFriendIds.Count == 0
                 ? new List<FriendRecapItemDto>()
                 : await db.Users
                     .AsNoTracking()
@@ -493,6 +514,9 @@ public static class UserEndpoints
                         x.AvatarUrl,
                         0))
                     .ToListAsync(ct);
+            var topPeople = topPeopleRows
+                .Select(x => x with { AvatarUrl = mediaStorage.ResolveUrl(x.AvatarUrl) })
+                .ToList();
 
             var recap = new UserRecapDto(
                 normalizedPeriod,
@@ -517,6 +541,7 @@ public static class UserEndpoints
 
     internal static async Task<UserProfileDto?> BuildUserProfileDtoAsync(
         AppDbContext db,
+        MediaStorageService mediaStorage,
         Guid viewerUserId,
         Guid userId,
         CancellationToken ct)
@@ -648,7 +673,7 @@ public static class UserEndpoints
             user.Id,
             user.Nickname,
             user.DisplayName,
-            user.AvatarUrl,
+            mediaStorage.ResolveUrl(user.AvatarUrl),
             user.Bio,
             user.BirthYear,
             user.Gender,
@@ -827,7 +852,24 @@ public static class UserEndpoints
         }
 
         var trimmed = value.Trim();
+        if (trimmed.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
         return Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) ? uri.ToString() : null;
+    }
+
+    private static bool IsTemporarySignedStorageUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("X-Amz-Signature=", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("X-Amz-Credential=", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("/storage/v1/s3/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeGender(string? value)

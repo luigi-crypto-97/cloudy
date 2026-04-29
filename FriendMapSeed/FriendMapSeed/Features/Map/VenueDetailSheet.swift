@@ -8,6 +8,14 @@ import SwiftUI
 struct VenueDetailSheet: View {
     let venue: VenueMarker
     @Environment(\.dismiss) private var dismiss
+    @Environment(AuthStore.self) private var auth
+    @State private var actionMessage: String?
+    @State private var isSubmittingAction = false
+    @State private var showsCreateStory = false
+    @State private var showsCreateTable = false
+    @State private var showsVenueChat = false
+    @State private var venueStories: [VenueStory] = []
+    @State private var selectedStoryRoute: VenueStoryViewerRoute?
 
     var body: some View {
         ScrollView {
@@ -65,6 +73,10 @@ struct VenueDetailSheet: View {
                     statTile(icon: "person.3.fill", value: "\(venue.openTables)", label: "Tavoli")
                 }
 
+                PartyPulseCard(pulse: venue.partyPulse)
+
+                IntentRadarCard(radar: venue.intentRadar)
+
                 // Density indicator + tags
                 VStack(alignment: .leading, spacing: 8) {
                     DensityIndicator(level: venue.densityLevel, count: venue.peopleEstimate)
@@ -95,7 +107,7 @@ struct VenueDetailSheet: View {
                         HStack(spacing: -10) {
                             ForEach(venue.presencePreview.prefix(6)) { p in
                                 StoryAvatar(
-                                    url: URL(string: p.avatarUrl ?? ""),
+                                    url: APIClient.shared.mediaURL(from: p.avatarUrl),
                                     size: 44,
                                     hasStory: true,
                                     initials: String(p.displayName.prefix(1))
@@ -111,21 +123,47 @@ struct VenueDetailSheet: View {
                     }
                 }
 
+                if !venueStories.isEmpty {
+                    SectionCard {
+                        HStack {
+                            Text("Foto scattate qui")
+                                .font(Theme.Font.title(16))
+                            Spacer()
+                            Text("\(venueStories.count)")
+                                .font(Theme.Font.caption(12, weight: .bold))
+                                .foregroundStyle(Theme.Palette.inkMuted)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(venueStories) { story in
+                                    Button {
+                                        selectedStoryRoute = VenueStoryViewerRoute(stories: storyViewerStories(startingFrom: story))
+                                    } label: {
+                                        VenueStoryThumbnail(story: story)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // CTAs
                 VStack(spacing: 10) {
                     Button {
-                        // TODO: check-in flow
+                        Task { await checkInNow() }
                     } label: {
                         HStack {
-                            Image(systemName: "hand.thumbsup.fill")
+                            Image(systemName: isSubmittingAction ? "hourglass" : "hand.thumbsup.fill")
                             Text("Sono qui ora")
                         }
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.honey)
+                    .disabled(isSubmittingAction)
 
                     Button {
-                        // TODO: intention flow
+                        Task { await planTonight() }
                     } label: {
                         HStack {
                             Image(systemName: "calendar.badge.plus")
@@ -134,6 +172,47 @@ struct VenueDetailSheet: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.ghost)
+                    .disabled(isSubmittingAction)
+
+                    Button {
+                        showsCreateStory = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "camera.circle.fill")
+                            Text("Posta foto qui per 24h")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.ghost)
+
+                    Button {
+                        showsCreateTable = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "person.3.fill")
+                            Text("Crea tavolo sociale")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.ghost)
+
+                    Button {
+                        showsVenueChat = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                            Text("Chat del locale")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.ghost)
+
+                    if let actionMessage {
+                        Text(actionMessage)
+                            .font(Theme.Font.caption(12, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.inkSoft)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .padding(.top, 4)
 
@@ -149,6 +228,28 @@ struct VenueDetailSheet: View {
                 }
             }
             .padding(Theme.Spacing.lg)
+        }
+        .sheet(isPresented: $showsCreateStory) {
+            CreateStoryView(venue: venue) {
+                actionMessage = "Storia pubblicata sopra \(venue.name) per 24 ore."
+                Task { await loadVenueStories() }
+            }
+        }
+        .sheet(isPresented: $showsCreateTable) {
+            CreateSocialTableSheet(venue: venue) { message in
+                actionMessage = message
+            }
+        }
+        .sheet(isPresented: $showsVenueChat) {
+            NavigationStack {
+                GroupChatRoomView(venueId: venue.venueId, title: "Chat di \(venue.name)")
+            }
+        }
+        .fullScreenCover(item: $selectedStoryRoute) { route in
+            StoryViewerView(stories: route.stories)
+        }
+        .task {
+            await loadVenueStories()
         }
     }
 
@@ -191,6 +292,400 @@ struct VenueDetailSheet: View {
         case "club", "discoteca":     return "music.note"
         default:                      return "mappin.and.ellipse"
         }
+    }
+
+    private var currentUserId: UUID? {
+        if case .loggedIn(let user) = auth.state {
+            return user.userId
+        }
+        return nil
+    }
+
+    private func checkInNow() async {
+        guard let currentUserId else { return }
+        isSubmittingAction = true
+        actionMessage = nil
+        defer { isSubmittingAction = false }
+        do {
+            try await API.checkIn(venueId: venue.venueId, userId: currentUserId)
+            Haptics.success()
+            actionMessage = "Check-in attivo per le prossime ore."
+        } catch {
+            Haptics.error()
+            actionMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func planTonight() async {
+        guard let currentUserId else { return }
+        let start = Date().addingTimeInterval(60 * 60)
+        let end = start.addingTimeInterval(3 * 60 * 60)
+        isSubmittingAction = true
+        actionMessage = nil
+        defer { isSubmittingAction = false }
+        do {
+            try await API.createIntention(
+                venueId: venue.venueId,
+                userId: currentUserId,
+                startsAtUtc: start,
+                endsAtUtc: end,
+                note: "Ci sto pensando"
+            )
+            Haptics.success()
+            actionMessage = "Piano aggiunto per stasera."
+        } catch {
+            Haptics.error()
+            actionMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadVenueStories() async {
+        do {
+            venueStories = try await API.venueStories()
+                .filter { $0.venueId == venue.venueId }
+                .sorted { $0.createdAtUtc > $1.createdAtUtc }
+        } catch {
+            venueStories = []
+        }
+    }
+
+    private func storyViewerStories(startingFrom selected: VenueStory) -> [UserStory] {
+        let ordered = venueStories.sorted { lhs, rhs in
+            if lhs.id == selected.id { return true }
+            if rhs.id == selected.id { return false }
+            return lhs.createdAtUtc < rhs.createdAtUtc
+        }
+        return ordered.map { story in
+            UserStory(
+                id: story.id,
+                userId: story.userId,
+                nickname: story.nickname,
+                displayName: story.displayName,
+                avatarUrl: story.avatarUrl,
+                mediaUrl: story.mediaUrl,
+                caption: story.caption,
+                venueId: story.venueId,
+                venueName: story.venueName,
+                likeCount: story.likeCount,
+                commentCount: story.commentCount,
+                hasLiked: story.hasLiked,
+                createdAtUtc: story.createdAtUtc,
+                expiresAtUtc: story.expiresAtUtc
+            )
+        }
+    }
+}
+
+private struct VenueStoryViewerRoute: Identifiable {
+    let id = UUID()
+    let stories: [UserStory]
+}
+
+private struct PartyPulseCard: View {
+    let pulse: PartyPulse
+
+    private var energyColor: Color {
+        switch pulse.energyScore {
+        case 82...: return Theme.Palette.coral500
+        case 62...: return Theme.Palette.densityHigh
+        case 38...: return Theme.Palette.blue500
+        case 18...: return Theme.Palette.mint500
+        default: return Theme.Palette.inkMuted
+        }
+    }
+
+    private var moodLabel: String {
+        switch pulse.mood {
+        case "peak": return "Sta esplodendo"
+        case "rising": return "Si sta accendendo"
+        case "alive": return "Vivo"
+        case "warming": return "Si scalda"
+        default: return "Calmo"
+        }
+    }
+
+    var body: some View {
+        SectionCard {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(Theme.Palette.blue100, lineWidth: 8)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(pulse.energyScore) / 100)
+                        .stroke(energyColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 0) {
+                        Text("\(pulse.energyScore)")
+                            .font(Theme.Font.heroNumber(24).monospacedDigit())
+                            .foregroundStyle(Theme.Palette.ink)
+                        Text("pulse")
+                            .font(Theme.Font.caption(10, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                    }
+                }
+                .frame(width: 76, height: 76)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Party Pulse")
+                                .font(Theme.Font.title(17, weight: .heavy))
+                            Text(moodLabel)
+                                .font(Theme.Font.body(13, weight: .semibold))
+                                .foregroundStyle(energyColor)
+                        }
+                        Spacer()
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(energyColor)
+                    }
+
+                    PulseSparkline(values: pulse.sparkline, tint: energyColor)
+                        .frame(height: 34)
+
+                    HStack(spacing: 8) {
+                        pulseMetric("\(pulse.arrivalsLast15)", "arrivi 15m")
+                        pulseMetric("\(pulse.checkInsNow)", "qui ora")
+                        pulseMetric("\(pulse.intentionsSoon)", "in rotta")
+                    }
+                }
+            }
+        }
+    }
+
+    private func pulseMetric(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(Theme.Font.heroNumber(17).monospacedDigit())
+                .foregroundStyle(Theme.Palette.ink)
+            Text(label)
+                .font(Theme.Font.caption(10, weight: .semibold))
+                .foregroundStyle(Theme.Palette.inkMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+    }
+}
+
+private struct PulseSparkline: View {
+    let values: [Int]
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let points = normalizedPoints(in: proxy.size)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.Palette.blue50.opacity(0.7))
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: first)
+                    for point in points.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                }
+                .stroke(tint, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+
+    private func normalizedPoints(in size: CGSize) -> [CGPoint] {
+        let values = values.isEmpty ? [0, 0, 0, 0, 0] : values
+        let maxValue = max(values.max() ?? 1, 1)
+        let step = values.count <= 1 ? 0 : size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { index, value in
+            let x = CGFloat(index) * step
+            let y = size.height - (CGFloat(value) / CGFloat(maxValue) * (size.height - 8)) - 4
+            return CGPoint(x: x, y: y)
+        }
+    }
+}
+
+private struct IntentRadarCard: View {
+    let radar: IntentRadar
+
+    var body: some View {
+        SectionCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Intent Radar Tonight")
+                        .font(Theme.Font.title(17, weight: .heavy))
+                    Text("Aggregato e anonimo")
+                        .font(Theme.Font.caption(11, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                Spacer()
+                Image(systemName: "scope")
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+            }
+
+            HStack(spacing: 8) {
+                radarChip(value: radar.goingOut, label: "Escono", icon: "figure.walk")
+                radarChip(value: radar.almostThere, label: "In arrivo", icon: "arrow.down.right.circle.fill")
+                radarChip(value: radar.hereNow, label: "Qui", icon: "location.fill")
+                radarChip(value: radar.coolingDown, label: "Rientro", icon: "moon.fill")
+            }
+        }
+    }
+
+    private func radarChip(value: Int, label: String, icon: String) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(value > 0 ? Theme.Palette.blue500 : Theme.Palette.inkMuted)
+            Text("\(value)")
+                .font(Theme.Font.heroNumber(18).monospacedDigit())
+                .foregroundStyle(Theme.Palette.ink)
+                .contentTransition(.numericText())
+            Text(label)
+                .font(Theme.Font.caption(10, weight: .semibold))
+                .foregroundStyle(Theme.Palette.inkMuted)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(value > 0 ? Theme.Palette.blue50 : Theme.Palette.surfaceAlt)
+        )
+    }
+}
+
+private struct VenueStoryThumbnail: View {
+    let story: VenueStory
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                default:
+                    Rectangle()
+                        .fill(Theme.Palette.blue50)
+                        .overlay(
+                            Image(systemName: "photo.fill")
+                                .foregroundStyle(Theme.Palette.blue500)
+                        )
+                }
+            }
+            .frame(width: 86, height: 116)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            Text(story.displayName ?? story.nickname)
+                .font(Theme.Font.caption(10, weight: .bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .padding(7)
+                .frame(width: 86, alignment: .leading)
+                .background(
+                    LinearGradient(colors: [.clear, .black.opacity(0.55)], startPoint: .top, endPoint: .bottom)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                )
+        }
+    }
+}
+
+private struct CreateSocialTableSheet: View {
+    let venue: VenueMarker
+    var onCreated: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AuthStore.self) private var auth
+    @State private var title = ""
+    @State private var description = ""
+    @State private var startsAt = Date().addingTimeInterval(60 * 60)
+    @State private var capacity = 4
+    @State private var joinPolicy = "auto"
+    @State private var isSaving = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Locale") {
+                    Text(venue.name)
+                    Text(venue.city).foregroundStyle(.secondary)
+                }
+                Section("Dettagli") {
+                    TextField("Titolo", text: $title)
+                    TextField("Descrizione opzionale", text: $description, axis: .vertical)
+                    DatePicker("Orario", selection: $startsAt, in: Date()..., displayedComponents: [.date, .hourAndMinute])
+                    Stepper("Posti: \(capacity)", value: $capacity, in: 2...20)
+                    Picker("Ingresso", selection: $joinPolicy) {
+                        Text("Chi prima arriva entra").tag("auto")
+                        Text("Approvazione host").tag("approval")
+                    }
+                }
+                if let error {
+                    Section {
+                        Text(error).foregroundStyle(Theme.Palette.densityHigh)
+                    }
+                }
+            }
+            .navigationTitle("Nuovo tavolo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annulla") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isSaving ? "Creo…" : "Crea") {
+                        Task { await create() }
+                    }
+                    .disabled(isSaving || cleanTitle.isEmpty)
+                }
+            }
+        }
+        .onAppear {
+            if title.isEmpty {
+                title = "Tavolo da \(venue.name)"
+            }
+        }
+    }
+
+    private var cleanTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var currentUserId: UUID? {
+        if case .loggedIn(let user) = auth.state {
+            return user.userId
+        }
+        return nil
+    }
+
+    private func create() async {
+        guard let currentUserId else { return }
+        isSaving = true
+        error = nil
+        defer { isSaving = false }
+        do {
+            let table = try await API.createTable(CreateSocialTableRequest(
+                hostUserId: currentUserId,
+                venueId: venue.venueId,
+                title: cleanTitle,
+                description: description.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                startsAtUtc: startsAt,
+                capacity: capacity,
+                joinPolicy: joinPolicy
+            ))
+            Haptics.success()
+            onCreated("Tavolo creato: \(table.acceptedCount)/\(table.capacity) posti occupati.")
+            dismiss()
+        } catch {
+            Haptics.error()
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

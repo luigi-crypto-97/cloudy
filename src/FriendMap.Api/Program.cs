@@ -2,8 +2,10 @@ using FriendMap.Api.Data;
 using FriendMap.Api.Endpoints;
 using FriendMap.Api.Hubs;
 using FriendMap.Api.Services;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -20,6 +22,7 @@ builder.Host.UseSerilog((context, configuration) =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddProblemDetails();
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -52,6 +55,16 @@ builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.Ge
 builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
 builder.Services.Configure<FoursquareOptions>(builder.Configuration.GetSection("Foursquare"));
 builder.Services.Configure<OverpassOptions>(builder.Configuration.GetSection("Overpass"));
+builder.Services.Configure<MediaStorageOptions>(builder.Configuration.GetSection("MediaStorage"));
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedHost |
+        ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -63,6 +76,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AffluenceAggregationService>();
 builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<VenueAnalyticsService>();
+builder.Services.AddScoped<MediaStorageService>();
 var foursquareOptions = builder.Configuration.GetSection("Foursquare").Get<FoursquareOptions>() ?? new FoursquareOptions();
 var overpassOptions = builder.Configuration.GetSection("Overpass").Get<OverpassOptions>() ?? new OverpassOptions();
 builder.Services.AddHttpClient<FoursquareVenueImportService>(client =>
@@ -113,9 +127,18 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Global rate limit: 100 req/min per IP (anonymous) or per user ID (authenticated)
+    // Global rate limit per IP (anonymous) or per user ID (authenticated).
+    // The mobile app refreshes map overlays, stories and chat in parallel; keep this
+    // protective without blocking normal in-app bursts.
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
+        if (context.Request.Path.StartsWithSegments("/uploads") ||
+            context.Request.Path.StartsWithSegments("/.well-known") ||
+            context.Request.Path.StartsWithSegments("/health"))
+        {
+            return RateLimitPartition.GetNoLimiter("static-or-health");
+        }
+
         var key = context.User.Identity?.IsAuthenticated == true
             ? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anon"
             : context.Connection.RemoteIpAddress?.ToString() ?? "anon";
@@ -123,27 +146,29 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: key,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 100,
+                PermitLimit = 600,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 2
+                QueueLimit = 20
             });
     });
 
-    // Stricter policy for write-heavy social endpoints
+    // Social endpoints include reads and writes for map overlays, stories, chat and
+    // flares. A small queue avoids false 429s when the app fires concurrent actions.
     options.AddPolicy("social", context =>
     {
         var userId = context.User.Identity?.IsAuthenticated == true
             ? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anon"
             : "anon";
+        var isRead = HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method);
         return RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: userId,
+            partitionKey: $"{userId}:{(isRead ? "read" : "write")}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 30,
+                PermitLimit = isRead ? 480 : 120,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
+                QueueLimit = isRead ? 20 : 8
             });
     });
 });
@@ -160,10 +185,30 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerPathFeature>();
+        if (feature?.Error is { } exception)
+        {
+            Log.Error(exception, "Unhandled API exception on {Path}", feature.Path);
+        }
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await Results.Problem(
+            title: "Errore server",
+            detail: "Si e verificato un errore interno. Controlla i log del server per il dettaglio tecnico.",
+            statusCode: StatusCodes.Status500InternalServerError)
+            .ExecuteAsync(context);
+    });
+});
+
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
-app.UseRateLimiter();
 app.UseCors("default");
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -173,17 +218,18 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
 
-    if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
+if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment() &&
+        app.Configuration.GetValue("Database:SeedDevelopmentData", true))
     {
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.MigrateAsync();
-
-        if (app.Configuration.GetValue("Database:SeedDevelopmentData", true))
-        {
-            await DevelopmentDataSeeder.SeedAsync(db);
-        }
+        await DevelopmentDataSeeder.SeedAsync(db);
     }
 }
 
@@ -281,3 +327,5 @@ app.MapDiscoveryEndpoints();
 app.MapGamificationEndpoints();
 
 app.Run();
+
+public partial class Program;

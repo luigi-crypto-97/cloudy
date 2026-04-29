@@ -4,6 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ -f ".env.local" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env.local"
+  set +a
+fi
+
 DESIRED_URLS="${ASPNETCORE_URLS:-http://127.0.0.1:8080}"
 DB_HOST="${FRIENDMAP_DB_HOST:-127.0.0.1}"
 DB_PORT="${FRIENDMAP_DB_PORT:-5432}"
@@ -79,6 +86,6 @@ if lsof -nP -iTCP:8080 -sTCP:LISTEN >/dev/null 2>&1; then
   exit 1
 fi
 
-ASPNETCORE_ENVIRONMENT=Development \
+ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
 ASPNETCORE_URLS="$DESIRED_URLS" \
   dotnet run --no-launch-profile --project src/FriendMap.Api/FriendMap.Api.csproj

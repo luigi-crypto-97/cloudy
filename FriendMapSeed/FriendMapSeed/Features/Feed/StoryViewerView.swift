@@ -1,479 +1,609 @@
 //
 //  StoryViewerView.swift
-//  Cloudy — Full-screen story viewer (Instagram-like)
-//
-//  UX premium: progress bar segmentata, tap left/right, swipe down dismiss,
-//  long-press pausa, risposta rapida via DM.
+//  Cloudy — Viewer individuale per storie, con carousel
 //
 
 import SwiftUI
 
 struct StoryViewerView: View {
-    let storiesByUser: [[UserStory]]
-    let initialUserIndex: Int
-    let onDismiss: () -> Void
+    let stories: [UserStory]
+    @Environment(AppRouter.self) private var router
+    @State private var localStories: [UserStory] = []
+    @State private var currentIndex: Int = 0
+    @State private var progress: Double = 0
+    @State private var timer: Timer?
+    @State private var comments: [StoryComment] = []
+    @State private var commentDraft: String = ""
+    @State private var showsComments = false
+    @State private var showsShare = false
+    @State private var friends: [SocialConnection] = []
+    @State private var errorMessage: String?
+    @State private var isPaused = false
+    @State private var privateReplyDraft = ""
+    @State private var showsPrivateReply = false
+    @State private var isSendingPrivateReply = false
+    @Environment(\.dismiss) var dismiss
 
-    @State private var userIndex: Int = 0
-    @State private var storyIndex: Int = 0
-    @State private var progress: CGFloat = 0
-    @State private var isPaused: Bool = false
-    @State private var isReplying: Bool = false
-    @State private var replyText: String = ""
-    @State private var dragOffset: CGSize = .zero
-    @State private var toastMessage: String?
-    @State private var showLikeBurst: Bool = false
-
-    private let storyDuration: CGFloat = 5.0
-    private let timer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
-
-    private var currentUserStories: [UserStory] {
-        guard storiesByUser.indices.contains(userIndex) else { return [] }
-        return storiesByUser[userIndex]
-    }
-
-    private var currentStory: UserStory? {
-        guard currentUserStories.indices.contains(storyIndex) else { return nil }
-        return currentUserStories[storyIndex]
-    }
-
-    // MARK: - Body
+    private let storyDuration: Double = 15
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            // Background scuro
+            Color.black.ignoresSafeArea()
 
-                // MARK: Media
-                storyMedia(size: geo.size)
-
-                // MARK: Tap layer (sotto UI, sopra media)
-                tapLayer(size: geo.size)
-
-                // MARK: UI overlay
-                VStack(spacing: 0) {
-                    progressBars(width: geo.size.width)
-                    header
-                    Spacer()
-                    bottomOverlay
-                }
-
-                // MARK: Reply sheet
-                if isReplying {
-                    replySheet
-                }
-
-                // MARK: Like burst
-                if showLikeBurst {
-                    likeBurst
-                }
-
-                // MARK: Toast
-                if let toast = toastMessage {
-                    toastView(message: toast, width: geo.size.width)
-                }
-            }
-            .offset(y: dragOffset.height)
-            .simultaneousGesture(
-                DragGesture()
-                    .onChanged { value in
-                        if value.translation.height > 0 && !isReplying {
-                            dragOffset = value.translation
-                        }
-                    }
-                    .onEnded { value in
-                        if value.translation.height > 120 {
-                            dismiss()
-                        } else {
-                            withAnimation(.spring(response: 0.3)) {
-                                dragOffset = .zero
+            VStack(spacing: 0) {
+                // Progress bar
+                HStack(spacing: 2) {
+                    ForEach(0..<stories.count, id: \.self) { i in
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color.white.opacity(0.3))
+                                Capsule()
+                                    .fill(Color.white)
+                                    .frame(width: geo.size.width * (i == currentIndex ? progress : (i < currentIndex ? 1 : 0)))
                             }
                         }
+                        .frame(height: 2)
                     }
-            )
-        }
-        .onAppear {
-            userIndex = initialUserIndex
-            storyIndex = 0
-            progress = 0
-        }
-        .onReceive(timer) { _ in
-            guard !isPaused && !isReplying else { return }
-            progress += 0.05 / storyDuration
-            if progress >= 1.0 {
-                advance()
+                }
+                .padding(Theme.Spacing.md)
+
+                // Header con nome
+                HStack {
+                    StoryAvatar(
+                        url: APIClient.shared.mediaURL(from: currentStory.avatarUrl),
+                        size: 40,
+                        hasStory: false,
+                        initials: String((currentStory.displayName ?? currentStory.nickname).prefix(1)).uppercased()
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(currentStory.displayName ?? currentStory.nickname)
+                            .font(Theme.Font.body(15, weight: .heavy))
+                            .foregroundStyle(.white)
+                        Text(timeAgo(currentStory.createdAtUtc))
+                            .font(Theme.Font.caption(11))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                .padding(Theme.Spacing.md)
+
+                Spacer()
+
+                // Media (immagine o placeholder)
+                mediaView
+                    .overlay {
+                        HStack(spacing: 0) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture { previousStory() }
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture { nextStory() }
+                        }
+                    }
+                    .overlay(alignment: .bottomLeading) {
+                        storyTitleOverlay
+                            .padding(.horizontal, 18)
+                            .padding(.bottom, 98)
+                    }
+
+                Spacer()
             }
         }
-        .statusBar(hidden: true)
+        .overlay(alignment: .bottom) {
+            storyActions
+                .padding(.top, 18)
+                .padding(.bottom, 16)
+                .background(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.86)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea(edges: .bottom)
+                )
+                .animation(.cloudySnap, value: showsComments)
+                .animation(.cloudySnap, value: showsPrivateReply)
+        }
+        .onAppear {
+            router.isTabBarHidden = true
+            localStories = stories
+            startProgress()
+        }
+        .onDisappear {
+            router.isTabBarHidden = false
+            timer?.invalidate()
+            timer = nil
+        }
+        .onChange(of: currentIndex) {
+            progress = 0
+            privateReplyDraft = ""
+            commentDraft = ""
+            showsPrivateReply = false
+            showsComments = false
+            startProgress()
+        }
+        .sheet(isPresented: $showsShare) {
+            shareSheet
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    isPaused = true
+                }
+                .onEnded { value in
+                    isPaused = false
+                    if value.translation.height < -70 && abs(value.translation.height) > abs(value.translation.width) {
+                        withAnimation(.cloudySnap) {
+                            showsPrivateReply = true
+                        }
+                    }
+                }
+        )
+        .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 38, pressing: { pressing in
+            isPaused = pressing
+        }, perform: {})
     }
 
-    // MARK: - Media
+    private var currentStory: UserStory {
+        let source = localStories.isEmpty ? stories : localStories
+        guard currentIndex < source.count else { return source.first! }
+        return source[currentIndex]
+    }
 
     @ViewBuilder
-    private func storyMedia(size: CGSize) -> some View {
-        if let story = currentStory, let url = URL(string: story.mediaUrl ?? "") {
-            AsyncImage(url: url) { phase in
+    private var mediaView: some View {
+        if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
+            AsyncImage(url: mediaUrl) { phase in
                 switch phase {
                 case .success(let image):
                     image
                         .resizable()
-                        .scaledToFill()
-                        .frame(width: size.width, height: size.height)
-                        .clipped()
-                case .failure:
-                    Color.gray.opacity(0.3)
-                        .frame(width: size.width, height: size.height)
-                default:
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .empty:
                     ProgressView()
                         .tint(.white)
-                        .frame(width: size.width, height: size.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .failure:
+                    placeholder
+                @unknown default:
+                    placeholder
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            Color.gray.opacity(0.3)
+            placeholder
         }
     }
 
-    // MARK: - Tap layer
+    private var placeholder: some View {
+        ZStack {
+            Color.gray.opacity(0.3)
+            Image(systemName: "photo.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.white.opacity(0.5))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 
-    private func tapLayer(size: CGSize) -> some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                SpatialTapGesture()
-                    .onEnded { event in
-                        guard !isReplying else { return }
-                        let loc = event.location
-                        let headerH: CGFloat = 110
-                        let footerH: CGFloat = 160
-                        guard loc.y > headerH && loc.y < size.height - footerH else { return }
-                        if loc.x < size.width / 3 {
-                            goBack()
-                        } else {
-                            advance()
+    @ViewBuilder
+    private var storyTitleOverlay: some View {
+        if currentStory.caption != nil || currentStory.venueName != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                if let venueName = currentStory.venueName, !venueName.isEmpty {
+                    Label(venueName, systemImage: "mappin.circle.fill")
+                        .font(Theme.Font.caption(12, weight: .heavy))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.30), in: Capsule())
+                }
+
+                if let caption = currentStory.caption, !caption.isEmpty {
+                    Text(caption)
+                        .font(Theme.Font.title(20, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .shadow(color: .black.opacity(0.55), radius: 10, x: 0, y: 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var storyActions: some View {
+        VStack(spacing: 12) {
+            if showsComments {
+                commentsPanel
+            }
+
+            actionDock
+        }
+    }
+
+    private var actionDock: some View {
+        HStack(spacing: 10) {
+            if canPrivateReply {
+                HStack(spacing: 8) {
+                    TextField("Invia messaggio…", text: $privateReplyDraft)
+                        .textFieldStyle(.plain)
+                        .font(Theme.Font.body(14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .submitLabel(.send)
+                        .onSubmit {
+                            Task { await sendPrivateReply() }
+                        }
+
+                    if !privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            Task { await sendPrivateReply() }
+                        } label: {
+                            Image(systemName: isSendingPrivateReply ? "hourglass" : "arrow.up")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(.black)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(.white))
+                        }
+                        .disabled(isSendingPrivateReply)
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding(.leading, 15)
+                .padding(.trailing, 7)
+                .padding(.vertical, 7)
+                .background(.white.opacity(0.14), in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.24), lineWidth: 1))
+            } else {
+                Text("La tua storia")
+                    .font(Theme.Font.body(14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 13)
+                    .background(.white.opacity(0.12), in: Capsule())
+            }
+
+            Button {
+                Task { await toggleLike() }
+            } label: {
+                VStack(spacing: 1) {
+                    Image(systemName: currentStory.hasLiked ? "heart.fill" : "heart")
+                        .font(.system(size: 19, weight: .bold))
+                    if currentStory.likeCount > 0 {
+                        Text("\(currentStory.likeCount)")
+                            .font(Theme.Font.caption(9, weight: .heavy))
+                    }
+                }
+                .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
+                .frame(width: 42, height: 42)
+                .background(.white.opacity(0.14), in: Circle())
+            }
+
+            Button {
+                withAnimation(.cloudySnap) {
+                    showsComments.toggle()
+                }
+                if showsComments {
+                    Task { await loadComments() }
+                }
+                Haptics.tap()
+            } label: {
+                VStack(spacing: 1) {
+                    Image(systemName: showsComments ? "bubble.right.fill" : "bubble.right")
+                        .font(.system(size: 18, weight: .bold))
+                    if currentStory.commentCount > 0 {
+                        Text("\(currentStory.commentCount)")
+                            .font(Theme.Font.caption(9, weight: .heavy))
+                    }
+                }
+                .foregroundStyle(.white)
+                .frame(width: 42, height: 42)
+                .background(.white.opacity(showsComments ? 0.24 : 0.14), in: Circle())
+            }
+
+            Button {
+                showsShare = true
+                Task { await loadFriends() }
+                Haptics.tap()
+            } label: {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(.white.opacity(0.14), in: Circle())
+            }
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+    }
+
+    private var commentsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Capsule()
+                .fill(.white.opacity(0.28))
+                .frame(width: 36, height: 4)
+                .frame(maxWidth: .infinity)
+
+            HStack {
+                Text("Commenti")
+                    .font(Theme.Font.title(17, weight: .heavy))
+                    .foregroundStyle(.white)
+                Text("\(currentStory.commentCount)")
+                    .font(Theme.Font.caption(11, weight: .heavy))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.12), in: Capsule())
+                Spacer()
+                Button {
+                    withAnimation(.cloudySnap) { showsComments = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundStyle(.white.opacity(0.82))
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.12), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            if comments.isEmpty {
+                Text("Ancora nessun commento. Apri tu la conversazione.")
+                    .font(Theme.Font.body(13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(comments.prefix(8)) { comment in
+                            commentRow(comment)
                         }
                     }
-            )
-            .onLongPressGesture(
-                minimumDuration: .infinity,
-                maximumDistance: .infinity,
-                pressing: { pressing in
-                    isPaused = pressing
-                },
-                perform: {}
-            )
-    }
-
-    // MARK: - Progress bars
-
-    private func progressBars(width: CGFloat) -> some View {
-        HStack(spacing: 4) {
-            ForEach(Array(currentUserStories.enumerated()), id: \.element.id) { index, _ in
-                GeometryReader { barGeo in
-                    ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.white.opacity(0.25))
-                        RoundedRectangle(cornerRadius: 1)
-                            .fill(Color.white)
-                            .frame(width: barWidth(for: index, totalWidth: barGeo.size.width), height: 2)
-                    }
                 }
-                .frame(height: 2)
+                .frame(maxHeight: 190)
+                .scrollIndicators(.hidden)
             }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 12)
-    }
 
-    private func barWidth(for index: Int, totalWidth: CGFloat) -> CGFloat {
-        if index < storyIndex {
-            return totalWidth
-        } else if index == storyIndex {
-            return totalWidth * min(progress, 1.0)
-        } else {
-            return 0
-        }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(spacing: 10) {
             HStack(spacing: 8) {
-                StoryAvatar(
-                    url: URL(string: currentStory?.avatarUrl ?? ""),
-                    size: 34,
-                    hasStory: false,
-                    initials: String((currentStory?.displayName ?? currentStory?.nickname ?? "?").prefix(1)).uppercased()
-                )
-                Text(currentStory?.displayName ?? currentStory?.nickname ?? "")
-                    .font(Theme.Font.body(14, weight: .bold))
+                TextField("Commenta per gli amici…", text: $commentDraft)
+                    .textFieldStyle(.plain)
+                    .font(Theme.Font.body(14, weight: .semibold))
                     .foregroundStyle(.white)
-                if let date = currentStory?.createdAtUtc {
-                    Text("· \(relative(date))")
-                        .font(Theme.Font.caption(12))
-                        .foregroundStyle(.white.opacity(0.7))
+                    .submitLabel(.send)
+                    .onSubmit {
+                        Task { await sendComment() }
+                    }
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 11)
+                    .background(.white.opacity(0.13), in: Capsule())
+                    .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
+
+                Button {
+                    Task { await sendComment() }
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(.black)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(.white))
                 }
+                .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.42 : 1)
             }
-            Spacer()
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(8)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(Theme.Font.caption(11, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.honey)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 4)
+        .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
     }
 
-    // MARK: - Bottom overlay
-
-    private var bottomOverlay: some View {
-        VStack(spacing: 16) {
-            if let caption = currentStory?.caption, !caption.isEmpty {
-                Text(caption)
-                    .font(Theme.Font.body(15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 1)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
-            }
-
-            HStack(spacing: 14) {
-                Button {
-                    sendLike()
-                } label: {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(Theme.Palette.igPink)
-                        .frame(width: 44, height: 44)
+    private func commentRow(_ comment: StoryComment) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            StoryAvatar(
+                url: APIClient.shared.mediaURL(from: comment.avatarUrl),
+                size: 30,
+                hasStory: false,
+                initials: String((comment.displayName ?? comment.nickname).prefix(1)).uppercased()
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    Text(comment.displayName ?? comment.nickname)
+                        .font(Theme.Font.caption(11, weight: .heavy))
+                        .foregroundStyle(.white)
+                    Text(timeAgo(comment.createdAtUtc))
+                        .font(Theme.Font.caption(10))
+                        .foregroundStyle(.white.opacity(0.52))
                 }
+                Text(comment.body)
+                    .font(Theme.Font.body(13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
 
+    private var canPrivateReply: Bool {
+        API.currentUserId != currentStory.userId
+    }
+
+    private var shareSheet: some View {
+        NavigationStack {
+            List(friends) { friend in
                 Button {
-                    withAnimation(.spring(response: 0.35)) {
-                        isReplying = true
+                    Task {
+                        do {
+                            _ = try await API.shareStory(storyId: currentStory.id, targetUserId: friend.userId, message: nil)
+                            Haptics.success()
+                            showsShare = false
+                        } catch {
+                            Haptics.error()
+                            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                        }
                     }
                 } label: {
                     HStack {
-                        Text("Invia un messaggio a \(currentStory?.displayName ?? currentStory?.nickname ?? "")")
-                            .font(Theme.Font.body(14, weight: .medium))
-                        Spacer()
+                        StoryAvatar(
+                            url: APIClient.shared.mediaURL(from: friend.avatarUrl),
+                            size: 38,
+                            initials: String((friend.displayName ?? friend.nickname).prefix(1)).uppercased()
+                        )
+                        Text(friend.displayName ?? friend.nickname)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule()
-                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                }
+            }
+            .navigationTitle("Invia a")
+            .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if friends.isEmpty {
+                    CloudyEmptyState(
+                        icon: "person.2",
+                        title: "Nessun amico disponibile",
+                        message: "Quando aggiungi amici potrai inviare loro questa storia."
                     )
-                    .foregroundStyle(.white)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 14)
-        }
-        .padding(.bottom, 28)
-        .background(
-            LinearGradient(
-                colors: [.black.opacity(0.0), .black.opacity(0.5)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .bottom)
-        )
-    }
-
-    // MARK: - Reply sheet
-
-    private var replySheet: some View {
-        VStack {
-            Spacer()
-            VStack(spacing: 14) {
-                HStack {
-                    Text("Rispondi a \(currentStory?.displayName ?? currentStory?.nickname ?? "")")
-                        .font(Theme.Font.title(16))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Button {
-                        withAnimation(.spring(response: 0.35)) {
-                            isReplying = false
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(6)
-                            .background(Color.white.opacity(0.15))
-                            .clipShape(Circle())
-                    }
-                }
-
-                HStack(spacing: 10) {
-                    TextField("Scrivi qualcosa...", text: $replyText)
-                        .font(Theme.Font.body(15))
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .foregroundStyle(.white)
-
-                    Button {
-                        sendReply()
-                    } label: {
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(Theme.Palette.honey)
-                    }
-                    .disabled(replyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .padding()
                 }
             }
-            .padding(20)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 16)
         }
-        .background(
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.35)) {
-                        isReplying = false
-                    }
+    }
+
+    private func startProgress() {
+        timer?.invalidate()
+        progress = 0
+        timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
+            guard !isPaused, !showsShare, !showsComments else { return }
+            progress += 0.016 / storyDuration
+            if progress >= 1 {
+                if currentIndex < stories.count - 1 {
+                    currentIndex += 1
+                    progress = 0
+                } else {
+                    dismiss()
                 }
-        )
-        .transition(.move(edge: .bottom))
-    }
-
-    // MARK: - Like burst
-
-    private var likeBurst: some View {
-        Image(systemName: "heart.fill")
-            .font(.system(size: 80, weight: .black))
-            .foregroundStyle(Theme.Palette.igPink)
-            .shadow(color: .black.opacity(0.3), radius: 12)
-            .transition(.scale.combined(with: .opacity))
-    }
-
-    // MARK: - Toast
-
-    private func toastView(message: String, width: CGFloat) -> some View {
-        VStack {
-            Text(message)
-                .font(Theme.Font.body(14, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
-                .padding(.top, 100)
-            Spacer()
-        }
-        .frame(width: width)
-    }
-
-    // MARK: - Navigation logic
-
-    private func advance() {
-        if storyIndex + 1 < currentUserStories.count {
-            storyIndex += 1
-            progress = 0
-        } else if userIndex + 1 < storiesByUser.count {
-            userIndex += 1
-            storyIndex = 0
-            progress = 0
-        } else {
-            dismiss()
+            }
         }
     }
 
-    private func goBack() {
-        if storyIndex > 0 {
-            storyIndex -= 1
-            progress = 0
-        } else if userIndex > 0 {
-            userIndex -= 1
-            storyIndex = max(storiesByUser[userIndex].count - 1, 0)
+    private func previousStory() {
+        withAnimation(.cloudySnap) {
+            if currentIndex > 0 {
+                currentIndex -= 1
+            }
             progress = 0
         }
     }
 
-    private func dismiss() {
-        onDismiss()
-    }
-
-    // MARK: - Actions
-
-    private func sendReply() {
-        guard let story = currentStory else { return }
-        let text = replyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        Task {
-            do {
-                _ = try await API.sendDirectMessage(otherUserId: story.userId, body: text)
-                await MainActor.run {
-                    replyText = ""
-                    withAnimation(.spring(response: 0.35)) {
-                        isReplying = false
-                    }
-                    showToast("Messaggio inviato")
-                }
-            } catch {
-                await MainActor.run {
-                    showToast("Errore nell'invio")
-                }
+    private func nextStory() {
+        withAnimation(.cloudySnap) {
+            if currentIndex < stories.count - 1 {
+                currentIndex += 1
+                progress = 0
+            } else {
+                dismiss()
             }
         }
     }
 
-    private func sendLike() {
-        guard let story = currentStory else { return }
-        Task {
-            do {
-                _ = try await API.sendDirectMessage(otherUserId: story.userId, body: "❤️")
-                await MainActor.run {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                        showLikeBurst = true
-                    }
-                    showToast("Inviato ❤️")
-                    Task {
-                        try? await Task.sleep(nanoseconds: 900_000_000)
-                        await MainActor.run {
-                            withAnimation(.easeOut) {
-                                showLikeBurst = false
-                            }
-                        }
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    showToast("Errore nell'invio")
-                }
+    private func toggleLike() async {
+        do {
+            let result = try await API.toggleStoryLike(storyId: currentStory.id)
+            updateCurrentStory { story in
+                story.hasLiked = result.liked
+                story.likeCount = result.likeCount
             }
+            Haptics.tap()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    private func showToast(_ message: String) {
-        toastMessage = message
-        Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            await MainActor.run {
-                toastMessage = nil
-            }
+    private func loadComments() async {
+        do {
+            comments = try await API.storyComments(storyId: currentStory.id)
+            errorMessage = nil
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    // MARK: - Helpers
+    private func sendComment() async {
+        let body = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        do {
+            let comment = try await API.addStoryComment(storyId: currentStory.id, body: body)
+            comments.append(comment)
+            commentDraft = ""
+            updateCurrentStory { $0.commentCount += 1 }
+            Haptics.success()
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
 
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        f.locale = Locale(identifier: "it_IT")
-        return f.localizedString(for: date, relativeTo: Date())
+    private func sendPrivateReply() async {
+        let body = privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        isSendingPrivateReply = true
+        defer { isSendingPrivateReply = false }
+        do {
+            _ = try await API.shareStory(storyId: currentStory.id, targetUserId: currentStory.userId, message: body)
+            privateReplyDraft = ""
+            withAnimation(.cloudySnap) { showsPrivateReply = false }
+            Haptics.success()
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func loadFriends() async {
+        do {
+            friends = try await API.socialHub().friends
+        } catch {
+            friends = []
+        }
+    }
+
+    private func updateCurrentStory(_ update: (inout UserStory) -> Void) {
+        if localStories.isEmpty {
+            localStories = stories
+        }
+        guard currentIndex < localStories.count else { return }
+        update(&localStories[currentIndex])
+    }
+
+    private func timeAgo(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        formatter.locale = Locale(identifier: "it_IT")
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }

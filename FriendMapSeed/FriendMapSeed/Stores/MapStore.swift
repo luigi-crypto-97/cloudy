@@ -38,6 +38,7 @@ final class MapStore {
     // MARK: - Public state
 
     var markers: [VenueMarker] = []
+    var areas: [VenueMapArea] = []
     var fogLinks: [FogLink] = []
     var isLoading: Bool = false
     var errorMessage: String?
@@ -48,6 +49,7 @@ final class MapStore {
     var openNowOnly: Bool = false
 
     var lastViewport: MKCoordinateRegion?
+    var usesAreaLayer: Bool = false
 
     // MARK: - Private
 
@@ -105,15 +107,18 @@ final class MapStore {
         defer { isLoading = false }
 
         do {
-            let result = try await API.venueMap(
+            let result = try await API.venueMapLayer(
                 minLat: bounds.minLat, minLng: bounds.minLng,
                 maxLat: bounds.maxLat, maxLng: bounds.maxLng,
                 query: query.isEmpty ? nil : query,
                 category: category == "all" ? nil : category,
                 openNow: openNowOnly
             )
-            markers = result
-            recomputeFogLinks(from: result)
+            let shouldUseAreas = shouldUseAreaLayer(region: region, markerCount: result.markers.count, areaCount: result.areas.count)
+            usesAreaLayer = shouldUseAreas
+            areas = shouldUseAreas ? result.areas : []
+            markers = shouldUseAreas ? [] : Array(result.markers.prefix(90))
+            recomputeFogLinks(from: markers, in: region)
         } catch is CancellationError {
             return
         } catch {
@@ -127,8 +132,12 @@ final class MapStore {
     /// La logica vera vive in `CloudyCore.FogLinkBuilder` (cross-platform e testata).
     /// Qui adattiamo `VenueMarker` al protocollo `VenueClusterInput` ed
     /// eseguiamo il calcolo su Task.detached, pubblicando solo il risultato finale.
-    private func recomputeFogLinks(from sample: [VenueMarker]) {
+    private func recomputeFogLinks(from sample: [VenueMarker], in region: MKCoordinateRegion) {
         fogTask?.cancel()
+        guard sample.count <= 70, max(region.span.latitudeDelta, region.span.longitudeDelta) < 0.08 else {
+            fogLinks = []
+            return
+        }
         let snapshot = sample
         fogTask = Task.detached(priority: .utility) { [weak self] in
             // Map a CloudyCore types
@@ -149,11 +158,20 @@ final class MapStore {
             }
         }
     }
+
+    private func shouldUseAreaLayer(region: MKCoordinateRegion, markerCount: Int, areaCount: Int) -> Bool {
+        guard areaCount > 0 else { return false }
+        let span = max(region.span.latitudeDelta, region.span.longitudeDelta)
+        return markerCount > 70 || span >= 0.035
+    }
 }
 
 // MARK: - Adapter VenueMarker -> CloudyCore.VenueClusterInput
-
-private struct ClusterInputAdapter: VenueClusterInput, Sendable {
+//
+// Esplicitamente `nonisolated` per evitare il warning di Swift 6:
+// l'adapter viene usato da Task.detached (nonisolated context) e quindi
+// la sua conformance al protocol non puo' essere MainActor-isolated.
+nonisolated private struct ClusterInputAdapter: VenueClusterInput, Sendable {
     let marker: VenueMarker
     var clusterId: String { marker.venueId.uuidString }
     var location: LatLon { LatLon(lat: marker.latitude, lng: marker.longitude) }

@@ -2674,8 +2674,19 @@ public partial class MainMapPage : ContentPage
             {
                 Source = ImageSource.FromUri(avatarUri),
                 Aspect = Aspect.AspectFill,
+                InputTransparent = true
+            };
+
+            // FIX: Su iOS MAUI l'EllipseGeometry spesso nasconde completamente l'immagine.
+            // Usiamo un Border come contenitore mascherato per il cerchio perfetto.
+            var imageContainer = new Border
+            {
                 WidthRequest = size,
                 HeightRequest = size,
+                StrokeThickness = 0,
+                Padding = 0,
+                StrokeShape = new RoundRectangle { CornerRadius = size / 2 },
+                Content = avatarImage,
                 InputTransparent = true
             };
             avatarImage.Clip = new EllipseGeometry
@@ -2686,6 +2697,7 @@ public partial class MainMapPage : ContentPage
             };
 
             content.Children.Add(avatarImage);
+            content.Children.Add(imageContainer);
         }
 
         return new Border

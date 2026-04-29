@@ -22,41 +22,120 @@ final class NotificationsStore {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+
+    func markRead() async {
+        try? await API.markNotificationsRead()
+        NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+    }
+
+    func delete(_ item: NotificationItem) async {
+        do {
+            try await API.deleteNotification(id: item.id)
+            withAnimation(.cloudySnappy) {
+                items.removeAll { $0.id == item.id }
+            }
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+            Haptics.success()
+        } catch {
+            Haptics.error()
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    func deleteAll() async {
+        do {
+            try await API.deleteAllNotifications()
+            withAnimation(.cloudySnappy) {
+                items.removeAll()
+            }
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+            Haptics.success()
+        } catch {
+            Haptics.error()
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
 }
 
 struct NotificationsView: View {
+    @Environment(AppRouter.self) private var router
     @State private var store = NotificationsStore()
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(spacing: Theme.Spacing.sm) {
-                    if store.items.isEmpty && !store.isLoading {
+            List {
+                if store.items.isEmpty && !store.isLoading {
+                    Section {
                         CloudyEmptyState(
                             icon: "bell",
                             title: "Tutto silenzioso",
                             message: "Quando qualcuno ti invita o accetta i tuoi piani, lo trovi qui."
                         )
-                        .padding(.top, 60)
                     }
-                    ForEach(store.items) { item in
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
+
+                ForEach(store.items) { item in
+                    Button {
+                        router.open(deepLink: item.deepLink)
+                    } label: {
                         NotificationRow(item: item)
                     }
+                    .buttonStyle(.plain)
+                        .listRowInsets(EdgeInsets(top: 6, leading: Theme.Spacing.lg, bottom: 6, trailing: Theme.Spacing.lg))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                Task { await store.delete(item) }
+                            } label: {
+                                Label("Elimina", systemImage: "trash")
+                            }
+                        }
                 }
-                .padding(Theme.Spacing.lg)
-                .padding(.bottom, 130)
+
+                if let error = store.error {
+                    Section {
+                        Text(error)
+                            .font(Theme.Font.caption(12))
+                            .foregroundStyle(Theme.Palette.densityHigh)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .safeAreaPadding(.bottom, 130)
             .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
             .navigationTitle("Attività")
             .navigationBarTitleDisplayMode(.large)
-            .refreshable { await store.load() }
-            .task { await store.load() }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await store.deleteAll() }
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .disabled(store.items.isEmpty)
+                }
+            }
+            .refreshable {
+                await store.load()
+                await store.markRead()
+            }
+            .task {
+                await store.load()
+                await store.markRead()
+            }
         }
     }
 }
 
 struct NotificationRow: View {
     let item: NotificationItem
+
     var body: some View {
         SectionCard {
             HStack(spacing: 12) {
@@ -88,6 +167,7 @@ struct NotificationRow: View {
         case let x where x.contains("friend"): return "person.badge.plus"
         case let x where x.contains("table"):  return "person.3.fill"
         case let x where x.contains("message"):return "bubble.left.fill"
+        case let x where x.contains("flare"):  return "bolt.horizontal.circle.fill"
         default:                               return "bell.fill"
         }
     }

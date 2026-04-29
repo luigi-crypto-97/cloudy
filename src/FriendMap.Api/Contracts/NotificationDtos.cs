@@ -18,3 +18,6 @@ public record NotificationOutboxItemDto(
     DateTimeOffset CreatedAtUtc,
     bool IsRead,
     string? DeepLink);
+
+public record NotificationUnreadCountDto(
+    int Count);

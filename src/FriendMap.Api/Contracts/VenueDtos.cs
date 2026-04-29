@@ -30,6 +30,8 @@ public record VenueMapMarkerDto(
     int ActiveCheckIns,
     int ActiveIntentions,
     int OpenTables,
+    PartyPulseDto PartyPulse,
+    IntentRadarDto IntentRadar,
     IEnumerable<PresencePreviewDto> PresencePreview);
 
 public record VenueMapAreaDto(
@@ -72,9 +74,27 @@ public record VenueDetailsDto(
     bool DemographicDataAvailable,
     object? AgeDistribution,
     object? GenderDistribution,
+    PartyPulseDto PartyPulse,
+    IntentRadarDto IntentRadar,
     IEnumerable<SocialTableDto> UpcomingTables,
     IEnumerable<IntentionCountDto> IntentionWindows,
     IEnumerable<AffluenceTrendPointDto> AffluenceTrends);
+
+public record PartyPulseDto(
+    int EnergyScore,
+    string Mood,
+    int ArrivalsLast15,
+    int CheckInsNow,
+    int IntentionsSoon,
+    IEnumerable<int> Sparkline);
+
+public record IntentRadarDto(
+    int GoingOut,
+    int AlmostThere,
+    int HereNow,
+    int CoolingDown,
+    DateTimeOffset UpdatedAtUtc,
+    string PrivacyLevel);
 
 public record AdminVenueDto(
     Guid Id,
@@ -184,6 +204,19 @@ public record CreateCheckInRequest(
     Guid UserId,
     Guid VenueId,
     int TtlMinutes);
+
+public record UpdateLiveLocationRequest(
+    Guid UserId,
+    double Latitude,
+    double Longitude,
+    double? AccuracyMeters);
+
+public record LiveLocationUpdateResultDto(
+    string Status,
+    Guid? VenueId,
+    string? VenueName,
+    DateTimeOffset? ExpiresAtUtc,
+    double? DistanceMeters);
 
 public record CreateSocialTableRequest(
     Guid HostUserId,

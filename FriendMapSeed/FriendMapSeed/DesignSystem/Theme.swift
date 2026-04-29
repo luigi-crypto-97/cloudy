@@ -1,98 +1,136 @@
 //
 //  Theme.swift
-//  Cloudy — Design System
+//  Cloudy — Blue design system
 //
-//  Palette ispirata a Bumble (giallo/miele) + accenti social Instagram-like.
-//  Usata in tutta l'app per garantire coerenza visiva.
+//  Identita visiva: urbana, adulta, pulita. Il blu e il colore primario;
+//  mint/corallo sono accenti funzionali. Gli alias legacy restano solo per
+//  compatibilita durante il refactor incrementale.
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 enum Theme {
 
-    // MARK: - Colors
-
     enum Palette {
-        /// Honey / Bumble yellow — colore signature.
-        static let honey       = Color(red: 1.00, green: 0.78, blue: 0.20)
-        static let honeyDeep   = Color(red: 0.98, green: 0.65, blue: 0.10)
-        static let honeySoft   = Color(red: 1.00, green: 0.92, blue: 0.65)
+        static let blue50 = Color(hex: 0xEAF2FF)
+        static let blue100 = Color(hex: 0xC8DCFF)
+        static let blue200 = Color(hex: 0x93B9FF)
+        static let blue400 = Color(hex: 0x4A7DFF)
+        static let blue500 = Color(hex: 0x2B5BFF)
+        static let blue600 = Color(hex: 0x1E47E0)
+        static let blue700 = Color(hex: 0x1838B5)
+        static let blue900 = Color(hex: 0x0B1E66)
 
-        /// Cloud whites & sky blues — identità "nuvola".
-        static let cloudWhite  = Color(red: 0.98, green: 0.99, blue: 1.00)
-        static let cloudFog    = Color(red: 0.92, green: 0.94, blue: 0.97)
-        static let skyTint     = Color(red: 0.78, green: 0.88, blue: 1.00)
-        static let skyDeep     = Color(red: 0.36, green: 0.55, blue: 0.85)
+        static let mint400 = Color(hex: 0x4FD9C4)
+        static let mint500 = Color(hex: 0x16C4A8)
+        static let coral500 = Color(hex: 0xFF5C7A)
 
-        /// Instagram-like gradient stops per accenti social (stories, like).
-        static let igPink      = Color(red: 0.93, green: 0.27, blue: 0.49)
-        static let igPurple    = Color(red: 0.51, green: 0.21, blue: 0.85)
-        static let igOrange    = Color(red: 0.99, green: 0.55, blue: 0.16)
+        static let surface = Color(light: 0xFFFFFF, dark: 0x141925)
+        static let surfaceAlt = Color(light: 0xF1F3F8, dark: 0x1B2230)
+        static let surfaceRaised = Color(light: 0xFFFFFF, dark: 0x141925)
+        static let appBackground = Color(light: 0xF7F8FB, dark: 0x0B0E14)
+        static let hairline = Color(light: 0xE4E7EE, dark: 0x232B3C)
+        static let glassStroke = Color(light: 0xC8DCFF, dark: 0x2A3550).opacity(0.72)
 
-        /// Neutrali.
-        static let ink         = Color(red: 0.10, green: 0.11, blue: 0.13)
-        static let inkSoft     = Color(red: 0.32, green: 0.34, blue: 0.38)
-        static let inkMuted    = Color(red: 0.55, green: 0.58, blue: 0.62)
-        static let surface     = Color(red: 1.00, green: 1.00, blue: 1.00)
-        static let surfaceAlt  = Color(red: 0.96, green: 0.96, blue: 0.97)
-        static let hairline    = Color(red: 0.90, green: 0.90, blue: 0.92)
+        static let ink = Color(light: 0x0E1422, dark: 0xF4F6FB)
+        static let inkSoft = Color(light: 0x4A5169, dark: 0xB8BFD1)
+        static let inkMuted = Color(light: 0x8089A0, dark: 0x6F7894)
 
-        /// Density / status semantica.
-        static let densityLow    = Color(red: 0.55, green: 0.80, blue: 0.55)
-        static let densityMedium = Color(red: 0.99, green: 0.70, blue: 0.30)
-        static let densityHigh   = Color(red: 0.95, green: 0.34, blue: 0.34)
+        static let densityLow = Color(hex: 0xB8D4FF)
+        static let densityMedium = Color(hex: 0x4A7DFF)
+        static let densityHigh = Color(hex: 0x7C5CFF)
+        static let densityPeak = coral500
+
+        // Legacy aliases remapped to Cloudy Blue.
+        static let solarStart = blue500
+        static let solarEnd = blue600
+        static let auroraViolet = densityHigh
+        static let auroraPink = coral500
+        static let auroraBlue = blue400
+        static let honey = blue500
+        static let honeyDeep = blue600
+        static let honeySoft = blue50
+        static let cloudWhite = surface
+        static let cloudFog = surfaceAlt
+        static let skyTint = blue100
+        static let skyDeep = blue500
+        static let igPink = blue500
+        static let igPurple = blue600
+        static let igOrange = coral500
     }
-
-    // MARK: - Gradients
 
     enum Gradients {
-        /// Stories ring gradient — Instagram-like.
+        static let primary = LinearGradient(
+            colors: [Palette.blue500, Palette.blue600],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let blueSoft = LinearGradient(
+            colors: [Palette.blue50, Palette.blue100],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let loginBlue = LinearGradient(
+            colors: [Color(hex: 0x0B1E66), Palette.blue600, Palette.blue400],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        static let densityHeat = LinearGradient(
+            colors: [Palette.densityLow, Palette.densityMedium, Palette.densityHigh, Palette.densityPeak],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+
         static let storyRing = LinearGradient(
-            colors: [Palette.igOrange, Palette.igPink, Palette.igPurple],
+            colors: [Palette.blue500, Palette.blue500],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
 
-        /// Honey CTA — Bumble-like.
-        static let honeyCTA = LinearGradient(
-            colors: [Palette.honey, Palette.honeyDeep],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        static let storyAngular = AngularGradient(colors: [Palette.blue500, Palette.blue500], center: .center)
+        static let cloudBody = blueSoft
+        static let glassGlow = LinearGradient(colors: [Palette.blue100.opacity(0.6), .white.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
 
-        /// Cloud body — soft radial.
-        static let cloudBody = RadialGradient(
-            colors: [Color.white.opacity(0.98), Palette.cloudFog.opacity(0.85)],
-            center: .center,
-            startRadius: 6,
-            endRadius: 80
-        )
+        // Legacy aliases.
+        static let solar = primary
+        static let aurora = primary
+        static let honeyCTA = primary
     }
-
-    // MARK: - Typography (SF Pro Rounded)
 
     enum Font {
-        static func display(_ size: CGFloat = 28, weight: SwiftUI.Font.Weight = .heavy) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+        static func display(_ size: CGFloat = 34, weight: SwiftUI.Font.Weight = .heavy) -> SwiftUI.Font {
+            .system(size: max(size, 12), weight: weight, design: .rounded)
         }
-        static func title(_ size: CGFloat = 22, weight: SwiftUI.Font.Weight = .bold) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+
+        static func heroNumber(_ size: CGFloat = 44) -> SwiftUI.Font {
+            .system(size: max(size, 12), weight: .heavy, design: .default)
         }
-        static func body(_ size: CGFloat = 15, weight: SwiftUI.Font.Weight = .medium) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+
+        static func title(_ size: CGFloat = 22, weight: SwiftUI.Font.Weight = .semibold) -> SwiftUI.Font {
+            .system(size: max(size, 12), weight: weight, design: .rounded)
         }
-        static func caption(_ size: CGFloat = 12, weight: SwiftUI.Font.Weight = .semibold) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+
+        static func body(_ size: CGFloat = 15, weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
+            .system(size: max(size, 12), weight: weight, design: .default)
+        }
+
+        static func caption(_ size: CGFloat = 12, weight: SwiftUI.Font.Weight = .medium) -> SwiftUI.Font {
+            .system(size: max(size, 12), weight: weight, design: .rounded)
         }
     }
 
-    // MARK: - Layout
-
     enum Radius {
-        static let sm: CGFloat = 8
-        static let md: CGFloat = 14
-        static let lg: CGFloat = 22
-        static let xl: CGFloat = 32
+        static let sm: CGFloat = 14
+        static let md: CGFloat = 20
+        static let lg: CGFloat = 20
+        static let xl: CGFloat = 24
+        static let sheet: CGFloat = 28
         static let pill: CGFloat = 999
     }
 
@@ -101,36 +139,79 @@ enum Theme {
         static let sm: CGFloat = 8
         static let md: CGFloat = 12
         static let lg: CGFloat = 16
-        static let xl: CGFloat = 24
-        static let xxl: CGFloat = 32
+        static let xl: CGFloat = 20
+        static let xxl: CGFloat = 28
+        static let hero: CGFloat = 40
     }
 
-    // MARK: - Shadows
-
     enum Shadow {
-        static func soft(color: Color = .black.opacity(0.08)) -> some ViewModifier {
-            ShadowModifier(color: color, radius: 14, x: 0, y: 6)
+        static func card(tint: Color = Palette.blue500) -> some ViewModifier {
+            CloudyShadowModifier(tint: tint, opacity: 0.08, radius: 20, y: 8)
         }
-        static func lifted() -> some ViewModifier {
-            ShadowModifier(color: .black.opacity(0.18), radius: 22, x: 0, y: 10)
+
+        static func lifted(tint: Color = Palette.blue500) -> some ViewModifier {
+            CloudyShadowModifier(tint: tint, opacity: 0.12, radius: 24, y: 10)
         }
-        static func inset() -> some ViewModifier {
-            ShadowModifier(color: .black.opacity(0.04), radius: 4, x: 0, y: 1)
+
+        static func glow(tint: Color = Palette.blue500) -> some ViewModifier {
+            CloudyShadowModifier(tint: tint, opacity: 0.10, radius: 18, y: 7)
+        }
+
+        static func soft(color: Color = Palette.blue500.opacity(0.08)) -> some ViewModifier {
+            CloudyShadowModifier(tint: color, opacity: 1, radius: 18, y: 8)
         }
     }
 }
 
-private struct ShadowModifier: ViewModifier {
-    let color: Color
+private struct CloudyShadowModifier: ViewModifier {
+    let tint: Color
+    let opacity: Double
     let radius: CGFloat
-    let x: CGFloat
     let y: CGFloat
+
     func body(content: Content) -> some View {
-        content.shadow(color: color, radius: radius, x: x, y: y)
+        content.shadow(color: tint.opacity(opacity), radius: radius, x: 0, y: y)
     }
 }
 
 extension View {
-    func cardShadow() -> some View { modifier(Theme.Shadow.soft()) }
-    func liftedShadow() -> some View { modifier(Theme.Shadow.lifted()) }
+    func cardShadow(tint: Color = Theme.Palette.blue500) -> some View {
+        modifier(Theme.Shadow.card(tint: tint))
+    }
+
+    func liftedShadow(tint: Color = Theme.Palette.blue500) -> some View {
+        modifier(Theme.Shadow.lifted(tint: tint))
+    }
+
+    func cloudyGlow(tint: Color = Theme.Palette.blue500) -> some View {
+        modifier(Theme.Shadow.glow(tint: tint))
+    }
+}
+
+extension Color {
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: opacity
+        )
+    }
+
+    init(light: UInt32, dark: UInt32) {
+        #if canImport(UIKit)
+        self.init(UIColor { traits in
+            let value = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(
+                red: CGFloat((value >> 16) & 0xFF) / 255,
+                green: CGFloat((value >> 8) & 0xFF) / 255,
+                blue: CGFloat(value & 0xFF) / 255,
+                alpha: 1
+            )
+        })
+        #else
+        self.init(hex: light)
+        #endif
+    }
 }

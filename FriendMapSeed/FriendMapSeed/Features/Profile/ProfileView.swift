@@ -7,6 +7,10 @@ import SwiftUI
 
 struct ProfileView: View {
     @Environment(AuthStore.self) private var auth
+    @State private var showEditProfile = false
+    @State private var profile: EditableUserProfile?
+    @State private var publicProfile: UserProfile?
+    @State private var isLoadingProfile = false
 
     var body: some View {
         NavigationStack {
@@ -24,13 +28,20 @@ struct ProfileView: View {
             .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
             .navigationTitle("Profilo")
             .navigationBarTitleDisplayMode(.large)
+            .sheet(isPresented: $showEditProfile) {
+                EditProfileView {
+                    Task { await loadProfile() }
+                }
+            }
+            .task { await loadProfile() }
+            .refreshable { await loadProfile() }
         }
     }
 
     private func header(user: AuthUser) -> some View {
         VStack(spacing: 12) {
             StoryAvatar(
-                url: nil,
+                url: APIClient.shared.mediaURL(from: profile?.avatarUrl),
                 size: 110,
                 hasStory: false,
                 initials: String((user.displayName ?? user.nickname).prefix(1)).uppercased()
@@ -47,7 +58,12 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack {
-            stat(value: "0", label: "Amici")
+            NavigationLink {
+                FriendsListView()
+            } label: {
+                stat(value: "\(publicProfile?.friendsCount ?? 0)", label: "Amici")
+            }
+            .buttonStyle(.plain)
             stat(value: "0", label: "Tavoli")
             stat(value: "0", label: "Check-in")
         }
@@ -69,11 +85,33 @@ struct ProfileView: View {
 
     private var actionsList: some View {
         VStack(spacing: 0) {
-            row(icon: "pencil.circle.fill", label: "Modifica profilo")
+            Button {
+                showEditProfile = true
+            } label: {
+                row(icon: "pencil.circle.fill", label: "Modifica profilo")
+            }
+            .buttonStyle(.plain)
             divider
-            row(icon: "lock.shield.fill", label: "Privacy")
+            NavigationLink {
+                PrivacyView()
+            } label: {
+                row(icon: "lock.shield.fill", label: "Privacy")
+            }
+            .buttonStyle(.plain)
             divider
-            row(icon: "bell.fill", label: "Notifiche")
+            NavigationLink {
+                NotificationsView()
+            } label: {
+                row(icon: "bell.fill", label: "Notifiche")
+            }
+            .buttonStyle(.plain)
+            divider
+            NavigationLink {
+                AddFriendsView()
+            } label: {
+                row(icon: "person.badge.plus", label: "Aggiungi amici")
+            }
+            .buttonStyle(.plain)
             divider
             row(icon: "questionmark.circle.fill", label: "Aiuto e supporto")
             divider
@@ -109,5 +147,15 @@ struct ProfileView: View {
         }
         .padding(Theme.Spacing.md)
         .contentShape(Rectangle())
+    }
+
+    private func loadProfile() async {
+        guard case .loggedIn(let user) = auth.state else { return }
+        isLoadingProfile = true
+        defer { isLoadingProfile = false }
+        async let editable = API.myEditableProfile()
+        async let publicUser = API.userProfile(userId: user.userId)
+        profile = try? await editable
+        publicProfile = try? await publicUser
     }
 }

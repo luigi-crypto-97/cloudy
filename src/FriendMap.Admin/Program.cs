@@ -24,6 +24,11 @@ builder.Services.AddHttpClient("api", client =>
 {
     var baseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:8080/";
     client.BaseAddress = new Uri(baseUrl);
+    var adminApiKey = builder.Configuration["Api:AdminApiKey"] ?? builder.Configuration["Admin:ApiKey"];
+    if (!string.IsNullOrWhiteSpace(adminApiKey))
+    {
+        client.DefaultRequestHeaders.Add("X-Admin-Key", adminApiKey);
+    }
 });
 
 var app = builder.Build();

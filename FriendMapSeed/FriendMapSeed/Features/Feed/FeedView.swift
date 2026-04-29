@@ -13,43 +13,37 @@ import SwiftUI
 final class FeedStore {
     var stories: [UserStory] = []
     var hub: SocialHub?
+    var profile: EditableUserProfile?
     var isLoading: Bool = false
     var error: String?
+    var hiddenPresenceIds: Set<UUID> = []
 
-    func load() async {
-        isLoading = true
+    func load(showSpinner: Bool = true) async {
+        if showSpinner { isLoading = true }
         error = nil
-        defer { isLoading = false }
+        defer { if showSpinner { isLoading = false } }
         do {
             async let s = API.stories()
             async let h = API.socialHub()
+            async let p = API.myEditableProfile()
             self.stories = try await s
             self.hub = try await h
+            self.profile = try? await p
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
-    var groupedStories: [[UserStory]] {
-        Dictionary(grouping: stories) { $0.userId }
-            .values
-            .sorted {
-                ($0.first?.createdAtUtc ?? .distantPast) > ($1.first?.createdAtUtc ?? .distantPast)
-            }
+    func hidePresence(userId: UUID) {
+        hiddenPresenceIds.insert(userId)
     }
-}
-
-struct StoryViewerConfig: Identifiable {
-    let id = UUID()
-    let storiesByUser: [[UserStory]]
-    let initialUserIndex: Int
 }
 
 struct FeedView: View {
     @State private var store = FeedStore()
     @State private var likedIds: Set<UUID> = []
     @State private var showCreateStory: Bool = false
-    @State private var viewerConfig: StoryViewerConfig? = nil
+    @State private var selectedChat: SocialConnection?
 
     var body: some View {
         NavigationStack {
@@ -90,19 +84,21 @@ struct FeedView: View {
                     }
                 }
             }
-            .fullScreenCover(isPresented: $showCreateStory) {
+            .sheet(isPresented: $showCreateStory) {
                 CreateStoryView(onCreated: {
                     Task { await store.load() }
                 })
             }
-            .fullScreenCover(item: $viewerConfig) { config in
-                StoryViewerView(
-                    storiesByUser: config.storiesByUser,
-                    initialUserIndex: config.initialUserIndex,
-                    onDismiss: { viewerConfig = nil }
-                )
+            .navigationDestination(item: $selectedChat) { friend in
+                ChatRoomView(otherUserId: friend.userId, peerName: friend.displayName ?? friend.nickname)
             }
-            .task { await store.load() }
+            .task {
+                await store.load()
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 15_000_000_000)
+                    await store.load(showSpinner: false)
+                }
+            }
         }
     }
 
@@ -115,31 +111,25 @@ struct FeedView: View {
                 myStoryButton
 
                 // Stories amici
-                ForEach(Array(store.groupedStories.enumerated()), id: \.offset) { index, userStories in
-                    if let first = userStories.first {
-                        Button {
-                            Haptics.tap()
-                            viewerConfig = StoryViewerConfig(
-                                storiesByUser: store.groupedStories,
-                                initialUserIndex: index
+                ForEach(uniqueStorytellers, id: \.userId) { s in
+                    NavigationLink {
+                        StoryViewerView(stories: storiesByUser(s.userId))
+                    } label: {
+                        VStack(spacing: 6) {
+                            StoryAvatar(
+                                url: APIClient.shared.mediaURL(from: s.avatarUrl),
+                                size: 64,
+                                hasStory: true,
+                                initials: String((s.displayName ?? s.nickname).prefix(1)).uppercased()
                             )
-                        } label: {
-                            VStack(spacing: 6) {
-                                StoryAvatar(
-                                    url: URL(string: first.avatarUrl ?? ""),
-                                    size: 64,
-                                    hasStory: true,
-                                    initials: String((first.displayName ?? first.nickname).prefix(1)).uppercased()
-                                )
-                                Text(first.displayName ?? first.nickname)
-                                    .font(Theme.Font.caption(11))
-                                    .foregroundStyle(Theme.Palette.inkSoft)
-                                    .lineLimit(1)
-                                    .frame(width: 72)
-                            }
+                            Text(s.displayName ?? s.nickname)
+                                .font(Theme.Font.caption(11))
+                                .foregroundStyle(Theme.Palette.inkSoft)
+                                .lineLimit(1)
+                                .frame(width: 72)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .buttonStyle(.plain)
                 }
 
                 if store.stories.isEmpty && !store.isLoading {
@@ -159,15 +149,12 @@ struct FeedView: View {
         } label: {
             VStack(spacing: 6) {
                 ZStack(alignment: .bottomTrailing) {
-                    Circle()
-                        .fill(Theme.Palette.surface)
-                        .frame(width: 64, height: 64)
-                        .overlay(Circle().stroke(Theme.Palette.hairline, lineWidth: 2))
-                        .overlay(
-                            Image(systemName: "person.crop.circle.fill")
-                                .font(.system(size: 56))
-                                .foregroundStyle(Theme.Palette.inkMuted)
-                        )
+                    StoryAvatar(
+                        url: APIClient.shared.mediaURL(from: store.profile?.avatarUrl),
+                        size: 64,
+                        hasStory: myStories.isEmpty == false,
+                        initials: myInitials
+                    )
                     Circle()
                         .fill(Theme.Gradients.honeyCTA)
                         .frame(width: 22, height: 22)
@@ -189,6 +176,25 @@ struct FeedView: View {
         .buttonStyle(.plain)
     }
 
+    private var myStories: [UserStory] {
+        guard let myUserId = API.currentUserId else { return [] }
+        return storiesByUser(myUserId)
+    }
+
+    private var myInitials: String {
+        let name = store.profile?.displayName ?? store.profile?.nickname ?? "?"
+        return String(name.prefix(1)).uppercased()
+    }
+
+    private var uniqueStorytellers: [UserStory] {
+        var seen: Set<UUID> = []
+        return store.stories.filter { seen.insert($0.userId).inserted }
+    }
+
+    private func storiesByUser(_ userId: UUID) -> [UserStory] {
+        store.stories.filter { $0.userId == userId }.sorted { $0.createdAtUtc < $1.createdAtUtc }
+    }
+
     // MARK: - Feed items
 
     private var feedItems: some View {
@@ -196,7 +202,8 @@ struct FeedView: View {
             if store.isLoading && store.stories.isEmpty {
                 ProgressView().padding()
             } else if let hub = store.hub {
-                ForEach(hub.friends.prefix(20)) { friend in
+                let friends = visibleFriends(from: hub)
+                ForEach(friends.prefix(30)) { friend in
                     FeedCard(
                         friend: friend,
                         isLiked: likedIds.contains(friend.userId),
@@ -205,18 +212,42 @@ struct FeedView: View {
                                 likedIds.remove(friend.userId)
                             }
                             Haptics.tap()
+                        },
+                        onComment: {
+                            selectedChat = friend
+                        },
+                        onDismissPresence: {
+                            withAnimation(.cloudySnap) {
+                                store.hidePresence(userId: friend.userId)
+                            }
                         }
                     )
                 }
-                if hub.friends.isEmpty {
+                if friends.isEmpty {
                     CloudyEmptyState(
-                        icon: "person.2.slash",
-                        title: "Nessun amico ancora",
-                        message: "Quando aggiungi amici li vedrai qui con i loro check-in e piani."
+                        icon: "location.slash",
+                        title: "Nessuna presenza live",
+                        message: "Quando gli amici condividono la posizione li vedrai qui."
                     )
                 }
             }
         }
+    }
+
+    private func visibleFriends(from hub: SocialHub) -> [SocialConnection] {
+        hub.friends
+            .filter { !store.hiddenPresenceIds.contains($0.userId) }
+            .filter { $0.presenceState != "offline" || $0.currentVenueName != nil }
+            .sorted { lhs, rhs in
+                presenceRank(lhs) > presenceRank(rhs)
+            }
+    }
+
+    private func presenceRank(_ friend: SocialConnection) -> Int {
+        if friend.currentVenueName != nil { return 3 }
+        if friend.presenceState == "live" || friend.presenceState == "active" { return 2 }
+        if friend.presenceState != "offline" { return 1 }
+        return 0
     }
 }
 
@@ -226,15 +257,18 @@ struct FeedCard: View {
     let friend: SocialConnection
     let isLiked: Bool
     let onLike: () -> Void
+    let onComment: () -> Void
+    let onDismissPresence: () -> Void
 
     @State private var doubleTapPulse: Bool = false
+    @State private var isSaved: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack(spacing: 10) {
                 StoryAvatar(
-                    url: URL(string: friend.avatarUrl ?? ""),
+                    url: APIClient.shared.mediaURL(from: friend.avatarUrl),
                     size: 40,
                     hasStory: friend.presenceState != "offline",
                     initials: String((friend.displayName ?? friend.nickname).prefix(1)).uppercased()
@@ -248,8 +282,13 @@ struct FeedCard: View {
                         .foregroundStyle(Theme.Palette.inkSoft)
                 }
                 Spacer()
-                Image(systemName: "ellipsis")
-                    .foregroundStyle(Theme.Palette.inkMuted)
+                Button(action: onDismissPresence) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Nascondi presenza")
             }
             .padding(Theme.Spacing.md)
 
@@ -313,20 +352,26 @@ struct FeedCard: View {
                         .scaleEffect(isLiked ? 1.1 : 1)
                         .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isLiked)
                 }
-                Button {} label: {
+                Button(action: onComment) {
                     Image(systemName: "bubble.right")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Theme.Palette.ink)
                 }
-                Button {} label: {
+                ShareLink(item: shareText) {
                     Image(systemName: "paperplane")
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Theme.Palette.ink)
                 }
                 Spacer()
-                Image(systemName: "bookmark")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.Palette.ink)
+                Button {
+                    isSaved.toggle()
+                    Haptics.tap()
+                } label: {
+                    Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(isSaved ? Theme.Palette.honeyDeep : Theme.Palette.ink)
+                        .contentTransition(.symbolEffect(.replace))
+                }
             }
             .padding(Theme.Spacing.md)
         }
@@ -335,5 +380,12 @@ struct FeedCard: View {
                 .fill(Theme.Palette.surface)
         )
         .cardShadow()
+    }
+
+    private var shareText: String {
+        if let venue = friend.currentVenueName {
+            return "\(friend.displayName ?? friend.nickname) e in zona da \(venue) su Cloudy."
+        }
+        return "\(friend.displayName ?? friend.nickname) e su Cloudy. Raggiungici."
     }
 }

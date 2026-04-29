@@ -74,6 +74,26 @@ final class APIClient {
         self.bearerToken = token
     }
 
+    func mediaURL(from rawValue: String?) -> URL? {
+        guard let rawValue else { return nil }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let absolute = URL(string: trimmed), absolute.scheme != nil {
+            guard let host = absolute.host?.lowercased(), host == "localhost" || host == "127.0.0.1" else {
+                return absolute
+            }
+
+            var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
+            components?.path = absolute.path
+            components?.query = absolute.query
+            return components?.url
+        }
+
+        let relativePath = trimmed.hasPrefix("/") ? String(trimmed.dropFirst()) : trimmed
+        return baseURL.appendingPathComponent(relativePath)
+    }
+
     // MARK: - Verbs
 
     func get<R: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> R {
@@ -90,8 +110,8 @@ final class APIClient {
     }
 
     @discardableResult
-    func post<R: Decodable>(_ path: String) async throws -> R {
-        try await send(method: "POST", path: path, query: [:], body: Optional<EmptyBody>.none)
+    func post<R: Decodable>(_ path: String, query: [String: String?] = [:]) async throws -> R {
+        try await send(method: "POST", path: path, query: query, body: Optional<EmptyBody>.none)
     }
 
     @discardableResult
@@ -104,6 +124,60 @@ final class APIClient {
 
     func delete(_ path: String) async throws {
         let _: EmptyResponse = try await send(method: "DELETE", path: path, query: [:], body: Optional<EmptyBody>.none)
+    }
+
+    func deleteWithResponse<R: Decodable>(_ path: String) async throws -> R {
+        try await send(method: "DELETE", path: path, query: [:], body: Optional<EmptyBody>.none)
+    }
+
+    func upload<R: Decodable>(
+        _ path: String,
+        data: Data,
+        fileName: String,
+        mimeType: String = "image/jpeg",
+        fieldName: String = "file"
+    ) async throws -> R {
+        guard let url = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)?.url else {
+            throw APIError.invalidURL
+        }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if let token = bearerToken, !token.isEmpty {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+        body.append("--\(boundary)\r\n")
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"\(fileName)\"\r\n")
+        body.append("Content-Type: \(mimeType)\r\n\r\n")
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n")
+        req.httpBody = body
+
+        let responseData: Data
+        let response: URLResponse
+        do {
+            (responseData, response) = try await session.data(for: req)
+        } catch {
+            throw APIError.transport(error)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.requestFailed(status: -1, body: nil)
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw APIError.requestFailed(status: http.statusCode, body: String(data: responseData, encoding: .utf8))
+        }
+
+        do {
+            return try decodeResponse(R.self, from: responseData)
+        } catch {
+            throw APIError.decodingFailed(error)
+        }
     }
 
     // MARK: - Core
@@ -157,14 +231,8 @@ final class APIClient {
 
         switch http.statusCode {
         case 200...299:
-            if R.self == EmptyResponse.self {
-                return EmptyResponse() as! R
-            }
-            if data.isEmpty {
-                throw APIError.decodingFailed(NSError(domain: "Cloudy", code: 0, userInfo: [NSLocalizedDescriptionKey: "Empty body"]))
-            }
             do {
-                return try decoder.decode(R.self, from: data)
+                return try decodeResponse(R.self, from: data)
             } catch {
                 throw APIError.decodingFailed(error)
             }
@@ -175,12 +243,31 @@ final class APIClient {
             throw APIError.requestFailed(status: http.statusCode, body: bodyStr)
         }
     }
+
+    private func decodeResponse<R: Decodable>(_ type: R.Type, from data: Data) throws -> R {
+        if R.self == EmptyResponse.self {
+            return EmptyResponse() as! R
+        }
+        if R.self == IgnoredResponse.self {
+            return IgnoredResponse() as! R
+        }
+        if data.isEmpty {
+            throw APIError.decodingFailed(NSError(domain: "Cloudy", code: 0, userInfo: [NSLocalizedDescriptionKey: "Empty body"]))
+        }
+        return try decoder.decode(R.self, from: data)
+    }
 }
 
 private struct EmptyBody: Encodable {}
 
 /// Tipo restituito quando il caller non si aspetta un body (es. DELETE, 204).
 struct EmptyResponse: Decodable {}
+
+private extension Data {
+    mutating func append(_ string: String) {
+        append(Data(string.utf8))
+    }
+}
 
 // MARK: - Codable helpers
 

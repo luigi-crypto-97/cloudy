@@ -12,4 +12,7 @@ public class NotificationOutboxItem : BaseEntity
     public DateTimeOffset? SentAtUtc { get; set; }
     public string? LastError { get; set; }
     public string? DeepLink { get; set; }
+    public bool IsRead { get; set; }
+    public DateTimeOffset? ReadAtUtc { get; set; }
+    public DateTimeOffset? DeletedAtUtc { get; set; }
 }

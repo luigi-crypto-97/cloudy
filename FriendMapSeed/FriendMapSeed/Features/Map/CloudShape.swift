@@ -117,6 +117,80 @@ struct CloudBubble: View {
     }
 }
 
+struct CompactVenueBubble: View {
+    let peopleCount: Int
+    let densityLevel: String
+    let isSelected: Bool
+
+    private var color: Color {
+        switch densityLevel.lowercased() {
+        case "low", "very_low": return Theme.Palette.skyDeep
+        case "medium": return Theme.Palette.honeyDeep
+        case "high", "very_high": return Theme.Palette.densityHigh
+        default: return Theme.Palette.inkMuted
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.94))
+                .frame(width: 42, height: 42)
+                .shadow(color: color.opacity(0.18), radius: 8, x: 0, y: 3)
+            Circle()
+                .stroke(color.opacity(isSelected ? 0.95 : 0.45), lineWidth: isSelected ? 3 : 1.5)
+                .frame(width: 42, height: 42)
+            Text("\(peopleCount)")
+                .font(Theme.Font.body(13, weight: .heavy))
+                .foregroundStyle(Theme.Palette.ink)
+        }
+        .accessibilityLabel(Text("\(peopleCount) persone"))
+    }
+}
+
+struct AreaDensityBubble: View {
+    let area: VenueMapArea
+
+    private var color: Color {
+        switch area.densityLevel.lowercased() {
+        case "low", "very_low": return Theme.Palette.skyDeep
+        case "medium": return Theme.Palette.honeyDeep
+        case "high", "very_high": return Theme.Palette.densityHigh
+        default: return Theme.Palette.inkMuted
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.18))
+                    .frame(width: 76, height: 76)
+                Circle()
+                    .fill(.white.opacity(0.92))
+                    .frame(width: 56, height: 56)
+                    .shadow(color: color.opacity(0.18), radius: 10, x: 0, y: 4)
+                VStack(spacing: 0) {
+                    Text("\(area.peopleCount)")
+                        .font(Theme.Font.title(18, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                    Text("\(area.venueCount) locali")
+                        .font(Theme.Font.caption(9, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+            }
+            Text(area.label)
+                .font(Theme.Font.caption(10, weight: .bold))
+                .foregroundStyle(Theme.Palette.ink)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(.thinMaterial, in: Capsule())
+        }
+        .accessibilityLabel(Text("\(area.label), \(area.peopleCount) persone, \(area.venueCount) locali"))
+    }
+}
+
 #Preview {
     VStack(spacing: 24) {
         CloudBubble(intensity: 2, peopleCount: 4, densityLevel: "low", isSelected: false, phase: 0.2)

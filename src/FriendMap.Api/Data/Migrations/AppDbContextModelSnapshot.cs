@@ -112,6 +112,10 @@ namespace FriendMap.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at_utc");
 
+                    b.Property<DateTimeOffset?>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at_utc");
+
                     b.Property<Guid>("SenderUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("sender_user_id");
@@ -177,6 +181,94 @@ namespace FriendMap.Api.Data.Migrations
                         .HasDatabaseName("ix_direct_message_threads_user_low_id_user_high_id");
 
                     b.ToTable("direct_message_threads", (string)null);
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.FlareResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("FlareSignalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("flare_signal_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_flare_responses");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_flare_responses_user_id");
+
+                    b.HasIndex("FlareSignalId", "UserId")
+                        .HasDatabaseName("ix_flare_responses_flare_signal_id_user_id");
+
+                    b.ToTable("flare_responses", (string)null);
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.FlareSignal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_flare_signals");
+
+                    b.HasIndex("ExpiresAtUtc")
+                        .HasDatabaseName("ix_flare_signals_expires_at_utc");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_flare_signals_user_id");
+
+                    b.ToTable("flare_signals", (string)null);
                 });
 
             modelBuilder.Entity("FriendMap.Api.Models.FriendRelation", b =>
@@ -354,6 +446,14 @@ namespace FriendMap.Api.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("deep_link");
 
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at_utc");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_read");
+
                     b.Property<string>("LastError")
                         .HasColumnType("text")
                         .HasColumnName("last_error");
@@ -365,6 +465,10 @@ namespace FriendMap.Api.Data.Migrations
                     b.Property<string>("PayloadJson")
                         .HasColumnType("text")
                         .HasColumnName("payload_json");
+
+                    b.Property<DateTimeOffset?>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at_utc");
 
                     b.Property<DateTimeOffset?>("SentAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -683,13 +787,101 @@ namespace FriendMap.Api.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
+                    b.Property<Guid?>("VenueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("venue_id");
+
                     b.HasKey("Id")
                         .HasName("pk_user_stories");
 
                     b.HasIndex("UserId", "ExpiresAtUtc")
                         .HasDatabaseName("ix_user_stories_user_id_expires_at_utc");
 
+                    b.HasIndex("VenueId", "ExpiresAtUtc")
+                        .HasDatabaseName("ix_user_stories_venue_id_expires_at_utc");
+
                     b.ToTable("user_stories", (string)null);
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.UserStoryComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("UserStoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_story_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_story_comments");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_user_story_comments_user_id");
+
+                    b.HasIndex("UserStoryId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_user_story_comments_user_story_id_created_at_utc");
+
+                    b.ToTable("user_story_comments", (string)null);
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.UserStoryReaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("ReactionType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reaction_type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("UserStoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_story_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_user_story_reactions");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_user_story_reactions_user_id");
+
+                    b.HasIndex("UserStoryId", "UserId", "ReactionType")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_story_reactions_user_story_id_user_id_reaction_type");
+
+                    b.ToTable("user_story_reactions", (string)null);
                 });
 
             modelBuilder.Entity("FriendMap.Api.Models.Venue", b =>
@@ -980,6 +1172,33 @@ namespace FriendMap.Api.Data.Migrations
                         .HasConstraintName("fk_direct_message_threads_app_users_user_low_id");
                 });
 
+            modelBuilder.Entity("FriendMap.Api.Models.FlareResponse", b =>
+                {
+                    b.HasOne("FriendMap.Api.Models.FlareSignal", null)
+                        .WithMany()
+                        .HasForeignKey("FlareSignalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_flare_responses_flare_signals_flare_signal_id");
+
+                    b.HasOne("FriendMap.Api.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_flare_responses_app_users_user_id");
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.FlareSignal", b =>
+                {
+                    b.HasOne("FriendMap.Api.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_flare_signals_app_users_user_id");
+                });
+
             modelBuilder.Entity("FriendMap.Api.Models.FriendRelation", b =>
                 {
                     b.HasOne("FriendMap.Api.Models.AppUser", null)
@@ -1143,6 +1362,46 @@ namespace FriendMap.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_stories_app_users_user_id");
+
+                    b.HasOne("FriendMap.Api.Models.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_user_stories_venues_venue_id");
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.UserStoryComment", b =>
+                {
+                    b.HasOne("FriendMap.Api.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_story_comments_app_users_user_id");
+
+                    b.HasOne("FriendMap.Api.Models.UserStory", null)
+                        .WithMany()
+                        .HasForeignKey("UserStoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_story_comments_user_stories_user_story_id");
+                });
+
+            modelBuilder.Entity("FriendMap.Api.Models.UserStoryReaction", b =>
+                {
+                    b.HasOne("FriendMap.Api.Models.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_story_reactions_app_users_user_id");
+
+                    b.HasOne("FriendMap.Api.Models.UserStory", null)
+                        .WithMany()
+                        .HasForeignKey("UserStoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_story_reactions_user_stories_user_story_id");
                 });
 
             modelBuilder.Entity("FriendMap.Api.Models.VenueAffluenceSnapshot", b =>
