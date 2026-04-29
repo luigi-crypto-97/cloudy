@@ -125,6 +125,14 @@ struct MapView: View {
         .onChange(of: liveLocation.currentLocation?.coordinate.longitude) {
             centerOnInitialLocationIfNeeded()
         }
+        .onChange(of: router.pendingVenue) { _, route in
+            guard let route else { return }
+            Task { await openVenueRoute(route) }
+        }
+        .task(id: router.pendingVenue) {
+            guard let route = router.pendingVenue else { return }
+            await openVenueRoute(route)
+        }
     }
 
     // MARK: - Map layer
@@ -461,6 +469,24 @@ struct MapView: View {
             withAnimation(.cloudySmooth, update)
         } else {
             update()
+        }
+    }
+
+    private func openVenueRoute(_ route: VenueRoute) async {
+        if let marker = store.markers.first(where: { $0.venueId == route.venueId }) {
+            setCamera(center: marker.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.010, longitudeDelta: 0.010), animated: true)
+            selectedVenue = marker
+            router.pendingVenue = nil
+            return
+        }
+
+        do {
+            let marker = try await API.venueMarker(venueId: route.venueId)
+            setCamera(center: marker.coordinate, span: MKCoordinateSpan(latitudeDelta: 0.010, longitudeDelta: 0.010), animated: true)
+            selectedVenue = marker
+            router.pendingVenue = nil
+        } catch {
+            router.pendingVenue = nil
         }
     }
 

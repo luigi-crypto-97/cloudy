@@ -32,6 +32,10 @@ public class AppDbContext : DbContext
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
     public DbSet<FlareSignal> FlareSignals => Set<FlareSignal>();
     public DbSet<FlareResponse> FlareResponses => Set<FlareResponse>();
+    public DbSet<DeepLinkToken> DeepLinkTokens => Set<DeepLinkToken>();
+    public DbSet<FeedCardFatigue> FeedCardFatigues => Set<FeedCardFatigue>();
+    public DbSet<FlareRelayAudit> FlareRelayAudits => Set<FlareRelayAudit>();
+    public DbSet<FeedReentryNotificationState> FeedReentryNotificationStates => Set<FeedReentryNotificationState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +66,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserAchievement>().ToTable("user_achievements");
         modelBuilder.Entity<FlareSignal>().ToTable("flare_signals");
         modelBuilder.Entity<FlareResponse>().ToTable("flare_responses");
+        modelBuilder.Entity<DeepLinkToken>().ToTable("deep_link_tokens");
+        modelBuilder.Entity<FeedCardFatigue>().ToTable("feed_card_fatigues");
+        modelBuilder.Entity<FlareRelayAudit>().ToTable("flare_relay_audits");
+        modelBuilder.Entity<FeedReentryNotificationState>().ToTable("feed_reentry_notification_states");
 
         modelBuilder.Entity<UserStory>()
             .HasOne<AppUser>()
@@ -388,6 +396,45 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<FlareResponse>()
             .HasIndex(x => new { x.FlareSignalId, x.UserId });
+
+        modelBuilder.Entity<DeepLinkToken>()
+            .HasIndex(x => x.Token)
+            .IsUnique();
+
+        modelBuilder.Entity<DeepLinkToken>()
+            .HasIndex(x => new { x.LinkType, x.TargetId, x.ExpiresAtUtc });
+
+        modelBuilder.Entity<FeedCardFatigue>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FeedCardFatigue>()
+            .HasIndex(x => new { x.UserId, x.CardKey })
+            .IsUnique();
+
+        modelBuilder.Entity<FlareRelayAudit>()
+            .HasOne<FlareSignal>()
+            .WithMany()
+            .HasForeignKey(x => x.FlareSignalId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FlareRelayAudit>()
+            .HasIndex(x => new { x.SenderUserId, x.CreatedAtUtc });
+
+        modelBuilder.Entity<FlareRelayAudit>()
+            .HasIndex(x => new { x.FlareSignalId, x.SenderUserId, x.TargetUserId });
+
+        modelBuilder.Entity<FeedReentryNotificationState>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FeedReentryNotificationState>()
+            .HasIndex(x => new { x.UserId, x.TriggerType, x.TriggerKey })
+            .IsUnique();
 
         modelBuilder.Entity<Venue>()
             .HasIndex(x => x.ExternalProviderId);

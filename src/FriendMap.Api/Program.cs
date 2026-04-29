@@ -53,6 +53,7 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<ApnsOptions>(builder.Configuration.GetSection("Apns"));
 builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.GetSection("Notifications"));
 builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
+builder.Services.Configure<FeedOptions>(builder.Configuration.GetSection("Feed"));
 builder.Services.Configure<FoursquareOptions>(builder.Configuration.GetSection("Foursquare"));
 builder.Services.Configure<OverpassOptions>(builder.Configuration.GetSection("Overpass"));
 builder.Services.Configure<MediaStorageOptions>(builder.Configuration.GetSection("MediaStorage"));
@@ -100,9 +101,12 @@ builder.Services.AddHttpClient("nominatim", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("FriendMap/1.0 (local development venue import; contact: api.iron-quote.it)");
 });
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<SignedDeepLinkService>();
 builder.Services.AddScoped<NotificationOutboxService>();
+builder.Services.AddScoped<FeedReentryService>();
 builder.Services.AddSingleton<ApnsClient>();
 builder.Services.AddHostedService<NotificationDispatchService>();
+builder.Services.AddHostedService<FeedReentryBackgroundService>();
 builder.Services.Configure<PrivacyOptions>(builder.Configuration.GetSection("Privacy"));
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
@@ -275,15 +279,38 @@ app.MapGet("/.well-known/apple-app-site-association", (Microsoft.Extensions.Opti
     });
 });
 
-app.MapGet("/l/{type}/{id}", (string type, string id) =>
+app.MapGet("/l/{type}/{id:guid}", async (
+    string type,
+    Guid id,
+    long? x,
+    string? t,
+    string? s,
+    SignedDeepLinkService signedLinks,
+    CancellationToken ct) =>
 {
     var normalizedType = type.Trim().ToLowerInvariant();
+    var validation = SignedDeepLinkValidation.Valid;
+    if (x is not null || !string.IsNullOrWhiteSpace(t) || !string.IsNullOrWhiteSpace(s))
+    {
+        validation = x is long expiresUnix && !string.IsNullOrWhiteSpace(t) && !string.IsNullOrWhiteSpace(s)
+            ? await signedLinks.ValidateAsync(normalizedType, id, expiresUnix, t, s, ct)
+            : SignedDeepLinkValidation.Invalid;
+    }
+
     var title = normalizedType switch
     {
         "table" => "Apri tavolo Cloudy",
         "chat" => "Apri chat Cloudy",
         "venue" => "Apri locale Cloudy",
+        "flare" => "Apri flare Cloudy",
+        "story-stack" => "Apri stories Cloudy",
         _ => "Apri Cloudy"
+    };
+    var statusCopy = validation switch
+    {
+        SignedDeepLinkValidation.Valid => "Link verificato. Se Cloudy e installata, iOS aprira direttamente l'app.",
+        SignedDeepLinkValidation.Expired => "Questo link Cloudy e scaduto. Apri l'app per vedere cosa sta succedendo ora.",
+        _ => "Questo link Cloudy non e valido. Apri l'app per continuare in sicurezza."
     };
 
     var html = $$"""
@@ -304,7 +331,7 @@ app.MapGet("/l/{type}/{id}", (string type, string id) =>
                  <body>
                    <main>
                      <h1>{{title}}</h1>
-                     <p>Se Cloudy è installata, iOS aprirà direttamente l'app. Altrimenti puoi copiare questo link o aprirlo dopo l'installazione.</p>
+                     <p>{{statusCopy}}</p>
                      <p><code>/l/{{normalizedType}}/{{id}}</code></p>
                    </main>
                  </body>
@@ -318,6 +345,7 @@ app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapVenueEndpoints();
 app.MapSocialEndpoints();
+app.MapFeedEndpoints();
 app.MapMessagingEndpoints();
 app.MapSafetyEndpoints();
 app.MapAdminEndpoints();

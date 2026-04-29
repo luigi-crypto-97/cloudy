@@ -354,6 +354,32 @@ public class AffluenceAggregationService
         return layer;
     }
 
+    public async Task<VenueMapMarkerDto?> GetVenueMarkerByIdAsync(Guid venueId, Guid viewerUserId, CancellationToken ct)
+    {
+        var venue = await _db.Venues.AsNoTracking().FirstOrDefaultAsync(x => x.Id == venueId && x.Location != null, ct);
+        if (venue?.Location is null)
+        {
+            return null;
+        }
+
+        var lat = venue.Location.Y;
+        var lng = venue.Location.X;
+        var markers = await GetVenueMarkersAsync(
+            lat - 0.004,
+            lng - 0.004,
+            lat + 0.004,
+            lng + 0.004,
+            viewerUserId,
+            query: null,
+            category: null,
+            openNowOnly: false,
+            centerLat: lat,
+            centerLng: lng,
+            maxDistanceKm: 1,
+            ct);
+        return markers.FirstOrDefault(x => x.VenueId == venueId);
+    }
+
     public async Task<VenueDetailsDto?> GetVenueDetailsAsync(Guid venueId, CancellationToken ct)
     {
         var venue = await _db.Venues.FirstOrDefaultAsync(x => x.Id == venueId, ct);

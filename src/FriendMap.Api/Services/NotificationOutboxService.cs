@@ -9,11 +9,16 @@ public class NotificationOutboxService
 {
     private readonly AppDbContext _db;
     private readonly UniversalLinksOptions _links;
+    private readonly SignedDeepLinkService _signedLinks;
 
-    public NotificationOutboxService(AppDbContext db, IOptions<UniversalLinksOptions> links)
+    public NotificationOutboxService(
+        AppDbContext db,
+        IOptions<UniversalLinksOptions> links,
+        SignedDeepLinkService signedLinks)
     {
         _db = db;
         _links = links.Value;
+        _signedLinks = signedLinks;
     }
 
     public async Task EnqueueAsync(Guid userId, string title, string body, object? payload, CancellationToken ct = default, string? deepLink = null)
@@ -40,4 +45,12 @@ public class NotificationOutboxService
             : _links.BaseUrl.TrimEnd('/');
         return $"{baseUrl}/l/{type.Trim().ToLowerInvariant()}/{id}";
     }
+
+    public Task<string> BuildSignedDeepLinkAsync(
+        string type,
+        Guid id,
+        Guid? createdByUserId,
+        TimeSpan? ttl = null,
+        CancellationToken ct = default) =>
+        _signedLinks.CreateAsync(type, id, createdByUserId, ttl, ct: ct);
 }

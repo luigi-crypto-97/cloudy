@@ -39,11 +39,25 @@ struct FeedRankingService {
         candidates.append(contentsOf: arrivalForecastItems(context: context, friendsByVenueName: friendsByVenueName, privacy: privacy))
         candidates.append(contentsOf: ghostPingItems(context: context, friendsByVenueName: friendsByVenueName, privacy: privacy))
 
+        let serverItems = context.serverFeed?.items ?? []
+        let serverScoreById = Dictionary(uniqueKeysWithValues: serverItems.map { ($0.id, $0.score) })
+        let signedLinkById = Dictionary(uniqueKeysWithValues: serverItems.compactMap { item in
+            item.deepLink.map { (item.id, $0) }
+        })
+
         let scored = candidates.map { item -> FeedItem in
             var copy = item
             let rawScore = score(item, context: context)
+                + (serverScoreById[item.id].map { $0 * 0.35 } ?? 0)
                 - fatigueScore(for: item, fatigue: fatigue)
                 - duplicationSeedPenalty(for: item, in: candidates)
+            let ctas = item.ctas.map { cta in
+                guard cta.deepLink == nil,
+                      let signed = signedLinkById[item.id],
+                      cta.kind == .openVenue || cta.kind == .openTable || cta.kind == .replyToFlare
+                else { return cta }
+                return FeedCTA(kind: cta.kind, title: cta.title, systemImage: cta.systemImage, deepLink: signed)
+            }
             copy = FeedItem(
                 id: item.id,
                 kind: item.kind,
@@ -51,7 +65,7 @@ struct FeedRankingService {
                 timestamp: item.timestamp,
                 venueId: item.venueId,
                 payload: item.payload,
-                ctas: item.ctas,
+                ctas: ctas,
                 privacy: item.privacy,
                 tracking: item.tracking
             )

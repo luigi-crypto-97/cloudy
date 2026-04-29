@@ -27,6 +27,9 @@ struct FriendMapSeedApp: App {
                 .environment(liveLocation)
                 .preferredColorScheme(.light) // identità visiva chiara
                 .tint(Theme.Palette.honeyDeep)
+                .onOpenURL { url in
+                    router.open(deepLink: url.absoluteString)
+                }
                 .onChange(of: auth.state) { _, newState in
                     if case .loggedIn(let user) = newState {
                         NotificationBridge.shared.activate(for: user.userId)

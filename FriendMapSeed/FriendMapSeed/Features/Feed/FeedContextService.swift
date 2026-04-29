@@ -20,6 +20,7 @@ struct FeedContext {
     let tables: [SocialTableSummary]
     let myLocation: CLLocation?
     let privacyState: SocialMeState?
+    let serverFeed: FeedServerResponse?
     let now: Date
     let isDebugDemo: Bool
 }
@@ -29,6 +30,12 @@ struct FeedContextService {
         let now = Date()
         let bounds = bounds(around: location?.coordinate ?? MapStore.milanDefault.center)
 
+        async let serverFeedTask: FeedServerResponse? = optional {
+            try await API.feed(
+                latitude: location?.coordinate.latitude,
+                longitude: location?.coordinate.longitude
+            )
+        }
         async let storiesTask: [UserStory]? = optional { try await API.stories() }
         async let hubTask: SocialHub? = optional { try await API.socialHub() }
         async let profileTask: EditableUserProfile? = optional { try await API.myEditableProfile() }
@@ -55,14 +62,17 @@ struct FeedContextService {
         async let tablesTask: [SocialTableSummary]? = optional { try await API.myTables() }
         async let privacyTask: SocialMeState? = optional { try await API.mySocialState() }
 
+        let serverFeed = await serverFeedTask
         let stories = await storiesTask ?? previousContext?.stories ?? []
         let hub = await hubTask ?? previousContext?.socialHub
         let profile = await profileTask ?? previousContext?.profile
         let venueLayer = await venueLayerTask
-        let venues = venueLayer?.markers ?? previousContext?.venues ?? []
+        let venues = serverFeed?.venues ?? venueLayer?.markers ?? previousContext?.venues ?? []
         let venueStories = await venueStoriesTask ?? previousContext?.venueStories ?? []
-        let flares = await flaresTask ?? previousContext?.flares ?? []
-        let tables = await tablesTask ?? previousContext?.tables ?? []
+        let fetchedFlares = await flaresTask
+        let fetchedTables = await tablesTask
+        let flares = serverFeed?.flares ?? fetchedFlares ?? previousContext?.flares ?? []
+        let tables = serverFeed?.tables ?? fetchedTables ?? previousContext?.tables ?? []
         let privacy = await privacyTask ?? previousContext?.privacyState
 
         let context = FeedContext(
@@ -75,6 +85,7 @@ struct FeedContextService {
             tables: tables,
             myLocation: location,
             privacyState: privacy,
+            serverFeed: serverFeed ?? previousContext?.serverFeed,
             now: now,
             isDebugDemo: false
         )

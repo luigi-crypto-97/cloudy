@@ -34,6 +34,9 @@ final class FeedStore {
 
     func markSeen(_ item: FeedItem) {
         sessionFatigue[item.id, default: 0] += 1
+        Task {
+            _ = try? await API.updateFeedFatigue(cardKey: item.id)
+        }
     }
 
     var stories: [UserStory] {
@@ -363,6 +366,9 @@ struct FeedView: View {
         analytics.track(.feedCTATap, item: item, cta: cta)
         switch cta.kind {
         case .openVenue, .openMap:
+            if let venueId = item.venueId {
+                router.openVenue(venueId)
+            }
             router.selectedTab = .map
         case .openStories:
             openStories(for: item)

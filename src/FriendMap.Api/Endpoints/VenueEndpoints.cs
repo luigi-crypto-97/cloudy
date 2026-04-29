@@ -86,6 +86,17 @@ public static class VenueEndpoints
             return details is null ? Results.NotFound() : Results.Ok(details);
         });
 
+        group.MapGet("/{venueId:guid}/marker", async (
+            Guid venueId,
+            ClaimsPrincipal user,
+            AffluenceAggregationService service,
+            CancellationToken ct) =>
+        {
+            var viewerUserId = CurrentUser.GetUserId(user);
+            var marker = await service.GetVenueMarkerByIdAsync(venueId, viewerUserId, ct);
+            return marker is null ? Results.NotFound() : Results.Ok(marker);
+        });
+
         group.MapPost("/{venueId:guid}/intentions", async (
             Guid venueId,
             CreateIntentionRequest request,

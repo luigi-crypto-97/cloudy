@@ -70,6 +70,30 @@ enum API {
         return try await APIClient.shared.get("/api/venues/map-layer", query: q.mapValues { Optional($0) })
     }
 
+    static func venueMarker(venueId: UUID) async throws -> VenueMarker {
+        try await APIClient.shared.get("/api/venues/\(venueId.uuidString.lowercased())/marker")
+    }
+
+    // MARK: - Feed
+
+    static func feed(latitude: Double? = nil, longitude: Double? = nil) async throws -> FeedServerResponse {
+        var q: [String: String] = [:]
+        if let latitude { q["latitude"] = String(latitude) }
+        if let longitude { q["longitude"] = String(longitude) }
+        return try await APIClient.shared.get("/api/feed", query: q.mapValues { Optional($0) })
+    }
+
+    static func updateFeedFatigue(cardKey: String, dismissed: Bool = false) async throws -> FeedCardFatigueSnapshot {
+        try await APIClient.shared.post("/api/feed/fatigue", body: FeedFatigueUpdateRequest(cardKey: cardKey, dismissed: dismissed))
+    }
+
+    static func signedDeepLink(type: String, targetId: UUID, expiresInMinutes: Int? = 240, maxUses: Int? = 30) async throws -> SignedDeepLink {
+        try await APIClient.shared.post(
+            "/api/feed/links",
+            body: SignedDeepLinkRequest(type: type, targetId: targetId, expiresInMinutes: expiresInMinutes, maxUses: maxUses)
+        )
+    }
+
     // MARK: - Social hub
 
     static func socialHub() async throws -> SocialHub {

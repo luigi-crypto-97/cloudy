@@ -1026,6 +1026,7 @@ public static class SocialEndpoints
             Guid targetUserId,
             AppDbContext db,
             NotificationOutboxService outbox,
+            FeedReentryService reentry,
             ClaimsPrincipal user,
             MediaStorageService mediaStorage,
             CancellationToken ct) =>
@@ -1337,6 +1338,7 @@ public static class SocialEndpoints
             CreateFlareRequest request,
             AppDbContext db,
             NotificationOutboxService outbox,
+            FeedReentryService reentry,
             ClaimsPrincipal user,
             MediaStorageService mediaStorage,
             CancellationToken ct) =>
@@ -1356,9 +1358,42 @@ public static class SocialEndpoints
             }
 
             var durationHours = Math.Clamp(request.DurationHours ?? 1, 1, 4);
+            var now = DateTimeOffset.UtcNow;
+
+            if (reentry.IsQuietHours(now))
+            {
+                return Results.Problem(
+                    title: "Quiet hours",
+                    detail: "I flare sono in pausa nelle ore silenziose. Riprova piu tardi.",
+                    statusCode: StatusCodes.Status429TooManyRequests);
+            }
+
+            var recentLaunchCount = await db.FlareSignals
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == currentUserId && x.CreatedAtUtc >= now.AddHours(-1), ct);
+            if (recentLaunchCount >= 4)
+            {
+                return Results.Problem(
+                    title: "Troppi flare",
+                    detail: "Hai gia lanciato diversi flare nell'ultima ora. Aspetta qualche minuto.",
+                    statusCode: StatusCodes.Status429TooManyRequests);
+            }
 
             var currentUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
             if (currentUser == null) return Results.NotFound();
+
+            var flare = new FlareSignal
+            {
+                UserId = currentUserId,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                Message = message,
+                ExpiresAtUtc = now.AddHours(durationHours)
+            };
+            db.FlareSignals.Add(flare);
+            await db.SaveChangesAsync(ct);
+
+            var deepLink = await outbox.BuildSignedDeepLinkAsync("flare", flare.Id, currentUserId, TimeSpan.FromHours(durationHours), ct);
 
             // Troviamo tutti gli amici fidati
             var friendIds = await db.FriendRelations
@@ -1373,20 +1408,10 @@ public static class SocialEndpoints
                     friendId,
                     "🔥 Flare Lanciato!",
                     $"{currentUser.DisplayName ?? currentUser.Nickname} ha lanciato un segnale: '{message}'. Raggiungilo!",
-                    new { type = "flare", senderId = currentUserId, lat = request.Latitude, lng = request.Longitude },
-                    ct);
+                    new { type = "flare", flareId = flare.Id, senderId = currentUserId },
+                    ct,
+                    deepLink);
             }
-
-            var flare = new FlareSignal
-            {
-                UserId = currentUserId,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
-                Message = message,
-                ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(durationHours)
-            };
-            db.FlareSignals.Add(flare);
-            await db.SaveChangesAsync(ct);
 
             return Results.Ok(new FlareDto(
                 flare.Id,
@@ -1491,11 +1516,23 @@ public static class SocialEndpoints
             RelayFlareRequest request,
             AppDbContext db,
             NotificationOutboxService outbox,
+            FeedReentryService reentry,
+            IOptions<FeedOptions> feedOptions,
             ClaimsPrincipal user,
             CancellationToken ct) =>
         {
             var currentUserId = CurrentUser.GetUserId(user);
             if (currentUserId == Guid.Empty) return Results.Forbid();
+            var options = feedOptions.Value;
+            var now = DateTimeOffset.UtcNow;
+
+            if (reentry.IsQuietHours(now))
+            {
+                return Results.Problem(
+                    title: "Quiet hours",
+                    detail: "Il rilancio dei flare e in pausa nelle ore silenziose.",
+                    statusCode: StatusCodes.Status429TooManyRequests);
+            }
 
             var targetUserIds = request.TargetUserIds
                 .Where(x => x != Guid.Empty && x != currentUserId)
@@ -1507,7 +1544,6 @@ public static class SocialEndpoints
                 return Results.BadRequest("Scegli fino a 3 amici a cui rilanciare il flare.");
             }
 
-            var now = DateTimeOffset.UtcNow;
             var flare = await db.FlareSignals
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == flareId && x.ExpiresAtUtc > now, ct);
@@ -1537,12 +1573,46 @@ public static class SocialEndpoints
                 return Results.BadRequest("Puoi rilanciare un flare solo agli amici.");
             }
 
+            var hourlyLimit = Math.Clamp(options.FlareRelayHourlyLimit, 3, 60);
+            var recentRelayCount = await db.FlareRelayAudits
+                .AsNoTracking()
+                .CountAsync(x => x.SenderUserId == currentUserId && x.CreatedAtUtc >= now.AddHours(-1), ct);
+            if (recentRelayCount + allowedTargets.Count > hourlyLimit)
+            {
+                return Results.Problem(
+                    title: "Troppi rilanci",
+                    detail: $"Puoi rilanciare massimo {hourlyLimit} inviti flare ogni ora.",
+                    statusCode: StatusCodes.Status429TooManyRequests);
+            }
+
+            var perFlareLimit = Math.Clamp(options.FlareRelayPerFlareLimit, 3, 30);
+            var alreadyRelayed = await db.FlareRelayAudits
+                .AsNoTracking()
+                .Where(x => x.FlareSignalId == flareId && x.SenderUserId == currentUserId)
+                .Select(x => x.TargetUserId)
+                .ToListAsync(ct);
+            allowedTargets = allowedTargets
+                .Where(x => !alreadyRelayed.Contains(x))
+                .Take(Math.Max(0, perFlareLimit - alreadyRelayed.Count))
+                .ToList();
+            if (allowedTargets.Count == 0)
+            {
+                return Results.BadRequest("Hai gia rilanciato questo flare a questi amici.");
+            }
+
             var minutesLeft = Math.Max(1, Math.Min(10, (int)Math.Ceiling((flare.ExpiresAtUtc - now).TotalMinutes)));
             var senderName = currentUser.DisplayName ?? currentUser.Nickname;
-            var deepLink = outbox.BuildDeepLink("flare", flare.Id);
+            var deepLink = await outbox.BuildSignedDeepLinkAsync("flare", flare.Id, currentUserId, TimeSpan.FromMinutes(minutesLeft + 5), ct);
 
             foreach (var friendId in allowedTargets)
             {
+                db.FlareRelayAudits.Add(new FlareRelayAudit
+                {
+                    FlareSignalId = flare.Id,
+                    SenderUserId = currentUserId,
+                    TargetUserId = friendId
+                });
+
                 await outbox.EnqueueAsync(
                     friendId,
                     "Flare in catena",
@@ -1596,12 +1666,14 @@ public static class SocialEndpoints
 
             if (flare.UserId != currentUserId)
             {
+                var deepLink = await outbox.BuildSignedDeepLinkAsync("flare", flare.Id, currentUserId, TimeSpan.FromHours(1), ct);
                 await outbox.EnqueueAsync(
                     flare.UserId,
                     "Risposta al flare",
                     body,
                     new { type = "flare_response", flareId, senderId = currentUserId },
-                    ct);
+                    ct,
+                    deepLink);
             }
 
             return Results.Ok(new SocialActionResultDto("flare_response_sent", "Risposta inviata."));

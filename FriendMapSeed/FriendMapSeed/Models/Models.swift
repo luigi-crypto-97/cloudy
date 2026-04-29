@@ -133,6 +133,57 @@ struct VenueMapLayer: Codable {
     let areas: [VenueMapArea]
 }
 
+// MARK: - Server feed
+
+struct FeedServerResponse: Codable {
+    let items: [FeedServerItem]
+    let venues: [VenueMarker]
+    let flares: [FlareSignal]
+    let tables: [SocialTableSummary]
+    let fatigue: [FeedCardFatigueSnapshot]
+    let generatedAtUtc: Date
+}
+
+struct FeedServerItem: Codable, Hashable, Identifiable {
+    let id: String
+    let kind: String
+    let score: Double
+    let timestamp: Date
+    let venueId: UUID?
+    let entityId: UUID?
+    let title: String
+    let subtitle: String
+    let privacyExplanation: String
+    let source: String
+    let deepLink: String?
+    let shareUrl: String?
+}
+
+struct FeedCardFatigueSnapshot: Codable, Hashable {
+    let cardKey: String
+    let seenCount: Int
+    let dismissedCount: Int
+    let lastSeenAtUtc: Date?
+    let lastDismissedAtUtc: Date?
+}
+
+struct FeedFatigueUpdateRequest: Codable {
+    let cardKey: String
+    let dismissed: Bool
+}
+
+struct SignedDeepLinkRequest: Codable {
+    let type: String
+    let targetId: UUID
+    let expiresInMinutes: Int?
+    let maxUses: Int?
+}
+
+struct SignedDeepLink: Codable, Hashable {
+    let url: String
+    let expiresAtUtc: Date
+}
+
 // MARK: - User profile
 
 struct UserProfile: Codable, Hashable, Identifiable {

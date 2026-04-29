@@ -456,6 +456,7 @@ enum FeedDemoFactory {
             tables: [table],
             myLocation: nil,
             privacyState: nil,
+            serverFeed: nil,
             now: now,
             isDebugDemo: true
         )
