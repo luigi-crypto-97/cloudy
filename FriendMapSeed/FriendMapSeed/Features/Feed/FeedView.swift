@@ -233,27 +233,36 @@ struct FeedView: View {
     }
 
     private var myStoryButton: some View {
-        Button {
-            Haptics.tap()
-            if myStories.isEmpty {
-                showCreateStory = true
-            } else {
-                viewerConfig = StoryViewerConfig(storiesByUser: [myStories], initialUserIndex: 0)
-            }
-        } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .stroke(style: StrokeStyle(lineWidth: 3, dash: [8, 7]))
-                        .foregroundStyle(Theme.Palette.blue100)
-                        .frame(width: 76, height: 76)
-                    StoryAvatar(
-                        url: APIClient.shared.mediaURL(from: store.profile?.avatarUrl),
-                        size: 66,
-                        hasStory: false,
-                        initials: myInitials
-                    )
-                    .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 3))
+        VStack(spacing: 6) {
+            ZStack {
+                Button {
+                    Haptics.tap()
+                    if myStories.isEmpty {
+                        showCreateStory = true
+                    } else {
+                        viewerConfig = StoryViewerConfig(storiesByUser: [myStories], initialUserIndex: 0)
+                    }
+                } label: {
+                    ZStack {
+                        Circle()
+                            .stroke(style: StrokeStyle(lineWidth: 3, dash: myStories.isEmpty ? [8, 7] : []))
+                            .foregroundStyle(myStories.isEmpty ? Theme.Palette.blue100 : Theme.Palette.blue500)
+                            .frame(width: 76, height: 76)
+                        StoryAvatar(
+                            url: APIClient.shared.mediaURL(from: store.profile?.avatarUrl),
+                            size: 66,
+                            hasStory: false,
+                            initials: myInitials
+                        )
+                        .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 3))
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Haptics.tap()
+                    showCreateStory = true
+                } label: {
                     Circle()
                         .fill(Theme.Palette.blue500)
                         .frame(width: 32, height: 32)
@@ -262,17 +271,19 @@ struct FeedView: View {
                                 .font(.system(size: 17, weight: .heavy))
                                 .foregroundStyle(.white)
                         )
-                        .offset(x: 25, y: 25)
+                        .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
                 }
-                .frame(width: 80, height: 80)
-                Text("La tua storia")
-                    .font(Theme.Font.caption(12, weight: .heavy))
-                    .foregroundStyle(Theme.Palette.inkSoft)
-                    .lineLimit(1)
-                    .frame(width: 82)
+                .buttonStyle(.plain)
+                .offset(x: 25, y: 25)
             }
+            .frame(width: 80, height: 80)
+
+            Text("La tua storia")
+                .font(Theme.Font.caption(12, weight: .heavy))
+                .foregroundStyle(Theme.Palette.inkSoft)
+                .lineLimit(1)
+                .frame(width: 82)
         }
-        .buttonStyle(.plain)
     }
 
     private var myStories: [UserStory] {

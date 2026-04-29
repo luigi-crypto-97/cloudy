@@ -17,11 +17,13 @@ public static class MessagingEndpoints
         group.MapGet("/threads", GetThreadsAsync);
         group.MapGet("/threads/{otherUserId:guid}", GetThreadAsync);
         group.MapPost("/threads/{otherUserId:guid}", PostThreadMessageAsync);
+        group.MapDelete("/threads/{otherUserId:guid}", DeleteThreadAsync);
         group.MapPost("/files", UploadMessageFileAsync);
         group.MapGet("/groups", GetGroupChatsAsync);
         group.MapPost("/groups", CreateGroupChatAsync);
         group.MapGet("/groups/{chatId:guid}", GetGroupChatThreadAsync);
         group.MapPost("/groups/{chatId:guid}/messages", PostGroupChatMessageAsync);
+        group.MapDelete("/groups/{chatId:guid}", DeleteGroupChatAsync);
         group.MapGet("/venues/{venueId:guid}/chat", GetVenueChatThreadAsync);
         group.MapPost("/venues/{venueId:guid}/chat/messages", PostVenueChatMessageAsync);
         return group;
@@ -328,6 +330,39 @@ public static class MessagingEndpoints
             true));
     }
 
+    private static async Task<IResult> DeleteThreadAsync(
+        Guid otherUserId,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty)
+        {
+            return Results.Forbid();
+        }
+
+        if (otherUserId == Guid.Empty || otherUserId == currentUserId)
+        {
+            return Results.BadRequest("Chat non valida.");
+        }
+
+        var (lowId, highId) = NormalizePair(currentUserId, otherUserId);
+        var thread = await db.DirectMessageThreads
+            .FirstOrDefaultAsync(x => x.UserLowId == lowId && x.UserHighId == highId, ct);
+        if (thread is null)
+        {
+            return Results.NoContent();
+        }
+
+        await db.DirectMessages
+            .Where(x => x.ThreadId == thread.Id)
+            .ExecuteDeleteAsync(ct);
+        db.DirectMessageThreads.Remove(thread);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
     private static async Task<IResult> GetGroupChatsAsync(
         ClaimsPrincipal principal,
         AppDbContext db,
@@ -431,6 +466,45 @@ public static class MessagingEndpoints
         var summary = (await BuildGroupChatSummariesAsync(db, new[] { chat }, currentUserId, null, ct)).Single();
         var messages = await BuildGroupMessagesAsync(db, mediaStorage, chatId, currentUserId, ct);
         return Results.Ok(new GroupChatThreadDto(summary, messages));
+    }
+
+    private static async Task<IResult> DeleteGroupChatAsync(
+        Guid chatId,
+        ClaimsPrincipal principal,
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(principal);
+        if (currentUserId == Guid.Empty)
+        {
+            return Results.Forbid();
+        }
+
+        var chat = await db.GroupChats.FirstOrDefaultAsync(x => x.Id == chatId && !x.IsArchived, ct);
+        if (chat is null)
+        {
+            return Results.NoContent();
+        }
+
+        var membership = await db.GroupChatMembers
+            .FirstOrDefaultAsync(x => x.GroupChatId == chatId && x.UserId == currentUserId, ct);
+        if (membership is null)
+        {
+            return Results.NoContent();
+        }
+
+        db.GroupChatMembers.Remove(membership);
+
+        var remainingMembers = await db.GroupChatMembers
+            .CountAsync(x => x.GroupChatId == chatId && x.UserId != currentUserId, ct);
+        if (remainingMembers == 0)
+        {
+            chat.IsArchived = true;
+            chat.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> PostGroupChatMessageAsync(

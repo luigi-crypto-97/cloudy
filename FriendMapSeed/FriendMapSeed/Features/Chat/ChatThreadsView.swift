@@ -21,10 +21,13 @@ struct ChatThreadsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: Theme.Spacing.md) {
+            List {
+                Section {
                     if isLoading {
-                        ProgressView().padding(.top, 80)
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 80)
+                            .listRowChrome()
                     } else if threads.isEmpty && groupThreads.isEmpty {
                         CloudyEmptyState(
                             icon: "bubble.left.and.bubble.right.fill",
@@ -32,6 +35,7 @@ struct ChatThreadsView: View {
                             message: "Inizia parlando con un amico"
                         )
                         .padding(.top, 60)
+                        .listRowChrome()
                     } else {
                         ForEach(groupThreads) { group in
                             Button {
@@ -40,6 +44,14 @@ struct ChatThreadsView: View {
                                 groupRow(group)
                             }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task { await deleteGroup(group) }
+                                } label: {
+                                    Label("Elimina", systemImage: "trash")
+                                }
+                            }
+                            .listRowChrome()
                         }
                         ForEach(threads) { t in
                             NavigationLink {
@@ -48,17 +60,28 @@ struct ChatThreadsView: View {
                                 threadRow(t)
                             }
                             .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task { await deleteThread(t) }
+                                } label: {
+                                    Label("Elimina", systemImage: "trash")
+                                }
+                            }
+                            .listRowChrome()
                         }
                     }
                     if let errorMessage {
                         Text(errorMessage)
                             .font(Theme.Font.caption(12))
                             .foregroundStyle(Theme.Palette.densityHigh)
+                            .listRowChrome()
                     }
                 }
-                .padding(Theme.Spacing.lg)
-                .padding(.bottom, 130)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.horizontal, Theme.Spacing.lg, for: .scrollContent)
+            .contentMargins(.bottom, 130, for: .scrollContent)
             .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
             .navigationTitle("Chat")
             .navigationBarTitleDisplayMode(.large)
@@ -234,6 +257,39 @@ struct ChatThreadsView: View {
                 errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
         }
+    }
+
+    private func deleteThread(_ thread: DirectMessageThreadSummary) async {
+        do {
+            threads.removeAll { $0.otherUserId == thread.otherUserId }
+            try await API.deleteDirectMessageThread(otherUserId: thread.otherUserId)
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            await load()
+        }
+    }
+
+    private func deleteGroup(_ group: GroupChatSummary) async {
+        do {
+            groupThreads.removeAll { $0.chatId == group.chatId }
+            try await API.deleteGroupChat(chatId: group.chatId)
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            await load()
+        }
+    }
+}
+
+private extension View {
+    func listRowChrome() -> some View {
+        self
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+            .listRowBackground(Color.clear)
     }
 }
 

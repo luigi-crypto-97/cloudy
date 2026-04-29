@@ -12,6 +12,8 @@ struct GroupChatRoomView: View {
     let venueId: UUID?
     let title: String
 
+    @Environment(AppRouter.self) private var router
+
     @State private var thread: GroupChatThread?
     @State private var draft = ""
     @State private var isSending = false
@@ -66,6 +68,8 @@ struct GroupChatRoomView: View {
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
         .navigationTitle(thread?.chat.title ?? title)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { router.isTabBarHidden = true }
+        .onDisappear { router.isTabBarHidden = false }
         .task { await pollThread() }
         .onChange(of: photoItem) { _, item in
             Task { await sendPhoto(item) }
@@ -103,20 +107,22 @@ struct GroupChatRoomView: View {
 
     private var composer: some View {
         HStack(spacing: 10) {
-            Menu {
-                PhotosPicker(selection: $photoItem, matching: .images) {
-                    Label("Foto", systemImage: "photo")
-                }
-                Button {
-                    showsFileImporter = true
-                } label: {
-                    Label("File", systemImage: "paperclip")
-                }
-            } label: {
-                Image(systemName: isSending ? "hourglass" : "plus")
-                    .font(.system(size: 18, weight: .heavy))
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                Image(systemName: isSending ? "hourglass" : "photo.fill")
+                    .font(.system(size: 16, weight: .heavy))
                     .foregroundStyle(Theme.Palette.blue500)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Theme.Palette.blue50))
+            }
+            .disabled(isSending)
+
+            Button {
+                showsFileImporter = true
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 16, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+                    .frame(width: 36, height: 36)
                     .background(Circle().fill(Theme.Palette.blue50))
             }
             .disabled(isSending)
@@ -144,6 +150,7 @@ struct GroupChatRoomView: View {
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.md)
         .background(Theme.Palette.surface.ignoresSafeArea(edges: .bottom))
+        .safeAreaPadding(.bottom, 2)
     }
 
     private func load() async {

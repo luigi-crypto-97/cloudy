@@ -197,6 +197,10 @@ enum API {
         )
     }
 
+    static func deleteDirectMessageThread(otherUserId: UUID) async throws {
+        try await APIClient.shared.delete("/api/messages/threads/\(otherUserId.uuidString.lowercased())")
+    }
+
     static func uploadChatFile(data: Data, fileName: String, mimeType: String = "application/octet-stream") async throws -> String {
         let result: UploadMediaResult = try await APIClient.shared.upload(
             "/api/messages/files",
@@ -229,6 +233,10 @@ enum API {
             "/api/messages/groups/\(chatId.uuidString.lowercased())/messages",
             body: SendGroupChatMessageRequest(body: body)
         )
+    }
+
+    static func deleteGroupChat(chatId: UUID) async throws {
+        try await APIClient.shared.delete("/api/messages/groups/\(chatId.uuidString.lowercased())")
     }
 
     static func venueChatThread(venueId: UUID) async throws -> GroupChatThread {

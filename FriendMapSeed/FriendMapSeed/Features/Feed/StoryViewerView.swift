@@ -299,13 +299,14 @@ struct StoryViewerView: View {
     // MARK: - Action dock
 
     private var actionDock: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 8) {
             if canPrivateReply {
                 HStack(spacing: 8) {
-                    TextField(showsPrivateReply ? "Invia messaggio…" : "Invia un messaggio a \(currentStory.displayName ?? currentStory.nickname)", text: $privateReplyDraft)
+                    TextField(showsPrivateReply ? "Invia messaggio..." : "Rispondi alla storia", text: $privateReplyDraft)
                         .textFieldStyle(.plain)
                         .font(Theme.Font.body(14, weight: .semibold))
                         .foregroundStyle(.white)
+                        .lineLimit(1)
                         .submitLabel(.send)
                         .onSubmit {
                             Task { await sendPrivateReply() }
@@ -321,14 +322,16 @@ struct StoryViewerView: View {
                             Image(systemName: isSendingPrivateReply ? "hourglass" : "arrow.up")
                                 .font(.system(size: 14, weight: .black))
                                 .foregroundStyle(.black)
-                                .frame(width: 28, height: 28)
+                                .frame(width: 30, height: 30)
                                 .background(Circle().fill(.white))
                         }
                         .disabled(isSendingPrivateReply)
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
+                .layoutPriority(1)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 9)
                 .background(.white.opacity(0.08), in: Capsule())
                 .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 0.5))
@@ -337,21 +340,19 @@ struct StoryViewerView: View {
                     .font(Theme.Font.body(14, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 11)
                     .background(.white.opacity(0.06), in: Capsule())
             }
-
-            Spacer()
 
             Button {
                 Task { await toggleLike() }
             } label: {
                 Image(systemName: currentStory.hasLiked ? "heart.fill" : "heart")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
                     .shadow(color: .black.opacity(0.45), radius: 6)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 38, height: 38)
             }
 
             Button {
@@ -364,10 +365,10 @@ struct StoryViewerView: View {
                 Haptics.tap()
             } label: {
                 Image(systemName: showsComments ? "bubble.right.fill" : "bubble.right")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.45), radius: 6)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 38, height: 38)
             }
 
             Button {
@@ -376,14 +377,17 @@ struct StoryViewerView: View {
                 Haptics.tap()
             } label: {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.45), radius: 6)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 38, height: 38)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .padding(.bottom, 8)
+        .background(.black.opacity(0.18), in: Capsule())
+        .padding(.horizontal, 10)
     }
 
     // MARK: - Comments panel
@@ -441,6 +445,8 @@ struct StoryViewerView: View {
                     .textFieldStyle(.plain)
                     .font(Theme.Font.body(14, weight: .semibold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
                     .submitLabel(.send)
                     .onSubmit {
                         Task { await sendComment() }
@@ -475,7 +481,7 @@ struct StoryViewerView: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(.white.opacity(0.18), lineWidth: 1)
         )
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
     }
 
     private func commentRow(_ comment: StoryComment) -> some View {
