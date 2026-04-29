@@ -4,6 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ -f ".env.local" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env.local"
+  set +a
+fi
+
 if lsof -nP -iTCP:8090 -sTCP:LISTEN >/dev/null 2>&1; then
   if curl -fsS -I http://127.0.0.1:8090 >/dev/null 2>&1; then
     echo "FriendMap admin already appears to be running at http://localhost:8090"

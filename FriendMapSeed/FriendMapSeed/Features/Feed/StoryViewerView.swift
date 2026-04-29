@@ -7,6 +7,7 @@ import SwiftUI
 
 struct StoryViewerView: View {
     let stories: [UserStory]
+    @Environment(AppRouter.self) private var router
     @State private var localStories: [UserStory] = []
     @State private var currentIndex: Int = 0
     @State private var progress: Double = 0
@@ -89,17 +90,11 @@ struct StoryViewerView: View {
                                 .onTapGesture { nextStory() }
                         }
                     }
-
-                // Caption (se presente)
-                if let caption = currentStory.caption {
-                    Text(caption)
-                        .font(Theme.Font.body(15))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.leading)
-                        .padding(Theme.Spacing.lg)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.black.opacity(0.5))
-                }
+                    .overlay(alignment: .bottomLeading) {
+                        storyTitleOverlay
+                            .padding(.horizontal, 18)
+                            .padding(.bottom, 98)
+                    }
 
                 Spacer()
             }
@@ -107,7 +102,7 @@ struct StoryViewerView: View {
         .overlay(alignment: .bottom) {
             storyActions
                 .padding(.top, 18)
-                .padding(.bottom, 168)
+                .padding(.bottom, 16)
                 .background(
                     LinearGradient(
                         colors: [.clear, .black.opacity(0.86)],
@@ -120,10 +115,12 @@ struct StoryViewerView: View {
                 .animation(.cloudySnap, value: showsPrivateReply)
         }
         .onAppear {
+            router.isTabBarHidden = true
             localStories = stories
             startProgress()
         }
         .onDisappear {
+            router.isTabBarHidden = false
             timer?.invalidate()
             timer = nil
         }
@@ -197,6 +194,32 @@ struct StoryViewerView: View {
                 .foregroundStyle(.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var storyTitleOverlay: some View {
+        if currentStory.caption != nil || currentStory.venueName != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                if let venueName = currentStory.venueName, !venueName.isEmpty {
+                    Label(venueName, systemImage: "mappin.circle.fill")
+                        .font(Theme.Font.caption(12, weight: .heavy))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.30), in: Capsule())
+                }
+
+                if let caption = currentStory.caption, !caption.isEmpty {
+                    Text(caption)
+                        .font(Theme.Font.title(20, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .shadow(color: .black.opacity(0.55), radius: 10, x: 0, y: 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var storyActions: some View {

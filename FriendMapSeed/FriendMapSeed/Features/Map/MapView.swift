@@ -130,14 +130,8 @@ struct MapView: View {
     // MARK: - Map layer
 
     private var mapLayer: some View {
-        ZStack {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
             Map(position: $camera, interactionModes: .all, selection: .constant(nil as VenueMarker?)) {
-                ForEach(densityClusters) { cluster in
-                    MapCircle(center: cluster.coordinate, radius: densityRadiusMeters(for: cluster.weight))
-                        .foregroundStyle(densityColor(for: cluster.weight).opacity(0.15))
-                        .stroke(densityColor(for: cluster.weight).opacity(0.28), lineWidth: 1)
-                }
-
                 // Fog links (overlay). MapKit disegna MapPolyline.
                 ForEach(store.fogLinks, id: \.id) { link in
                     MapPolyline(coordinates: [link.from, link.to])
@@ -165,7 +159,30 @@ struct MapView: View {
                     .annotationTitles(.hidden)
                 }
 
-                ForEach(visibleVenueMarkers) { marker in
+                ForEach(activeVenueMarkers) { marker in
+                    Annotation(
+                        marker.name,
+                        coordinate: marker.coordinate,
+                        anchor: .center
+                    ) {
+                        Button {
+                            selectedVenue = marker
+                            Haptics.tap()
+                        } label: {
+                            CloudBubble(
+                                intensity: marker.bubbleIntensity,
+                                peopleCount: activityWeight(for: marker),
+                                densityLevel: marker.densityLevel,
+                                isSelected: selectedVenue?.id == marker.id,
+                                phase: cloudPhase(timeline.date)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .annotationTitles(.hidden)
+                }
+
+                ForEach(inactiveVenueMarkers) { marker in
                     Annotation(
                         marker.name,
                         coordinate: marker.coordinate,
@@ -176,7 +193,7 @@ struct MapView: View {
                             Haptics.tap()
                         } label: {
                             VenueDotMarker(
-                                peopleCount: activityWeight(for: marker),
+                                peopleCount: 0,
                                 densityLevel: marker.densityLevel,
                                 energyScore: marker.partyPulse.energyScore,
                                 isSelected: selectedVenue?.id == marker.id
@@ -525,16 +542,30 @@ struct MapView: View {
         store.areas.filter { $0.peopleCount > 0 || $0.activeCheckIns > 0 || $0.activeIntentions > 0 || $0.openTables > 0 }
     }
 
-    private var visibleVenueMarkers: [VenueMarker] {
-        store.markers.filter { marker in
-            activityWeight(for: marker) > 0 || isVenueZoomLevel
-        }
+    private var activeVenueMarkers: [VenueMarker] {
+        store.markers.filter { activityWeight(for: $0) > 0 }
+    }
+
+    private var inactiveVenueMarkers: [VenueMarker] {
+        guard isVenueZoomLevel else { return [] }
+        return store.markers.filter { activityWeight(for: $0) == 0 }
     }
 
     private var friendPresenceAnnotations: [FriendPresenceAnnotation] {
-        visibleVenueMarkers.flatMap { marker in
-            marker.presencePreview.prefix(4).enumerated().map { index, presence in
-                FriendPresenceAnnotation(
+        let currentUserId = authUserId
+        var seen = Set<UUID>()
+        return activeVenueMarkers.flatMap { marker in
+            marker.presencePreview
+                .filter { presence in
+                    guard let currentUserId else { return true }
+                    return presence.userId != currentUserId
+                }
+                .prefix(4)
+                .enumerated()
+                .compactMap { index, presence in
+                    guard !seen.contains(presence.userId) else { return nil }
+                    seen.insert(presence.userId)
+                    return FriendPresenceAnnotation(
                     venueId: marker.venueId,
                     userId: presence.userId,
                     name: presence.displayName,
@@ -563,6 +594,11 @@ struct MapView: View {
 
     private func activityWeight(for marker: VenueMarker) -> Int {
         marker.peopleEstimate + marker.activeCheckIns + marker.activeIntentions + marker.openTables
+    }
+
+    private func cloudPhase(_ date: Date) -> Double {
+        let interval = date.timeIntervalSinceReferenceDate
+        return interval.truncatingRemainder(dividingBy: 3.6) / 3.6
     }
 
     private var venueStoryGroups: [VenueStoryGroup] {

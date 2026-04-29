@@ -1,0 +1,10 @@
+<div class="metric-card @Accent">
+    <span>@Label</span>
+    <strong>@Value</strong>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public int Value { get; set; }
+    [Parameter] public string Accent { get; set; } = "blue";
+}

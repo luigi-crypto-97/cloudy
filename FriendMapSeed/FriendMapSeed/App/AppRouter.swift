@@ -20,6 +20,7 @@ final class AppRouter {
     var selectedTab: Tab = .map
     var presentedChat: ChatRoute?
     var presentedTable: TableRoute?
+    var isTabBarHidden = false
 
     func open(deepLink: String?) {
         guard let deepLink, let url = URL(string: deepLink) else { return }

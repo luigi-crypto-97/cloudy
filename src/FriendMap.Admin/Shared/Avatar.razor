@@ -1,0 +1,21 @@
+@if (!string.IsNullOrWhiteSpace(User.AvatarUrl))
+{
+    <img class="avatar" src="@User.AvatarUrl" alt="" />
+}
+else
+{
+    <span class="avatar fallback">@Initial</span>
+}
+
+@code {
+    [Parameter, EditorRequired] public AdminUserMonitorDto User { get; set; } = default!;
+
+    private string Initial
+    {
+        get
+        {
+            var source = string.IsNullOrWhiteSpace(User.DisplayName) ? User.Nickname : User.DisplayName!;
+            return string.IsNullOrWhiteSpace(source) ? "?" : source[..1].ToUpperInvariant();
+        }
+    }
+}

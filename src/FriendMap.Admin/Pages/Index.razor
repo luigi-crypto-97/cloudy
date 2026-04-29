@@ -1,59 +1,316 @@
 @page "/"
 @inject IHttpClientFactory HttpClientFactory
 
-<h1>Dashboard</h1>
+<section class="ops-hero">
+    <div>
+        <p class="eyebrow">Cloudy Operations</p>
+        <h1>Command Center</h1>
+        <p class="muted">Monitoraggio operativo privacy-safe: presenze a livello locale, segnali social, health e moderazione.</p>
+    </div>
+    <div class="ops-actions">
+        <input placeholder="Cerca utenti o email" @bind="_query" @bind:event="oninput" @onkeydown="HandleSearchKey" />
+        <button @onclick="LoadAsync" disabled="@_isLoading">@(_isLoading ? "Aggiorno..." : "Aggiorna")</button>
+    </div>
+</section>
 
-@if (_isLoading)
-{
-    <p class="muted">Caricamento metriche...</p>
-}
-else if (_error is not null)
+@if (_error is not null)
 {
     <p class="error">@_error</p>
 }
 
-<div class="cards">
-    <div class="card">
-        <h3>Utenti attivi 24h</h3>
-        <p>@(_overview?.ActiveUsers24h ?? 0)</p>
+@if (_snapshot is null && _isLoading)
+{
+    <div class="skeleton-grid">
+        <div></div><div></div><div></div><div></div>
     </div>
-    <div class="card">
-        <h3>Check-in attivi</h3>
-        <p>@(_overview?.CheckInsActive ?? 0)</p>
-    </div>
-    <div class="card">
-        <h3>Intentions attive</h3>
-        <p>@(_overview?.IntentionsActive ?? 0)</p>
-    </div>
-    <div class="card">
-        <h3>Report aperti</h3>
-        <p>@(_overview?.OpenReports ?? 0)</p>
-    </div>
-    <div class="card">
-        <h3>Tavoli attivi</h3>
-        <p>@(_overview?.ActiveTables ?? 0)</p>
-    </div>
-</div>
+}
+else if (_snapshot is not null)
+{
+    <section class="status-strip">
+        <div>
+            <span class="status-dot @HealthClass(_snapshot.Health.ApiStatus)"></span>
+            <strong>@HealthLabel(_snapshot.Health.ApiStatus)</strong>
+            <span class="muted">DB @_snapshot.Health.DatabaseLatencyMs ms</span>
+        </div>
+        <div>
+            <strong>Storage</strong>
+            <span class="muted">@_snapshot.Health.MediaStorageProvider &middot; @_snapshot.Health.MediaStorageVisibility</span>
+        </div>
+        <div>
+            <strong>Notifiche</strong>
+            <span class="muted">@_snapshot.Health.NotificationBacklog pending &middot; @_snapshot.Health.FailedNotificationBacklog failed</span>
+        </div>
+        <div>
+            <strong>Ultimo sync</strong>
+            <span class="muted">@_snapshot.GeneratedAtUtc.ToLocalTime().ToString("HH:mm:ss")</span>
+        </div>
+    </section>
+
+    <section class="metric-grid">
+        <MetricCard Label="Utenti totali" Value="@_snapshot.Kpi.TotalUsers" Accent="blue" />
+        <MetricCard Label="Nuovi 24h" Value="@_snapshot.Kpi.NewUsers24h" Accent="mint" />
+        <MetricCard Label="Qui ora" Value="@_snapshot.Kpi.CheckInsActive" Accent="blue" />
+        <MetricCard Label="In arrivo" Value="@_snapshot.Kpi.IntentionsActive" Accent="violet" />
+        <MetricCard Label="Storie live" Value="@_snapshot.Kpi.ActiveStories" Accent="blue" />
+        <MetricCard Label="Flare attivi" Value="@_snapshot.Kpi.ActiveFlares" Accent="coral" />
+        <MetricCard Label="Tavoli aperti" Value="@_snapshot.Kpi.ActiveTables" Accent="mint" />
+        <MetricCard Label="Msg ultima ora" Value="@_snapshot.Kpi.MessagesLastHour" Accent="blue" />
+    </section>
+
+    <section class="ops-grid">
+        <div class="ops-panel map-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Live Map</p>
+                    <h2>Venue pulse</h2>
+                </div>
+                <span class="pill">@_snapshot.Privacy.LocationPrecision</span>
+            </div>
+
+            <div class="command-map">
+                @foreach (var venue in _snapshot.VenuePulses.Where(x => x.Latitude is not null && x.Longitude is not null))
+                {
+                    var pos = Project(venue);
+                    var size = 28 + Math.Min(venue.EnergyScore, 100) * 0.34;
+                    <div class="venue-pulse" style="left:@($"{pos.X:0.##}")%; top:@($"{pos.Y:0.##}")%; width:@($"{size:0.#}")px; height:@($"{size:0.#}")px;" title="@venue.Name">
+                        <span>@venue.EnergyScore</span>
+                    </div>
+                }
+                <div class="map-legend">
+                    <span></span>
+                    <strong>Energia venue</strong>
+                    <em>check-in + intenzioni, no GPS grezzo</em>
+                </div>
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Realtime</p>
+                    <h2>Timeline</h2>
+                </div>
+            </div>
+            <div class="timeline">
+                @foreach (var item in _snapshot.Timeline)
+                {
+                    <div class="timeline-item @item.Severity">
+                        <span></span>
+                        <div>
+                            <strong>@item.Title</strong>
+                            <p>@item.Subtitle</p>
+                            <small>@item.CreatedAtUtc.ToLocalTime().ToString("g") &middot; @item.Kind</small>
+                        </div>
+                    </div>
+                }
+                @if (!_snapshot.Timeline.Any())
+                {
+                    <p class="muted">Nessun segnale recente.</p>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-grid three">
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Hotspots</p>
+                    <h2>Locali attivi</h2>
+                </div>
+            </div>
+            <div class="venue-list">
+                @foreach (var venue in _snapshot.VenuePulses.Take(8))
+                {
+                    <div class="venue-row">
+                        <div>
+                            <strong>@venue.Name</strong>
+                            <span>@venue.Category &middot; @venue.City</span>
+                        </div>
+                        <div class="energy">
+                            <b>@venue.EnergyScore</b>
+                            <small>@venue.CheckedInCount qui &middot; @venue.IntentionCount arrivo</small>
+                        </div>
+                    </div>
+                }
+                @if (!_snapshot.VenuePulses.Any())
+                {
+                    <p class="muted">Nessun locale con segnali attivi.</p>
+                }
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Privacy</p>
+                    <h2>Controlli</h2>
+                </div>
+            </div>
+            <div class="privacy-stack">
+                <PrivacyRow Label="Ghost mode" Value="@_snapshot.Privacy.GhostModeUsers" />
+                <PrivacyRow Label="Presence opt-out" Value="@_snapshot.Privacy.PresenceOptOutUsers" />
+                <PrivacyRow Label="Intent opt-out" Value="@_snapshot.Privacy.IntentionOptOutUsers" />
+                <PrivacyRow Label="Visibili venue-level" Value="@_snapshot.Privacy.VenueLevelVisibleUsers" />
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Risk</p>
+                    <h2>Attenzione</h2>
+                </div>
+            </div>
+            <div class="risk-stack">
+                <div class="@RiskClass(_snapshot.Kpi.OpenReports > 0)">
+                    <strong>@_snapshot.Kpi.OpenReports</strong>
+                    <span>report aperti</span>
+                </div>
+                <div class="@RiskClass(_snapshot.Kpi.FailedNotifications > 0)">
+                    <strong>@_snapshot.Kpi.FailedNotifications</strong>
+                    <span>notifiche fallite</span>
+                </div>
+                <div class="@RiskClass(_snapshot.Health.DatabaseLatencyMs > 250)">
+                    <strong>@_snapshot.Health.DatabaseLatencyMs ms</strong>
+                    <span>latenza database</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ops-panel">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">Users</p>
+                <h2>Utenti monitorati</h2>
+            </div>
+            <a class="ghost-link" href="/users">Vista completa</a>
+        </div>
+        <table class="grid ops-table">
+            <thead>
+                <tr>
+                    <th>Utente</th>
+                    <th>Stato</th>
+                    <th>Locale</th>
+                    <th>Amici</th>
+                    <th>Privacy</th>
+                    <th>Segnale</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in _snapshot.Users.Take(80))
+                {
+                    <tr>
+                        <td>
+                            <div class="user-cell">
+                                <Avatar User="user" />
+                                <div>
+                                    <strong>@DisplayName(user)</strong>
+                                    <span>@user.Nickname</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="pill @user.PresenceState">@PresenceLabel(user.PresenceState)</span></td>
+                        <td>
+                            @if (user.VenueName is not null)
+                            {
+                                <strong>@user.VenueName</strong><br />
+                                <span class="muted">@user.VenueCategory</span>
+                            }
+                            else
+                            {
+                                <span class="muted">Nessuna presenza live</span>
+                            }
+                        </td>
+                        <td>@user.FriendsCount</td>
+                        <td><span class="muted">@PrivacyLabel(user)</span></td>
+                        <td>@(user.LastSignalAtUtc?.ToLocalTime().ToString("g") ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
 
 @code {
-    private DashboardOverviewDto? _overview;
-    private bool _isLoading = true;
+    private AdminMonitorSnapshotDto? _snapshot;
+    private string? _query;
     private string? _error;
+    private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
         try
         {
             var client = HttpClientFactory.CreateClient("api");
-            _overview = await client.GetFromJsonAsync<DashboardOverviewDto>("api/admin/dashboard");
+            var path = string.IsNullOrWhiteSpace(_query)
+                ? "api/admin/monitor"
+                : $"api/admin/monitor?q={Uri.EscapeDataString(_query)}";
+            _snapshot = await client.GetFromJsonAsync<AdminMonitorSnapshotDto>(path);
         }
         catch (Exception ex)
         {
-            _error = $"Impossibile caricare la dashboard: {ex.Message}";
+            _error = $"Impossibile caricare il monitoraggio: {ex.Message}";
         }
         finally
         {
             _isLoading = false;
         }
+    }
+
+    private async Task HandleSearchKey(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string DisplayName(AdminUserMonitorDto user) =>
+        string.IsNullOrWhiteSpace(user.DisplayName) ? $"@{user.Nickname}" : user.DisplayName!;
+
+    private static string PresenceLabel(string state) => state switch
+    {
+        "checked_in" => "Qui ora",
+        "intention" => "In arrivo",
+        "ghost" => "Ghost",
+        _ => "Idle"
+    };
+
+    private static string PrivacyLabel(AdminUserMonitorDto user)
+    {
+        if (user.IsGhostModeEnabled) return "Ghost mode";
+        if (!user.SharePresenceWithFriends && !user.ShareIntentionsWithFriends) return "Presence + intent off";
+        if (!user.SharePresenceWithFriends) return "Presence off";
+        if (!user.ShareIntentionsWithFriends) return "Intent off";
+        return user.PrivacyLevel;
+    }
+
+    private static string HealthClass(string status) => status == "operational" ? "ok" : "warn";
+    private static string HealthLabel(string status) => status == "operational" ? "Operativo" : "Degradato";
+    private static string RiskClass(bool isHot) => isHot ? "risk-card hot" : "risk-card";
+
+    private (double X, double Y) Project(AdminVenuePulseDto venue)
+    {
+        var points = _snapshot?.VenuePulses.Where(x => x.Latitude is not null && x.Longitude is not null).ToList() ?? new List<AdminVenuePulseDto>();
+        if (points.Count == 0 || venue.Latitude is null || venue.Longitude is null) return (50, 50);
+        var minLat = points.Min(x => x.Latitude!.Value);
+        var maxLat = points.Max(x => x.Latitude!.Value);
+        var minLng = points.Min(x => x.Longitude!.Value);
+        var maxLng = points.Max(x => x.Longitude!.Value);
+        var latSpan = Math.Max(maxLat - minLat, 0.001);
+        var lngSpan = Math.Max(maxLng - minLng, 0.001);
+        var x = 8 + ((venue.Longitude.Value - minLng) / lngSpan) * 84;
+        var y = 92 - ((venue.Latitude.Value - minLat) / latSpan) * 84;
+        return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
     }
 }

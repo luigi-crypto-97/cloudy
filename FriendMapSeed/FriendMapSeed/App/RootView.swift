@@ -92,10 +92,14 @@ struct MainTabs: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .transition(.opacity.combined(with: .scale(scale: 0.985)))
 
-            AnimatedTabBar(selection: $router.selectedTab, items: items)
+            if !router.isTabBarHidden {
+                AnimatedTabBar(selection: $router.selectedTab, items: items)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .animation(.cloudySnappy, value: router.selectedTab)
+        .animation(.cloudySnappy, value: router.isTabBarHidden)
         .task { await refreshBadges() }
         .onChange(of: router.selectedTab) {
             Task { await refreshBadges() }

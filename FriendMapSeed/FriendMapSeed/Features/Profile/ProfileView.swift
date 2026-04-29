@@ -58,7 +58,12 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack {
-            stat(value: "\(publicProfile?.friendsCount ?? 0)", label: "Amici")
+            NavigationLink {
+                FriendsListView()
+            } label: {
+                stat(value: "\(publicProfile?.friendsCount ?? 0)", label: "Amici")
+            }
+            .buttonStyle(.plain)
             stat(value: "0", label: "Tavoli")
             stat(value: "0", label: "Check-in")
         }
