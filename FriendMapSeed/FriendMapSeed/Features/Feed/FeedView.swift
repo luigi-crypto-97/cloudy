@@ -37,6 +37,20 @@ final class FeedStore {
     func hidePresence(userId: UUID) {
         hiddenPresenceIds.insert(userId)
     }
+
+    var groupedStories: [[UserStory]] {
+        Dictionary(grouping: stories) { $0.userId }
+            .values
+            .sorted {
+                ($0.first?.createdAtUtc ?? .distantPast) > ($1.first?.createdAtUtc ?? .distantPast)
+            }
+    }
+}
+
+struct StoryViewerConfig: Identifiable {
+    let id = UUID()
+    let storiesByUser: [[UserStory]]
+    let initialUserIndex: Int
 }
 
 struct FeedView: View {
@@ -44,6 +58,7 @@ struct FeedView: View {
     @State private var likedIds: Set<UUID> = []
     @State private var showCreateStory: Bool = false
     @State private var selectedChat: SocialConnection?
+    @State private var viewerConfig: StoryViewerConfig? = nil
 
     var body: some View {
         NavigationStack {
@@ -84,10 +99,17 @@ struct FeedView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showCreateStory) {
+            .fullScreenCover(isPresented: $showCreateStory) {
                 CreateStoryView(onCreated: {
                     Task { await store.load() }
                 })
+            }
+            .fullScreenCover(item: $viewerConfig) { config in
+                StoryViewerView(
+                    storiesByUser: config.storiesByUser,
+                    initialUserIndex: config.initialUserIndex,
+                    onDismiss: { viewerConfig = nil }
+                )
             }
             .navigationDestination(item: $selectedChat) { friend in
                 ChatRoomView(otherUserId: friend.userId, peerName: friend.displayName ?? friend.nickname)
@@ -111,25 +133,31 @@ struct FeedView: View {
                 myStoryButton
 
                 // Stories amici
-                ForEach(uniqueStorytellers, id: \.userId) { s in
-                    NavigationLink {
-                        StoryViewerView(stories: storiesByUser(s.userId))
-                    } label: {
-                        VStack(spacing: 6) {
-                            StoryAvatar(
-                                url: APIClient.shared.mediaURL(from: s.avatarUrl),
-                                size: 64,
-                                hasStory: true,
-                                initials: String((s.displayName ?? s.nickname).prefix(1)).uppercased()
+                ForEach(Array(store.groupedStories.enumerated()), id: \.offset) { index, userStories in
+                    if let first = userStories.first {
+                        Button {
+                            Haptics.tap()
+                            viewerConfig = StoryViewerConfig(
+                                storiesByUser: store.groupedStories,
+                                initialUserIndex: index
                             )
-                            Text(s.displayName ?? s.nickname)
-                                .font(Theme.Font.caption(11))
-                                .foregroundStyle(Theme.Palette.inkSoft)
-                                .lineLimit(1)
-                                .frame(width: 72)
+                        } label: {
+                            VStack(spacing: 6) {
+                                StoryAvatar(
+                                    url: APIClient.shared.mediaURL(from: first.avatarUrl),
+                                    size: 64,
+                                    hasStory: true,
+                                    initials: String((first.displayName ?? first.nickname).prefix(1)).uppercased()
+                                )
+                                Text(first.displayName ?? first.nickname)
+                                    .font(Theme.Font.caption(11))
+                                    .foregroundStyle(Theme.Palette.inkSoft)
+                                    .lineLimit(1)
+                                    .frame(width: 72)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
 
                 if store.stories.isEmpty && !store.isLoading {

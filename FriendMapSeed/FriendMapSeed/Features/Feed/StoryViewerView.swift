@@ -1,122 +1,116 @@
 //
 //  StoryViewerView.swift
-//  Cloudy — Viewer individuale per storie, con carousel
+//  Cloudy — Full-screen story viewer (Instagram-like)
+//
+//  UX premium: progress bar segmentata, tap left/right, swipe down dismiss,
+//  long-press pausa, risposta rapida, commenti, like e share.
+//  Navigazione multi-utente: scorre tra le storie dello stesso autore,
+//  poi passa automaticamente al prossimo utente.
 //
 
 import SwiftUI
 
 struct StoryViewerView: View {
-    let stories: [UserStory]
+    let storiesByUser: [[UserStory]]
+    let initialUserIndex: Int
+    let onDismiss: () -> Void
+
     @Environment(AppRouter.self) private var router
-    @State private var localStories: [UserStory] = []
-    @State private var currentIndex: Int = 0
+    @Environment(\.dismiss) private var dismissSheet
+
+    @State private var userIndex: Int = 0
+    @State private var storyIndex: Int = 0
     @State private var progress: Double = 0
     @State private var timer: Timer?
+    @State private var isPaused: Bool = false
+    @State private var dragOffset: CGSize = .zero
+
+    // Remote features
+    @State private var localUserStories: [UserStory] = []
     @State private var comments: [StoryComment] = []
     @State private var commentDraft: String = ""
     @State private var showsComments = false
     @State private var showsShare = false
     @State private var friends: [SocialConnection] = []
     @State private var errorMessage: String?
-    @State private var isPaused = false
     @State private var privateReplyDraft = ""
     @State private var showsPrivateReply = false
     @State private var isSendingPrivateReply = false
-    @Environment(\.dismiss) var dismiss
+    @State private var showLikeBurst: Bool = false
 
     private let storyDuration: Double = 15
 
+    // MARK: - Computed
+
+    private var currentUserStories: [UserStory] {
+        let source = localUserStories.isEmpty ? storiesByUser[userIndex] : localUserStories
+        return source
+    }
+
+    private var currentStory: UserStory {
+        guard storyIndex < currentUserStories.count else { return currentUserStories.first! }
+        return currentUserStories[storyIndex]
+    }
+
+    // MARK: - Body
+
     var body: some View {
-        ZStack {
-            // Background scuro
-            Color.black.ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Progress bar
-                HStack(spacing: 2) {
-                    ForEach(0..<stories.count, id: \.self) { i in
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Capsule()
-                                    .fill(Color.white.opacity(0.3))
-                                Capsule()
-                                    .fill(Color.white)
-                                    .frame(width: geo.size.width * (i == currentIndex ? progress : (i < currentIndex ? 1 : 0)))
-                            }
-                        }
-                        .frame(height: 2)
-                    }
-                }
-                .padding(Theme.Spacing.md)
-
-                // Header con nome
-                HStack {
-                    StoryAvatar(
-                        url: APIClient.shared.mediaURL(from: currentStory.avatarUrl),
-                        size: 40,
-                        hasStory: false,
-                        initials: String((currentStory.displayName ?? currentStory.nickname).prefix(1)).uppercased()
-                    )
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(currentStory.displayName ?? currentStory.nickname)
-                            .font(Theme.Font.body(15, weight: .heavy))
-                            .foregroundStyle(.white)
-                        Text(timeAgo(currentStory.createdAtUtc))
-                            .font(Theme.Font.caption(11))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                }
-                .padding(Theme.Spacing.md)
-
-                Spacer()
-
-                // Media (immagine o placeholder)
-                mediaView
+                // MARK: Media + tap layer
+                mediaView(size: geo.size)
                     .overlay {
                         HStack(spacing: 0) {
                             Color.clear
                                 .contentShape(Rectangle())
-                                .onTapGesture { previousStory() }
+                                .onTapGesture { goBack() }
                             Color.clear
                                 .contentShape(Rectangle())
-                                .onTapGesture { nextStory() }
+                                .onTapGesture { advance() }
                         }
                     }
-                    .overlay(alignment: .bottomLeading) {
-                        storyTitleOverlay
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 98)
-                    }
 
-                Spacer()
+                // MARK: UI overlay
+                VStack(spacing: 0) {
+                    progressBars(width: geo.size.width)
+                    header
+                    Spacer()
+                    bottomOverlay
+                }
+
+                // MARK: Like burst
+                if showLikeBurst {
+                    likeBurst
+                }
             }
-        }
-        .overlay(alignment: .bottom) {
-            storyActions
-                .padding(.top, 18)
-                .padding(.bottom, 16)
-                .background(
-                    LinearGradient(
-                        colors: [.clear, .black.opacity(0.86)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .ignoresSafeArea(edges: .bottom)
-                )
-                .animation(.cloudySnap, value: showsComments)
-                .animation(.cloudySnap, value: showsPrivateReply)
+            .offset(y: dragOffset.height)
+            .simultaneousGesture(
+                DragGesture()
+                    .onChanged { value in
+                        if value.translation.height > 0 && !showsComments && !showsShare {
+                            dragOffset = value.translation
+                            isPaused = true
+                        }
+                    }
+                    .onEnded { value in
+                        isPaused = false
+                        if value.translation.height > 120 {
+                            close()
+                        } else {
+                            withAnimation(.spring(response: 0.3)) {
+                                dragOffset = .zero
+                            }
+                        }
+                    }
+            )
         }
         .onAppear {
             router.isTabBarHidden = true
-            localStories = stories
+            userIndex = initialUserIndex
+            storyIndex = 0
+            localUserStories = storiesByUser[safe: initialUserIndex] ?? []
             startProgress()
         }
         .onDisappear {
@@ -124,125 +118,187 @@ struct StoryViewerView: View {
             timer?.invalidate()
             timer = nil
         }
-        .onChange(of: currentIndex) {
-            progress = 0
-            privateReplyDraft = ""
-            commentDraft = ""
-            showsPrivateReply = false
-            showsComments = false
+        .onChange(of: storyIndex) {
+            resetPerStoryState()
+            startProgress()
+        }
+        .onChange(of: userIndex) {
+            localUserStories = storiesByUser[safe: userIndex] ?? []
+            resetPerStoryState()
             startProgress()
         }
         .sheet(isPresented: $showsShare) {
             shareSheet
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    isPaused = true
-                }
-                .onEnded { value in
-                    isPaused = false
-                    if value.translation.height < -70 && abs(value.translation.height) > abs(value.translation.width) {
-                        withAnimation(.cloudySnap) {
-                            showsPrivateReply = true
-                        }
-                    }
-                }
-        )
         .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 38, pressing: { pressing in
             isPaused = pressing
         }, perform: {})
+        .statusBar(hidden: true)
     }
 
-    private var currentStory: UserStory {
-        let source = localStories.isEmpty ? stories : localStories
-        guard currentIndex < source.count else { return source.first! }
-        return source[currentIndex]
-    }
+    // MARK: - Media
 
     @ViewBuilder
-    private var mediaView: some View {
+    private func mediaView(size: CGSize) -> some View {
         if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
             AsyncImage(url: mediaUrl) { phase in
                 switch phase {
                 case .success(let image):
                     image
                         .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .scaledToFit
+                        .frame(width: size.width, height: size.height)
                 case .empty:
                     ProgressView()
                         .tint(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(width: size.width, height: size.height)
                 case .failure:
-                    placeholder
+                    placeholder(size: size)
                 @unknown default:
-                    placeholder
+                    placeholder(size: size)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            placeholder
+            placeholder(size: size)
         }
     }
 
-    private var placeholder: some View {
+    private func placeholder(size: CGSize) -> some View {
         ZStack {
             Color.gray.opacity(0.3)
             Image(systemName: "photo.fill")
                 .font(.system(size: 40))
                 .foregroundStyle(.white.opacity(0.5))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: size.width, height: size.height)
     }
 
-    @ViewBuilder
-    private var storyTitleOverlay: some View {
-        if currentStory.caption != nil || currentStory.venueName != nil {
-            VStack(alignment: .leading, spacing: 8) {
-                if let venueName = currentStory.venueName, !venueName.isEmpty {
-                    Label(venueName, systemImage: "mappin.circle.fill")
-                        .font(Theme.Font.caption(12, weight: .heavy))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.30), in: Capsule())
-                }
+    // MARK: - Progress bars
 
-                if let caption = currentStory.caption, !caption.isEmpty {
-                    Text(caption)
-                        .font(Theme.Font.title(20, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(3)
-                        .shadow(color: .black.opacity(0.55), radius: 10, x: 0, y: 4)
+    private func progressBars(width: CGFloat) -> some View {
+        HStack(spacing: 4) {
+            ForEach(Array(currentUserStories.enumerated()), id: \.element.id) { index, _ in
+                GeometryReader { barGeo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.white.opacity(0.25))
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Color.white)
+                            .frame(width: barWidth(for: index, totalWidth: barGeo.size.width), height: 2)
+                    }
                 }
+                .frame(height: 2)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, 10)
+        .padding(.top, 12)
     }
 
-    private var storyActions: some View {
-        VStack(spacing: 12) {
+    private func barWidth(for index: Int, totalWidth: CGFloat) -> CGFloat {
+        if index < storyIndex { return totalWidth }
+        if index == storyIndex { return totalWidth * min(progress, 1.0) }
+        return 0
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                StoryAvatar(
+                    url: APIClient.shared.mediaURL(from: currentStory.avatarUrl),
+                    size: 34,
+                    hasStory: false,
+                    initials: String((currentStory.displayName ?? currentStory.nickname).prefix(1)).uppercased()
+                )
+                Text(currentStory.displayName ?? currentStory.nickname)
+                    .font(Theme.Font.body(14, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("· \(timeAgo(currentStory.createdAtUtc))")
+                    .font(Theme.Font.caption(12))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            Spacer()
+            Button {
+                close()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+    }
+
+    // MARK: - Bottom overlay
+
+    private var bottomOverlay: some View {
+        VStack(spacing: 0) {
+            if let venueName = currentStory.venueName, !venueName.isEmpty {
+                Label(venueName, systemImage: "mappin.circle.fill")
+                    .font(Theme.Font.caption(12, weight: .heavy))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.30), in: Capsule())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 8)
+            }
+
+            if let caption = currentStory.caption, !caption.isEmpty {
+                Text(caption)
+                    .font(Theme.Font.body(15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 4, x: 0, y: 1)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 12)
+            }
+
             if showsComments {
                 commentsPanel
+                    .padding(.bottom, 8)
+                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
             }
 
             actionDock
+                .padding(.bottom, 16)
         }
+        .background(
+            LinearGradient(
+                colors: [.black.opacity(0.0), .black.opacity(0.65)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+        )
+        .animation(.cloudySnap, value: showsComments)
+        .animation(.cloudySnap, value: showsPrivateReply)
     }
+
+    // MARK: - Action dock
 
     private var actionDock: some View {
         HStack(spacing: 10) {
             if canPrivateReply {
                 HStack(spacing: 8) {
-                    TextField("Invia messaggio…", text: $privateReplyDraft)
+                    TextField(showsPrivateReply ? "Invia messaggio…" : "Invia un messaggio a \(currentStory.displayName ?? currentStory.nickname)", text: $privateReplyDraft)
                         .textFieldStyle(.plain)
                         .font(Theme.Font.body(14, weight: .semibold))
                         .foregroundStyle(.white)
                         .submitLabel(.send)
                         .onSubmit {
                             Task { await sendPrivateReply() }
+                        }
+                        .onTapGesture {
+                            withAnimation(.cloudySnap) { showsPrivateReply = true }
                         }
 
                     if !privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -333,6 +389,8 @@ struct StoryViewerView: View {
         .padding(.horizontal, 12)
     }
 
+    // MARK: - Comments panel
+
     private var commentsPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             Capsule()
@@ -421,7 +479,6 @@ struct StoryViewerView: View {
                 .stroke(.white.opacity(0.18), lineWidth: 1)
         )
         .padding(.horizontal, 12)
-        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
     }
 
     private func commentRow(_ comment: StoryComment) -> some View {
@@ -450,9 +507,17 @@ struct StoryViewerView: View {
         }
     }
 
-    private var canPrivateReply: Bool {
-        API.currentUserId != currentStory.userId
+    // MARK: - Like burst
+
+    private var likeBurst: some View {
+        Image(systemName: "heart.fill")
+            .font(.system(size: 80, weight: .black))
+            .foregroundStyle(Theme.Palette.igPink)
+            .shadow(color: .black.opacity(0.3), radius: 12)
+            .transition(.scale.combined(with: .opacity))
     }
+
+    // MARK: - Share sheet
 
     private var shareSheet: some View {
         NavigationStack {
@@ -494,42 +559,69 @@ struct StoryViewerView: View {
         }
     }
 
+    // MARK: - Navigation logic
+
+    private func advance() {
+        if storyIndex + 1 < currentUserStories.count {
+            storyIndex += 1
+            progress = 0
+        } else if userIndex + 1 < storiesByUser.count {
+            userIndex += 1
+            storyIndex = 0
+            progress = 0
+        } else {
+            close()
+        }
+    }
+
+    private func goBack() {
+        if storyIndex > 0 {
+            storyIndex -= 1
+            progress = 0
+        } else if userIndex > 0 {
+            userIndex -= 1
+            storyIndex = max((storiesByUser[safe: userIndex]?.count ?? 1) - 1, 0)
+            progress = 0
+        }
+    }
+
+    private func close() {
+        timer?.invalidate()
+        timer = nil
+        onDismiss()
+    }
+
+    private func resetPerStoryState() {
+        progress = 0
+        privateReplyDraft = ""
+        commentDraft = ""
+        showsPrivateReply = false
+        showsComments = false
+    }
+
+    // MARK: - Progress
+
     private func startProgress() {
         timer?.invalidate()
-        progress = 0
         timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
             guard !isPaused, !showsShare, !showsComments else { return }
             progress += 0.016 / storyDuration
             if progress >= 1 {
-                if currentIndex < stories.count - 1 {
-                    currentIndex += 1
+                if storyIndex < currentUserStories.count - 1 {
+                    storyIndex += 1
+                    progress = 0
+                } else if userIndex < storiesByUser.count - 1 {
+                    userIndex += 1
+                    storyIndex = 0
                     progress = 0
                 } else {
-                    dismiss()
+                    close()
                 }
             }
         }
     }
 
-    private func previousStory() {
-        withAnimation(.cloudySnap) {
-            if currentIndex > 0 {
-                currentIndex -= 1
-            }
-            progress = 0
-        }
-    }
-
-    private func nextStory() {
-        withAnimation(.cloudySnap) {
-            if currentIndex < stories.count - 1 {
-                currentIndex += 1
-                progress = 0
-            } else {
-                dismiss()
-            }
-        }
-    }
+    // MARK: - Actions
 
     private func toggleLike() async {
         do {
@@ -537,6 +629,17 @@ struct StoryViewerView: View {
             updateCurrentStory { story in
                 story.hasLiked = result.liked
                 story.likeCount = result.likeCount
+            }
+            if result.liked {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    showLikeBurst = true
+                }
+                Task {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut) { showLikeBurst = false }
+                    }
+                }
             }
             Haptics.tap()
         } catch {
@@ -592,12 +695,18 @@ struct StoryViewerView: View {
         }
     }
 
+    // MARK: - Helpers
+
+    private var canPrivateReply: Bool {
+        API.currentUserId != currentStory.userId
+    }
+
     private func updateCurrentStory(_ update: (inout UserStory) -> Void) {
-        if localStories.isEmpty {
-            localStories = stories
+        if localUserStories.isEmpty {
+            localUserStories = storiesByUser[safe: userIndex] ?? []
         }
-        guard currentIndex < localStories.count else { return }
-        update(&localStories[currentIndex])
+        guard storyIndex < localUserStories.count else { return }
+        update(&localUserStories[storyIndex])
     }
 
     private func timeAgo(_ date: Date) -> String {
@@ -605,5 +714,13 @@ struct StoryViewerView: View {
         formatter.unitsStyle = .short
         formatter.locale = Locale(identifier: "it_IT")
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - Safe array access
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
