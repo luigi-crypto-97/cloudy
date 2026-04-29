@@ -66,7 +66,7 @@ struct FeedView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FeedNightBackground()
+                FeedSurfaceBackground()
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -77,7 +77,8 @@ struct FeedView: View {
                         if let primaryVenue {
                             LiveVenueHeroCard(
                                 card: primaryVenue,
-                                onOpenVenue: { router.selectedTab = .map }
+                                onOpenVenue: { router.selectedTab = .map },
+                                onOpenTable: { router.selectedTab = .tables }
                             )
                             .padding(.horizontal, 18)
                         }
@@ -131,10 +132,11 @@ struct FeedView: View {
             } label: {
                 Image(systemName: "sparkles")
                     .font(.system(size: 24, weight: .heavy))
-                    .foregroundStyle(Theme.Palette.blue400)
-                    .frame(width: 58, height: 58)
-                    .background(Circle().fill(.white.opacity(0.06)))
-                    .overlay(Circle().stroke(.white.opacity(0.10), lineWidth: 1))
+                    .foregroundStyle(Theme.Palette.blue500)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Theme.Palette.surface))
+                    .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
+                    .cardShadow()
             }
             .buttonStyle(.plain)
 
@@ -142,7 +144,7 @@ struct FeedView: View {
 
             Text("In giro")
                 .font(Theme.Font.display(25))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.Palette.ink)
 
             Spacer()
 
@@ -151,16 +153,17 @@ struct FeedView: View {
             } label: {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 23, weight: .heavy))
-                    .foregroundStyle(.white)
-                    .frame(width: 58, height: 58)
-                    .background(Circle().fill(.white.opacity(0.06)))
+                    .foregroundStyle(Theme.Palette.blue600)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Theme.Palette.surface))
                     .overlay(alignment: .topTrailing) {
                         Circle()
-                            .fill(Color(hex: 0xFF2F7D))
+                            .fill(Theme.Palette.coral500)
                             .frame(width: 12, height: 12)
-                            .offset(x: -8, y: 8)
+                            .offset(x: -7, y: 7)
                     }
-                    .overlay(Circle().stroke(.white.opacity(0.10), lineWidth: 1))
+                    .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
+                    .cardShadow()
             }
             .buttonStyle(.plain)
         }
@@ -210,7 +213,7 @@ struct FeedView: View {
                                 )
                                 Text(first.displayName ?? first.nickname)
                                     .font(Theme.Font.caption(12, weight: .heavy))
-                                    .foregroundStyle(.white.opacity(0.86))
+                                    .foregroundStyle(Theme.Palette.inkSoft)
                                     .lineLimit(1)
                                     .frame(width: 76)
                             }
@@ -222,7 +225,7 @@ struct FeedView: View {
                 if store.stories.isEmpty && !store.isLoading {
                     Text("Nessuna storia oggi")
                         .font(Theme.Font.body(13))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Theme.Palette.inkMuted)
                         .frame(height: 80)
                 }
             }
@@ -232,14 +235,25 @@ struct FeedView: View {
     private var myStoryButton: some View {
         Button {
             Haptics.tap()
-            showCreateStory = true
+            if myStories.isEmpty {
+                showCreateStory = true
+            } else {
+                viewerConfig = StoryViewerConfig(storiesByUser: [myStories], initialUserIndex: 0)
+            }
         } label: {
             VStack(spacing: 6) {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     Circle()
                         .stroke(style: StrokeStyle(lineWidth: 3, dash: [8, 7]))
-                        .foregroundStyle(.white.opacity(0.22))
+                        .foregroundStyle(Theme.Palette.blue100)
                         .frame(width: 76, height: 76)
+                    StoryAvatar(
+                        url: APIClient.shared.mediaURL(from: store.profile?.avatarUrl),
+                        size: 66,
+                        hasStory: false,
+                        initials: myInitials
+                    )
+                    .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 3))
                     Circle()
                         .fill(Theme.Palette.blue500)
                         .frame(width: 32, height: 32)
@@ -248,12 +262,12 @@ struct FeedView: View {
                                 .font(.system(size: 17, weight: .heavy))
                                 .foregroundStyle(.white)
                         )
-                        .offset(x: 0, y: 0)
+                        .offset(x: 25, y: 25)
                 }
                 .frame(width: 80, height: 80)
                 Text("La tua storia")
                     .font(Theme.Font.caption(12, weight: .heavy))
-                    .foregroundStyle(.white.opacity(0.86))
+                    .foregroundStyle(Theme.Palette.inkSoft)
                     .lineLimit(1)
                     .frame(width: 82)
             }
@@ -278,14 +292,14 @@ struct FeedView: View {
             HStack {
                 Text("Cosa sta succedendo ora")
                     .font(Theme.Font.display(25))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Palette.ink)
                 Spacer()
                 Button {
                     router.selectedTab = .map
                 } label: {
                     Text("Vedi tutto")
                         .font(Theme.Font.body(14, weight: .heavy))
-                        .foregroundStyle(Theme.Palette.blue400)
+                        .foregroundStyle(Theme.Palette.blue600)
                 }
                 .buttonStyle(.plain)
             }
@@ -315,7 +329,7 @@ struct FeedView: View {
         VStack(spacing: 14) {
             ForEach(0..<3, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(.white.opacity(0.08))
+                    .fill(Theme.Palette.blue50)
                     .frame(height: 110)
                     .shimmerLoading()
             }
@@ -330,33 +344,38 @@ struct FeedView: View {
             HStack(spacing: 14) {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 27, weight: .black))
-                    .foregroundStyle(Color(hex: 0xFF4DFF))
+                    .foregroundStyle(.white)
                     .frame(width: 58, height: 58)
-                    .background(Circle().fill(.white.opacity(0.10)))
+                    .background(Circle().fill(Theme.Palette.blue500.opacity(0.28)))
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Il gruppo e attivo!")
+                    Text("Il gruppo è attivo")
                         .font(Theme.Font.title(18, weight: .heavy))
-                        .foregroundStyle(.white)
-                    Text("Piu persone, piu energia.")
+                        .foregroundStyle(Theme.Palette.blue900)
+                    Text("Più persone, più energia. Apri la mappa e scegli dove andare.")
                         .font(Theme.Font.body(14, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.78))
+                        .foregroundStyle(Theme.Palette.inkSoft)
                 }
                 Spacer()
                 AvatarStack(urls: venueCards.first?.friendActivities.map(\.avatarUrl) ?? [], maxVisible: 3)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(Theme.Palette.blue600)
             }
             .padding(16)
             .background(
                 LinearGradient(
-                    colors: [Color(hex: 0x1824D8), Color(hex: 0xC0267A)],
+                    colors: [Theme.Palette.blue50, Theme.Palette.blue100],
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
                 in: RoundedRectangle(cornerRadius: 24, style: .continuous)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Theme.Palette.blue100.opacity(0.8), lineWidth: 1)
+            )
+            .cardShadow()
         }
         .buttonStyle(.plain)
     }
@@ -458,18 +477,18 @@ struct FeedView: View {
 
 // MARK: - Live moments UI
 
-private struct FeedNightBackground: View {
+private struct FeedSurfaceBackground: View {
     var body: some View {
         ZStack {
-            Color.black
+            Theme.Palette.appBackground
             RadialGradient(
-                colors: [Theme.Palette.blue500.opacity(0.28), .clear],
+                colors: [Theme.Palette.blue100.opacity(0.72), .clear],
                 center: .topLeading,
                 startRadius: 20,
                 endRadius: 380
             )
             RadialGradient(
-                colors: [Color(hex: 0xC026D3).opacity(0.20), .clear],
+                colors: [Theme.Palette.mint400.opacity(0.18), .clear],
                 center: .bottomTrailing,
                 startRadius: 20,
                 endRadius: 460
@@ -481,78 +500,96 @@ private struct FeedNightBackground: View {
 private struct LiveVenueHeroCard: View {
     let card: VenueFeedCard
     var onOpenVenue: () -> Void
+    var onOpenTable: () -> Void
 
     var body: some View {
-        ZStack {
-            HeroVenueMedia(url: heroUrl)
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                HeroVenueMedia(url: heroUrl)
+                    .frame(height: 214)
+                    .clipped()
 
-            LinearGradient(
-                colors: [.black.opacity(0.18), .black.opacity(0.78)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+                LinearGradient(
+                    colors: [.black.opacity(0.05), .black.opacity(0.70)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 11) {
-                        Label(card.name, systemImage: "mappin.circle.fill")
-                            .font(Theme.Font.display(30))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(urgencyLabel, systemImage: "flame.fill")
+                        .font(Theme.Font.caption(13, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 7)
+                        .background(Theme.Palette.blue500.opacity(0.82), in: Capsule())
 
-                        Label(urgencyLabel, systemImage: "flame.fill")
-                            .font(Theme.Font.title(18, weight: .heavy))
-                            .foregroundStyle(Color(hex: 0xFF3D82))
-
-                        Text(tensionCopy)
-                            .font(Theme.Font.body(20, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .lineSpacing(5)
-                            .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .bottom) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(card.name, systemImage: "mappin.circle.fill")
+                                .font(Theme.Font.display(28))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            Text(tensionCopy)
+                                .font(Theme.Font.body(16, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.90))
+                                .lineSpacing(3)
+                        }
+                        Spacer()
+                        PulseRing(value: card.energyScore)
                     }
-
-                    Spacer()
-
-                    PulseRing(value: card.energyScore)
                 }
+                .padding(18)
+            }
 
-                Spacer()
-
+            VStack(spacing: 16) {
                 HStack(spacing: 12) {
                     AvatarStack(urls: card.friendActivities.map(\.avatarUrl), maxVisible: 3)
-                    Text(friendCopy)
-                        .font(Theme.Font.body(17, weight: .heavy))
-                        .foregroundStyle(.white)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(friendCopy)
+                            .font(Theme.Font.body(16, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.ink)
+                        Text(card.primaryCopy)
+                            .font(Theme.Font.caption(12, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.inkSoft)
+                            .lineLimit(1)
+                    }
+                    Spacer()
                     Circle()
                         .fill(Theme.Palette.mint500)
                         .frame(width: 9, height: 9)
+                }
 
-                    Spacer()
+                MiniMomentStrip(card: card)
 
+                HStack(spacing: 10) {
                     Button(action: onOpenVenue) {
-                        HStack(spacing: 10) {
-                            Text("Apri luogo")
-                                .font(Theme.Font.body(16, weight: .heavy))
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .black))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 14)
-                        .background(.white.opacity(0.18), in: Capsule())
+                        Label("Apri luogo", systemImage: "mappin.circle.fill")
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.honeyCompact)
+
+                    ShareLink(item: "Ci vediamo da \(card.name) su Cloudy. \(card.primaryCopy).") {
+                        Label("Invita", systemImage: "person.badge.plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.ghost)
+
+                    Button(action: onOpenTable) {
+                        Label("Tavolo", systemImage: "person.3.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.ghost)
                 }
             }
-            .padding(24)
+            .padding(16)
         }
-        .frame(height: 330)
         .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1)
         )
-        .shadow(color: Theme.Palette.blue500.opacity(0.20), radius: 28, x: 0, y: 16)
+        .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .cardShadow()
     }
 
     private var heroUrl: URL? {
@@ -570,21 +607,118 @@ private struct LiveVenueHeroCard: View {
 
     private var tensionCopy: String {
         if card.friendsArriving >= 3 {
-            return "Il gruppo sta crescendo.\nPeak probabile tra 20 min"
+            return "Il gruppo sta crescendo. Peak probabile tra 20 min"
         }
         if card.friendsHere >= 2 {
-            return "Ci sono gia amici.\nIl momento migliore e adesso"
+            return "Ci sono già amici. Il momento migliore è adesso"
         }
         if card.storyPreviews.count > 0 {
-            return "Qualcuno ha appena postato.\nSta succedendo qualcosa"
+            return "Qualcuno ha appena postato. Sta succedendo qualcosa"
         }
-        return "Il posto si sta muovendo.\nGuarda cosa ti stai perdendo"
+        return "Il posto si sta muovendo. Guarda cosa ti stai perdendo"
     }
 
     private var friendCopy: String {
         let count = max(card.friendsHere, card.friendsArriving)
         return count == 1 ? "1 amico qui" : "\(max(count, 2)) amici qui"
     }
+}
+
+private struct MiniMomentStrip: View {
+    let card: VenueFeedCard
+
+    private var moments: [MiniMoment] {
+        var values: [MiniMoment] = card.friendActivities.prefix(3).map { activity in
+            MiniMoment(
+                icon: icon(for: activity),
+                title: activity.displayName,
+                subtitle: subtitle(for: activity),
+                tint: tint(for: activity)
+            )
+        }
+
+        values.append(contentsOf: card.storyPreviews.prefix(2).map { story in
+            MiniMoment(
+                icon: "photo.fill",
+                title: story.displayName,
+                subtitle: story.caption ?? "foto dal locale",
+                tint: Theme.Palette.blue500
+            )
+        })
+
+        if values.isEmpty {
+            values = [
+                MiniMoment(icon: "arrow.up.right", title: "Sta salendo", subtitle: "il posto cresce ora", tint: Theme.Palette.coral500),
+                MiniMoment(icon: "person.2.fill", title: "Il giro", subtitle: "si sta concentrando qui", tint: Theme.Palette.blue500)
+            ]
+        }
+
+        return Array(values.prefix(3))
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(moments) { moment in
+                HStack(spacing: 10) {
+                    Image(systemName: moment.icon)
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(moment.tint)
+                        .frame(width: 30, height: 30)
+                        .background(moment.tint.opacity(0.12), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(moment.title)
+                            .font(Theme.Font.caption(13, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.ink)
+                            .lineLimit(1)
+                        Text(moment.subtitle)
+                            .font(Theme.Font.caption(12, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+                }
+            }
+        }
+        .padding(12)
+        .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func icon(for activity: FriendActivity) -> String {
+        switch activity.kind {
+        case .arrived: return "location.fill"
+        case .going: return "arrow.up.right"
+        case .postedStory: return "photo.fill"
+        case .groupConverging: return "person.3.fill"
+        }
+    }
+
+    private func subtitle(for activity: FriendActivity) -> String {
+        switch activity.kind {
+        case .arrived: return "appena arrivato"
+        case .going: return "sta decidendo se venire"
+        case .postedStory: return "ha pubblicato qui"
+        case .groupConverging(let count): return "\(count) persone del tuo giro"
+        }
+    }
+
+    private func tint(for activity: FriendActivity) -> Color {
+        switch activity.kind {
+        case .arrived: return Theme.Palette.mint500
+        case .going: return Theme.Palette.blue500
+        case .postedStory: return Theme.Palette.blue600
+        case .groupConverging: return Theme.Palette.coral500
+        }
+    }
+}
+
+private struct MiniMoment: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let subtitle: String
+    let tint: Color
 }
 
 private struct HeroVenueMedia: View {
@@ -667,13 +801,10 @@ private struct FeedStoryBubble: View {
     let isLive: Bool
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             Circle()
                 .stroke(
-                    AngularGradient(
-                        colors: [Theme.Palette.blue500, Color(hex: 0xA855F7), Color(hex: 0xFF3D82), Theme.Palette.blue500],
-                        center: .center
-                    ),
+                    Theme.Palette.blue500,
                     lineWidth: 4
                 )
                 .frame(width: 78, height: 78)
@@ -694,6 +825,7 @@ private struct FeedStoryBubble: View {
             }
             .frame(width: 68, height: 68)
             .clipShape(Circle())
+            .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 3))
 
             if isLive {
                 Text("LIVE")
@@ -702,16 +834,16 @@ private struct FeedStoryBubble: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color(hex: 0xFF2F7D), in: Capsule())
-                    .offset(y: 10)
+                    .offset(y: 34)
             } else {
                 Circle()
                     .fill(Theme.Palette.mint500)
                     .frame(width: 13, height: 13)
-                    .overlay(Circle().stroke(Color.black, lineWidth: 2))
-                    .offset(x: 24, y: 23)
+                    .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
+                    .offset(x: 27, y: 27)
             }
         }
-        .frame(width: 82, height: 86)
+        .frame(width: 82, height: 88)
     }
 }
 
@@ -745,17 +877,17 @@ private struct LiveMomentRow: View {
                     HStack(spacing: 7) {
                         Text(moment.title)
                             .font(Theme.Font.title(20, weight: .heavy))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.Palette.ink)
                         Circle()
                             .fill(Theme.Palette.mint500)
                             .frame(width: 8, height: 8)
                     }
                     Text(moment.subtitle)
                         .font(Theme.Font.body(17, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.88))
+                        .foregroundStyle(Theme.Palette.inkSoft)
                     Text(moment.time)
                         .font(Theme.Font.caption(13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.46))
+                        .foregroundStyle(Theme.Palette.inkMuted)
                 }
 
                 Spacer()
@@ -766,22 +898,23 @@ private struct LiveMomentRow: View {
                         .foregroundStyle(moment.icon == "person.3.fill" ? Theme.Palette.blue400 : Color(hex: 0xFF5C7A))
                     Text("\(moment.heat)")
                         .font(Theme.Font.body(15, weight: .black))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.Palette.ink)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.white.opacity(0.10), in: Capsule())
+                .background(Theme.Palette.blue50, in: Capsule())
 
                 Image(systemName: "ellipsis")
                     .font(.system(size: 18, weight: .heavy))
-                    .foregroundStyle(.white.opacity(0.42))
+                    .foregroundStyle(Theme.Palette.inkMuted)
             }
             .padding(8)
-            .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(.white.opacity(0.07), lineWidth: 1)
+                    .stroke(Theme.Palette.blue100.opacity(0.62), lineWidth: 1)
             )
+            .cardShadow()
         }
         .buttonStyle(.plain)
     }
@@ -807,12 +940,12 @@ private struct MomentThumb: View {
             }
 
             Circle()
-                .fill(.white)
+                .fill(Theme.Palette.surface)
                 .frame(width: 43, height: 43)
                 .overlay(
                     Image(systemName: icon)
                         .font(.system(size: 17, weight: .black))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(Theme.Palette.blue600)
                 )
         }
         .frame(width: 138, height: 82)
@@ -822,7 +955,7 @@ private struct MomentThumb: View {
     private var fallback: some View {
         ZStack {
             LinearGradient(
-                colors: [Theme.Palette.blue700, Color(hex: 0x741C84), Color(hex: 0x111827)],
+                colors: [Theme.Palette.blue100, Theme.Palette.blue500],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -846,14 +979,15 @@ private struct AvatarStack: View {
                     hasStory: false,
                     initials: "\(index + 1)"
                 )
-                .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 2))
+                .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
             }
             if urls.count > maxVisible {
                 Text("+\(urls.count - maxVisible)")
                     .font(Theme.Font.caption(12, weight: .black))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.Palette.blue700)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(.white.opacity(0.18)))
+                    .background(Circle().fill(Theme.Palette.blue50))
+                    .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
             }
         }
     }
@@ -867,15 +1001,20 @@ private struct FeedEmptyMomentCard: View {
                 .foregroundStyle(Theme.Palette.blue400)
             Text("La citta si sta ancora svegliando")
                 .font(Theme.Font.title(20, weight: .heavy))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.Palette.ink)
             Text("Segui amici o esplora la mappa per accendere il tuo feed.")
                 .font(Theme.Font.body(14, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .foregroundStyle(Theme.Palette.inkSoft)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(28)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.Palette.blue100.opacity(0.62), lineWidth: 1)
+        )
+        .cardShadow()
     }
 }
 
