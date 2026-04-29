@@ -86,15 +86,19 @@ struct StoryViewerView: View {
                     }
                 }
 
-            // MARK: UI overlay (constrained to safe area)
-            GeometryReader { geo in
-                VStack(spacing: 0) {
-                    progressBars(width: geo.size.width)
-                    header
-                    Spacer()
-                    bottomOverlay
-                }
+            // MARK: UI overlay
+            VStack(spacing: 0) {
+                progressBars
+                    .padding(.horizontal, 10)
+                    .padding(.top, 12)
+                header
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                Spacer()
+                bottomOverlay
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea(edges: .bottom)
 
             // MARK: Like burst
             if showLikeBurst {
@@ -189,7 +193,7 @@ struct StoryViewerView: View {
 
     // MARK: - Progress bars
 
-    private func progressBars(width: CGFloat) -> some View {
+    private var progressBars: some View {
         HStack(spacing: 4) {
             ForEach(Array(currentUserStories.enumerated()), id: \.element.id) { index, _ in
                 GeometryReader { barGeo in
@@ -204,8 +208,6 @@ struct StoryViewerView: View {
                 .frame(height: 2)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.top, 12)
     }
 
     private func barWidth(for index: Int, totalWidth: CGFloat) -> CGFloat {
@@ -290,7 +292,6 @@ struct StoryViewerView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .ignoresSafeArea(edges: .bottom)
         )
         .animation(.cloudySnap, value: showsComments)
         .animation(.cloudySnap, value: showsPrivateReply)
@@ -383,7 +384,7 @@ struct StoryViewerView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.bottom, 8)
+        .padding(.bottom, 34)
     }
 
     // MARK: - Comments panel
