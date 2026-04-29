@@ -160,8 +160,10 @@ struct StoryViewerView: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .scaledToFit()
+                        .scaledToFill()
                         .frame(width: size.width, height: size.height)
+                        .clipped()
+                        .ignoresSafeArea()
                 case .empty:
                     ProgressView()
                         .tint(.white)
@@ -283,11 +285,10 @@ struct StoryViewerView: View {
             }
 
             actionDock
-                .padding(.bottom, 16)
         }
         .background(
             LinearGradient(
-                colors: [.black.opacity(0.0), .black.opacity(0.65)],
+                colors: [.black.opacity(0.0), .black.opacity(0.50)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -300,7 +301,7 @@ struct StoryViewerView: View {
     // MARK: - Action dock
 
     private var actionDock: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
             if canPrivateReply {
                 HStack(spacing: 8) {
                     TextField(showsPrivateReply ? "Invia messaggio…" : "Invia un messaggio a \(currentStory.displayName ?? currentStory.nickname)", text: $privateReplyDraft)
@@ -322,42 +323,37 @@ struct StoryViewerView: View {
                             Image(systemName: isSendingPrivateReply ? "hourglass" : "arrow.up")
                                 .font(.system(size: 14, weight: .black))
                                 .foregroundStyle(.black)
-                                .frame(width: 30, height: 30)
+                                .frame(width: 28, height: 28)
                                 .background(Circle().fill(.white))
                         }
                         .disabled(isSendingPrivateReply)
                         .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .padding(.leading, 15)
-                .padding(.trailing, 7)
-                .padding(.vertical, 7)
-                .background(.white.opacity(0.14), in: Capsule())
-                .overlay(Capsule().stroke(.white.opacity(0.24), lineWidth: 1))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(.white.opacity(0.08), in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 0.5))
             } else {
                 Text("La tua storia")
                     .font(Theme.Font.body(14, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 13)
-                    .background(.white.opacity(0.12), in: Capsule())
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(.white.opacity(0.06), in: Capsule())
             }
+
+            Spacer()
 
             Button {
                 Task { await toggleLike() }
             } label: {
-                VStack(spacing: 1) {
-                    Image(systemName: currentStory.hasLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 19, weight: .bold))
-                    if currentStory.likeCount > 0 {
-                        Text("\(currentStory.likeCount)")
-                            .font(Theme.Font.caption(9, weight: .heavy))
-                    }
-                }
-                .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
-                .frame(width: 42, height: 42)
-                .background(.white.opacity(0.14), in: Circle())
+                Image(systemName: currentStory.hasLiked ? "heart.fill" : "heart")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
+                    .shadow(color: .black.opacity(0.45), radius: 6)
+                    .frame(width: 44, height: 44)
             }
 
             Button {
@@ -369,17 +365,11 @@ struct StoryViewerView: View {
                 }
                 Haptics.tap()
             } label: {
-                VStack(spacing: 1) {
-                    Image(systemName: showsComments ? "bubble.right.fill" : "bubble.right")
-                        .font(.system(size: 18, weight: .bold))
-                    if currentStory.commentCount > 0 {
-                        Text("\(currentStory.commentCount)")
-                            .font(Theme.Font.caption(9, weight: .heavy))
-                    }
-                }
-                .foregroundStyle(.white)
-                .frame(width: 42, height: 42)
-                .background(.white.opacity(showsComments ? 0.24 : 0.14), in: Circle())
+                Image(systemName: showsComments ? "bubble.right.fill" : "bubble.right")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.45), radius: 6)
+                    .frame(width: 44, height: 44)
             }
 
             Button {
@@ -388,19 +378,14 @@ struct StoryViewerView: View {
                 Haptics.tap()
             } label: {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(.white)
-                    .frame(width: 42, height: 42)
-                    .background(.white.opacity(0.14), in: Circle())
+                    .shadow(color: .black.opacity(0.45), radius: 6)
+                    .frame(width: 44, height: 44)
             }
         }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .stroke(.white.opacity(0.18), lineWidth: 1)
-        )
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Comments panel
