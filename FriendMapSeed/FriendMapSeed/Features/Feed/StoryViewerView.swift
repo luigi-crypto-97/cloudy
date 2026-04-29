@@ -97,8 +97,6 @@ struct StoryViewerView: View {
                 Spacer()
                 bottomOverlay
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea(edges: .bottom)
 
             // MARK: Like burst
             if showLikeBurst {
@@ -292,6 +290,7 @@ struct StoryViewerView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
+            .ignoresSafeArea(edges: .bottom)
         )
         .animation(.cloudySnap, value: showsComments)
         .animation(.cloudySnap, value: showsPrivateReply)
@@ -384,7 +383,7 @@ struct StoryViewerView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.bottom, 34)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Comments panel
