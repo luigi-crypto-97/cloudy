@@ -75,19 +75,22 @@ struct FeedView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.Palette.surfaceAlt.ignoresSafeArea()
+                FeedSurfaceBackground().ignoresSafeArea()
 
                 ScrollView {
-                    LazyVStack(spacing: Theme.Spacing.lg) {
+                    LazyVStack(spacing: 18) {
+                        topChrome
+                            .padding(.horizontal, 22)
+
                         feedHeader
-                            .padding(.horizontal, Theme.Spacing.lg)
+                            .padding(.horizontal, 18)
 
                         storiesRail
-                            .padding(.horizontal, Theme.Spacing.lg)
+                            .padding(.horizontal, 18)
 
                         if store.isLoading && store.items.isEmpty {
                             feedSkeleton
-                                .padding(.horizontal, Theme.Spacing.lg)
+                                .padding(.horizontal, 18)
                         } else {
                             ForEach(Array(store.items.enumerated()), id: \.element.id) { index, item in
                                 FeedItemRenderer(
@@ -100,7 +103,7 @@ struct FeedView: View {
                                     },
                                     onImpression: trackImpression
                                 )
-                                .padding(.horizontal, Theme.Spacing.lg)
+                                .padding(.horizontal, 18)
                                 .transition(.asymmetric(insertion: .scale(scale: 0.98).combined(with: .opacity), removal: .opacity))
                             }
                         }
@@ -109,10 +112,10 @@ struct FeedView: View {
                             Text(error)
                                 .font(Theme.Font.caption(12, weight: .semibold))
                                 .foregroundStyle(Theme.Palette.coral500)
-                                .padding(.horizontal, Theme.Spacing.lg)
+                                .padding(.horizontal, 18)
                         }
                     }
-                    .padding(.top, Theme.Spacing.lg)
+                    .padding(.top, 18)
                     .padding(.bottom, 130)
                 }
             }
@@ -120,30 +123,7 @@ struct FeedView: View {
                 analytics.track(.feedRefreshed)
                 await store.load(location: liveLocation.currentLocation, showSpinner: false)
             }
-            .navigationTitle("In giro")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        Haptics.tap()
-                        showCreateStory = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .heavy))
-                            .foregroundStyle(Theme.Palette.honeyDeep)
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Haptics.tap()
-                        showChats = true
-                    } label: {
-                        Image(systemName: "paperplane")
-                            .font(.system(size: 20, weight: .heavy))
-                            .foregroundStyle(Theme.Palette.ink)
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedTable) { route in
                 TableThreadView(tableId: route.tableId)
             }
@@ -201,8 +181,52 @@ struct FeedView: View {
         )
     }
 
+    private var topChrome: some View {
+        HStack {
+            Button {
+                Haptics.tap()
+                showCreateStory = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Theme.Palette.surface))
+                    .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
+                    .cardShadow()
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text("In giro")
+                .font(Theme.Font.display(25))
+                .foregroundStyle(Theme.Palette.ink)
+
+            Spacer()
+
+            Button {
+                Haptics.tap()
+                showChats = true
+            } label: {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 23, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue600)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Theme.Palette.surface))
+                    .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
+                    .cardShadow()
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     private var feedHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text("Cosa ti stai perdendo adesso")
+                .font(Theme.Font.display(30))
+                .foregroundStyle(Theme.Palette.ink)
+                .lineLimit(2)
             Text(headerCopy)
                 .font(Theme.Font.body(15, weight: .semibold))
                 .foregroundStyle(Theme.Palette.inkSoft)
@@ -473,6 +497,16 @@ struct FeedView: View {
 }
 
 // MARK: - Local UI atoms
+
+private struct FeedSurfaceBackground: View {
+    var body: some View {
+        ZStack {
+            Theme.Palette.appBackground
+            RadialGradient(colors: [Theme.Palette.blue100.opacity(0.65), .clear], center: .topLeading, startRadius: 30, endRadius: 360)
+            RadialGradient(colors: [Theme.Palette.mint400.opacity(0.14), .clear], center: .bottomTrailing, startRadius: 30, endRadius: 460)
+        }
+    }
+}
 
 private struct FeedStoryBubble: View {
     let imageUrl: URL?
