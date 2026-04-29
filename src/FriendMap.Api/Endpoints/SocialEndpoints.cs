@@ -1486,6 +1486,77 @@ public static class SocialEndpoints
             return Results.Ok(new SocialActionResultDto("flare_deleted", "Flare cancellato."));
         });
 
+        group.MapPost("/flares/{flareId:guid}/relay", async (
+            Guid flareId,
+            RelayFlareRequest request,
+            AppDbContext db,
+            NotificationOutboxService outbox,
+            ClaimsPrincipal user,
+            CancellationToken ct) =>
+        {
+            var currentUserId = CurrentUser.GetUserId(user);
+            if (currentUserId == Guid.Empty) return Results.Forbid();
+
+            var targetUserIds = request.TargetUserIds
+                .Where(x => x != Guid.Empty && x != currentUserId)
+                .Distinct()
+                .Take(3)
+                .ToList();
+            if (targetUserIds.Count == 0)
+            {
+                return Results.BadRequest("Scegli fino a 3 amici a cui rilanciare il flare.");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var flare = await db.FlareSignals
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == flareId && x.ExpiresAtUtc > now, ct);
+            if (flare is null) return Results.NotFound("Flare non trovato o scaduto.");
+
+            var currentUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == currentUserId, ct);
+            if (currentUser is null) return Results.NotFound();
+
+            var currentUserFriendIds = await db.FriendRelations
+                .AsNoTracking()
+                .Where(x => x.Status == "accepted" && (x.RequesterId == currentUserId || x.AddresseeId == currentUserId))
+                .Select(x => x.RequesterId == currentUserId ? x.AddresseeId : x.RequesterId)
+                .ToListAsync(ct);
+
+            var canSeeFlare = flare.UserId == currentUserId || currentUserFriendIds.Contains(flare.UserId);
+            if (!canSeeFlare)
+            {
+                return Results.Forbid();
+            }
+
+            var allowedTargets = targetUserIds
+                .Where(currentUserFriendIds.Contains)
+                .Take(3)
+                .ToList();
+            if (allowedTargets.Count == 0)
+            {
+                return Results.BadRequest("Puoi rilanciare un flare solo agli amici.");
+            }
+
+            var minutesLeft = Math.Max(1, Math.Min(10, (int)Math.Ceiling((flare.ExpiresAtUtc - now).TotalMinutes)));
+            var senderName = currentUser.DisplayName ?? currentUser.Nickname;
+            var deepLink = outbox.BuildDeepLink("flare", flare.Id);
+
+            foreach (var friendId in allowedTargets)
+            {
+                await outbox.EnqueueAsync(
+                    friendId,
+                    "Flare in catena",
+                    $"{senderName} ti ha rilanciato un flare: \"{flare.Message}\". Hai circa {minutesLeft} min per agganciarti.",
+                    new { type = "flare_relay", flareId = flare.Id, senderId = currentUserId, expiresInMinutes = minutesLeft },
+                    ct,
+                    deepLink);
+            }
+
+            return Results.Ok(new SocialActionResultDto(
+                "flare_relay_sent",
+                $"Flare rilanciato a {allowedTargets.Count} amici."));
+        });
+
         group.MapPost("/flares/{flareId:guid}/responses", async (
             Guid flareId,
             RespondToFlareRequest request,

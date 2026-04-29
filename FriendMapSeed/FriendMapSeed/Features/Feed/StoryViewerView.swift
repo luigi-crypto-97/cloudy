@@ -129,10 +129,11 @@ struct StoryViewerView: View {
         }
         .onChange(of: currentIndex) {
             progress = 0
+            privateReplyDraft = ""
+            commentDraft = ""
+            showsPrivateReply = false
+            showsComments = false
             startProgress()
-            if showsComments {
-                Task { await loadComments() }
-            }
         }
         .sheet(isPresented: $showsShare) {
             shareSheet
@@ -199,127 +200,235 @@ struct StoryViewerView: View {
     }
 
     private var storyActions: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 18) {
-                Button {
-                    Task { await toggleLike() }
-                } label: {
-                    Label("\(currentStory.likeCount)", systemImage: currentStory.hasLiked ? "heart.fill" : "heart")
-                        .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
-                }
-
-                Button {
-                    showsComments.toggle()
-                    if showsComments {
-                        Task { await loadComments() }
-                    }
-                } label: {
-                    Label("\(currentStory.commentCount)", systemImage: "bubble.right")
-                        .foregroundStyle(.white)
-                }
-
-                Button {
-                    showsShare = true
-                    Task { await loadFriends() }
-                } label: {
-                    Image(systemName: "paperplane.fill")
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 42, height: 42)
-                        .background(.white.opacity(0.16), in: Circle())
-                }
-            }
-            .font(Theme.Font.body(15, weight: .bold))
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.horizontal, Theme.Spacing.lg)
-
-            privateReplyComposer
-
+        VStack(spacing: 12) {
             if showsComments {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Commenti pubblici")
-                        .font(Theme.Font.caption(11, weight: .heavy))
-                        .foregroundStyle(.white.opacity(0.74))
-                    ForEach(comments.prefix(4)) { comment in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(comment.displayName ?? comment.nickname)
-                                .font(Theme.Font.caption(11, weight: .heavy))
-                                .foregroundStyle(.white.opacity(0.78))
-                            Text(comment.body)
-                                .font(Theme.Font.caption(12))
-                                .foregroundStyle(.white)
-                            Spacer()
-                        }
-                    }
-                    HStack(spacing: 8) {
-                        TextField("Commenta per gli amici…", text: $commentDraft)
-                            .textFieldStyle(.plain)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                            .background(.white.opacity(0.14), in: Capsule())
-                        Button {
-                            Task { await sendComment() }
-                        } label: {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(Theme.Palette.honey)
-                        }
-                        .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .font(Theme.Font.caption(11))
-                            .foregroundStyle(Theme.Palette.honey)
-                    }
-                }
-                .padding(Theme.Spacing.md)
-                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .padding(.horizontal, Theme.Spacing.md)
-                .frame(maxHeight: 230)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                commentsPanel
             }
+
+            actionDock
         }
     }
 
-    private var privateReplyComposer: some View {
-        VStack(spacing: 8) {
-            if !showsPrivateReply {
-                Button {
-                    withAnimation(.cloudySnap) { showsPrivateReply = true }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 12, weight: .heavy))
-                        Text("Rispondi in privato")
-                            .font(Theme.Font.caption(12, weight: .bold))
-                    }
-                    .foregroundStyle(.white.opacity(0.72))
-                }
-                .buttonStyle(.plain)
-            } else {
+    private var actionDock: some View {
+        HStack(spacing: 10) {
+            if canPrivateReply {
                 HStack(spacing: 8) {
-                    TextField("Messaggio privato…", text: $privateReplyDraft)
+                    TextField("Invia messaggio…", text: $privateReplyDraft)
                         .textFieldStyle(.plain)
+                        .font(Theme.Font.body(14, weight: .semibold))
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(.white.opacity(0.14), in: Capsule())
-                    Button {
-                        Task { await sendPrivateReply() }
-                    } label: {
-                        Image(systemName: isSendingPrivateReply ? "hourglass" : "paperplane.fill")
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 38)
-                            .background(Circle().fill(Theme.Palette.blue500))
+                        .submitLabel(.send)
+                        .onSubmit {
+                            Task { await sendPrivateReply() }
+                        }
+
+                    if !privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            Task { await sendPrivateReply() }
+                        } label: {
+                            Image(systemName: isSendingPrivateReply ? "hourglass" : "arrow.up")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(.black)
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(.white))
+                        }
+                        .disabled(isSendingPrivateReply)
+                        .transition(.scale.combined(with: .opacity))
                     }
-                    .disabled(isSendingPrivateReply || privateReplyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .padding(.horizontal, Theme.Spacing.lg)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.leading, 15)
+                .padding(.trailing, 7)
+                .padding(.vertical, 7)
+                .background(.white.opacity(0.14), in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.24), lineWidth: 1))
+            } else {
+                Text("La tua storia")
+                    .font(Theme.Font.body(14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 13)
+                    .background(.white.opacity(0.12), in: Capsule())
+            }
+
+            Button {
+                Task { await toggleLike() }
+            } label: {
+                VStack(spacing: 1) {
+                    Image(systemName: currentStory.hasLiked ? "heart.fill" : "heart")
+                        .font(.system(size: 19, weight: .bold))
+                    if currentStory.likeCount > 0 {
+                        Text("\(currentStory.likeCount)")
+                            .font(Theme.Font.caption(9, weight: .heavy))
+                    }
+                }
+                .foregroundStyle(currentStory.hasLiked ? Theme.Palette.igPink : .white)
+                .frame(width: 42, height: 42)
+                .background(.white.opacity(0.14), in: Circle())
+            }
+
+            Button {
+                withAnimation(.cloudySnap) {
+                    showsComments.toggle()
+                }
+                if showsComments {
+                    Task { await loadComments() }
+                }
+                Haptics.tap()
+            } label: {
+                VStack(spacing: 1) {
+                    Image(systemName: showsComments ? "bubble.right.fill" : "bubble.right")
+                        .font(.system(size: 18, weight: .bold))
+                    if currentStory.commentCount > 0 {
+                        Text("\(currentStory.commentCount)")
+                            .font(Theme.Font.caption(9, weight: .heavy))
+                    }
+                }
+                .foregroundStyle(.white)
+                .frame(width: 42, height: 42)
+                .background(.white.opacity(showsComments ? 0.24 : 0.14), in: Circle())
+            }
+
+            Button {
+                showsShare = true
+                Task { await loadFriends() }
+                Haptics.tap()
+            } label: {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(.white.opacity(0.14), in: Circle())
             }
         }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+    }
+
+    private var commentsPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Capsule()
+                .fill(.white.opacity(0.28))
+                .frame(width: 36, height: 4)
+                .frame(maxWidth: .infinity)
+
+            HStack {
+                Text("Commenti")
+                    .font(Theme.Font.title(17, weight: .heavy))
+                    .foregroundStyle(.white)
+                Text("\(currentStory.commentCount)")
+                    .font(Theme.Font.caption(11, weight: .heavy))
+                    .foregroundStyle(.white.opacity(0.68))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.12), in: Capsule())
+                Spacer()
+                Button {
+                    withAnimation(.cloudySnap) { showsComments = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .black))
+                        .foregroundStyle(.white.opacity(0.82))
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.12), in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            if comments.isEmpty {
+                Text("Ancora nessun commento. Apri tu la conversazione.")
+                    .font(Theme.Font.body(13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(comments.prefix(8)) { comment in
+                            commentRow(comment)
+                        }
+                    }
+                }
+                .frame(maxHeight: 190)
+                .scrollIndicators(.hidden)
+            }
+
+            HStack(spacing: 8) {
+                TextField("Commenta per gli amici…", text: $commentDraft)
+                    .textFieldStyle(.plain)
+                    .font(Theme.Font.body(14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .submitLabel(.send)
+                    .onSubmit {
+                        Task { await sendComment() }
+                    }
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 11)
+                    .background(.white.opacity(0.13), in: Capsule())
+                    .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
+
+                Button {
+                    Task { await sendComment() }
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(.black)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(.white))
+                }
+                .disabled(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.42 : 1)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(Theme.Font.caption(11, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.honey)
+            }
+        }
+        .padding(14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 12)
+        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
+    }
+
+    private func commentRow(_ comment: StoryComment) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            StoryAvatar(
+                url: APIClient.shared.mediaURL(from: comment.avatarUrl),
+                size: 30,
+                hasStory: false,
+                initials: String((comment.displayName ?? comment.nickname).prefix(1)).uppercased()
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 5) {
+                    Text(comment.displayName ?? comment.nickname)
+                        .font(Theme.Font.caption(11, weight: .heavy))
+                        .foregroundStyle(.white)
+                    Text(timeAgo(comment.createdAtUtc))
+                        .font(Theme.Font.caption(10))
+                        .foregroundStyle(.white.opacity(0.52))
+                }
+                Text(comment.body)
+                    .font(Theme.Font.body(13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var canPrivateReply: Bool {
+        API.currentUserId != currentStory.userId
     }
 
     private var shareSheet: some View {
@@ -366,7 +475,7 @@ struct StoryViewerView: View {
         timer?.invalidate()
         progress = 0
         timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
-            guard !isPaused, !showsShare else { return }
+            guard !isPaused, !showsShare, !showsComments else { return }
             progress += 0.016 / storyDuration
             if progress >= 1 {
                 if currentIndex < stories.count - 1 {

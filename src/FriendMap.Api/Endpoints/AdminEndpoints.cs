@@ -50,6 +50,174 @@ public static class AdminEndpoints
             return Results.Ok(venues.Select(ToAdminVenueDto));
         });
 
+        group.MapGet("/users", async (
+            string? q,
+            AppDbContext db,
+            MediaStorageService mediaStorage,
+            CancellationToken ct) =>
+        {
+            var now = DateTimeOffset.UtcNow;
+            var query = db.Users.AsNoTracking().OrderBy(x => x.Nickname).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim().ToLowerInvariant();
+                query = query.Where(x =>
+                    x.Nickname.ToLower().Contains(term) ||
+                    (x.DisplayName != null && x.DisplayName.ToLower().Contains(term)) ||
+                    (x.DiscoverableEmailNormalized != null && x.DiscoverableEmailNormalized.Contains(term)));
+            }
+
+            var users = await query.Take(300).ToListAsync(ct);
+            var userIds = users.Select(x => x.Id).ToList();
+
+            var friendCountMap = userIds.ToDictionary(id => id, _ => 0);
+            var relations = userIds.Count == 0
+                ? new List<FriendRelation>()
+                : await db.FriendRelations
+                    .AsNoTracking()
+                    .Where(x => x.Status == "accepted" && (userIds.Contains(x.RequesterId) || userIds.Contains(x.AddresseeId)))
+                    .ToListAsync(ct);
+            foreach (var relation in relations)
+            {
+                if (friendCountMap.ContainsKey(relation.RequesterId)) friendCountMap[relation.RequesterId]++;
+                if (friendCountMap.ContainsKey(relation.AddresseeId)) friendCountMap[relation.AddresseeId]++;
+            }
+
+            var checkInRows = userIds.Count == 0
+                ? []
+                : await db.VenueCheckIns
+                    .AsNoTracking()
+                    .Where(x => userIds.Contains(x.UserId) && x.ExpiresAtUtc >= now)
+                    .Join(
+                        db.Venues.AsNoTracking(),
+                        checkIn => checkIn.VenueId,
+                        venue => venue.Id,
+                        (checkIn, venue) => new { CheckIn = checkIn, Venue = venue })
+                    .ToListAsync(ct);
+            var checkIns = checkInRows
+                .Select(x => new AdminPresenceProjection(
+                    x.CheckIn.UserId,
+                    x.Venue.Name,
+                    x.Venue.Category,
+                    x.Venue.Location?.Y,
+                    x.Venue.Location?.X,
+                    x.CheckIn.CreatedAtUtc,
+                    x.CheckIn.ExpiresAtUtc))
+                .ToList();
+            var checkInMap = checkIns
+                .GroupBy(x => x.UserId)
+                .ToDictionary(x => x.Key, x => x.OrderByDescending(i => i.ExpiresAtUtc).First());
+
+            var intentionRows = userIds.Count == 0
+                ? []
+                : await db.VenueIntentions
+                    .AsNoTracking()
+                    .Where(x => userIds.Contains(x.UserId) && x.EndsAtUtc >= now && x.StartsAtUtc <= now.AddHours(6))
+                    .Join(
+                        db.Venues.AsNoTracking(),
+                        intention => intention.VenueId,
+                        venue => venue.Id,
+                        (intention, venue) => new { Intention = intention, Venue = venue })
+                    .ToListAsync(ct);
+            var intentions = intentionRows
+                .Select(x => new AdminPresenceProjection(
+                    x.Intention.UserId,
+                    x.Venue.Name,
+                    x.Venue.Category,
+                    x.Venue.Location?.Y,
+                    x.Venue.Location?.X,
+                    x.Intention.CreatedAtUtc,
+                    x.Intention.StartsAtUtc))
+                .ToList();
+            var intentionMap = intentions
+                .GroupBy(x => x.UserId)
+                .ToDictionary(x => x.Key, x => x.OrderBy(i => i.ExpiresAtUtc).First());
+
+            return Results.Ok(users.Select(appUser =>
+            {
+                if (appUser.IsGhostModeEnabled)
+                {
+                    return new AdminUserMonitorDto(
+                        appUser.Id,
+                        appUser.Nickname,
+                        appUser.DisplayName,
+                        mediaStorage.ResolveUrl(appUser.AvatarUrl),
+                        appUser.Status,
+                        friendCountMap.GetValueOrDefault(appUser.Id),
+                        appUser.IsGhostModeEnabled,
+                        appUser.SharePresenceWithFriends,
+                        appUser.ShareIntentionsWithFriends,
+                        "ghost",
+                        null,
+                        null,
+                        null,
+                        null,
+                        appUser.UpdatedAtUtc ?? appUser.CreatedAtUtc,
+                        "hidden_by_ghost_mode");
+                }
+
+                if (checkInMap.TryGetValue(appUser.Id, out var checkIn))
+                {
+                    return new AdminUserMonitorDto(
+                        appUser.Id,
+                        appUser.Nickname,
+                        appUser.DisplayName,
+                        mediaStorage.ResolveUrl(appUser.AvatarUrl),
+                        appUser.Status,
+                        friendCountMap.GetValueOrDefault(appUser.Id),
+                        appUser.IsGhostModeEnabled,
+                        appUser.SharePresenceWithFriends,
+                        appUser.ShareIntentionsWithFriends,
+                        "checked_in",
+                        checkIn.VenueName,
+                        checkIn.VenueCategory,
+                        checkIn.Latitude,
+                        checkIn.Longitude,
+                        checkIn.SignalAtUtc,
+                        "venue_level");
+                }
+
+                if (intentionMap.TryGetValue(appUser.Id, out var intention))
+                {
+                    return new AdminUserMonitorDto(
+                        appUser.Id,
+                        appUser.Nickname,
+                        appUser.DisplayName,
+                        mediaStorage.ResolveUrl(appUser.AvatarUrl),
+                        appUser.Status,
+                        friendCountMap.GetValueOrDefault(appUser.Id),
+                        appUser.IsGhostModeEnabled,
+                        appUser.SharePresenceWithFriends,
+                        appUser.ShareIntentionsWithFriends,
+                        "intention",
+                        intention.VenueName,
+                        intention.VenueCategory,
+                        intention.Latitude,
+                        intention.Longitude,
+                        intention.SignalAtUtc,
+                        "venue_level");
+                }
+
+                return new AdminUserMonitorDto(
+                    appUser.Id,
+                    appUser.Nickname,
+                    appUser.DisplayName,
+                    mediaStorage.ResolveUrl(appUser.AvatarUrl),
+                    appUser.Status,
+                    friendCountMap.GetValueOrDefault(appUser.Id),
+                    appUser.IsGhostModeEnabled,
+                    appUser.SharePresenceWithFriends,
+                    appUser.ShareIntentionsWithFriends,
+                    "idle",
+                    null,
+                    null,
+                    null,
+                    null,
+                    appUser.UpdatedAtUtc ?? appUser.CreatedAtUtc,
+                    "none");
+            }));
+        });
+
         group.MapPost("/venues", async (UpsertVenueRequest request, AppDbContext db, CancellationToken ct) =>
         {
             var validation = ValidateVenueRequest(request);
@@ -223,4 +391,13 @@ public static class AdminEndpoints
         if (request.Longitude is < -180 or > 180) return "longitude must be between -180 and 180.";
         return null;
     }
+
+    private sealed record AdminPresenceProjection(
+        Guid UserId,
+        string VenueName,
+        string VenueCategory,
+        double? Latitude,
+        double? Longitude,
+        DateTimeOffset SignalAtUtc,
+        DateTimeOffset ExpiresAtUtc);
 }

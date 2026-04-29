@@ -167,6 +167,7 @@ struct NotificationRow: View {
         case let x where x.contains("friend"): return "person.badge.plus"
         case let x where x.contains("table"):  return "person.3.fill"
         case let x where x.contains("message"):return "bubble.left.fill"
+        case let x where x.contains("flare"):  return "bolt.horizontal.circle.fill"
         default:                               return "bell.fill"
         }
     }

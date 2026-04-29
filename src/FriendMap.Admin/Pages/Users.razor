@@ -1,4 +1,155 @@
 @page "/users"
+@inject IHttpClientFactory HttpClientFactory
 
-<h1>Utenti</h1>
-<p>TODO: ricerca utenti, sospensione, blocco, log di enforcement.</p>
+<h1>Monitor utenti</h1>
+<p class="muted">Vista operativa privacy-safe: mostra presenza a livello locale/intenzione, non coordinate GPS grezze.</p>
+
+<div class="toolbar">
+    <input placeholder="Cerca nickname, nome o email" @bind="_query" @bind:event="oninput" />
+    <button @onclick="LoadAsync" disabled="@_isLoading">@(_isLoading ? "Aggiorno..." : "Aggiorna")</button>
+</div>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+
+<div class="cards">
+    <div class="card">
+        <h3>Utenti caricati</h3>
+        <p>@_users.Count</p>
+    </div>
+    <div class="card">
+        <h3>Live venue</h3>
+        <p>@_users.Count(x => x.PresenceState == "checked_in")</p>
+    </div>
+    <div class="card">
+        <h3>Intent tonight</h3>
+        <p>@_users.Count(x => x.PresenceState == "intention")</p>
+    </div>
+    <div class="card">
+        <h3>Ghost mode</h3>
+        <p>@_users.Count(x => x.IsGhostModeEnabled)</p>
+    </div>
+</div>
+
+<div class="monitor-map">
+    @foreach (var user in _users.Where(x => x.Latitude is not null && x.Longitude is not null).Take(80))
+    {
+        var pos = Project(user);
+        <div class="user-pin" style="left:@pos.X%; top:@pos.Y%;" title="@DisplayName(user) · @user.VenueName">
+            @Initial(user)
+        </div>
+    }
+    <div class="map-note">Presenze proiettate sui locali, aggregate per venue.</div>
+</div>
+
+<table class="grid">
+    <thead>
+        <tr>
+            <th>Utente</th>
+            <th>Stato</th>
+            <th>Locale</th>
+            <th>Amici</th>
+            <th>Privacy</th>
+            <th>Ultimo segnale</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in _users)
+        {
+            <tr>
+                <td>
+                    <strong>@DisplayName(user)</strong><br />
+                    <span class="muted">@user.Nickname</span>
+                </td>
+                <td><span class="pill @user.PresenceState">@PresenceLabel(user.PresenceState)</span></td>
+                <td>
+                    @if (user.VenueName is not null)
+                    {
+                        <span>@user.VenueName</span><br />
+                        <span class="muted">@user.VenueCategory</span>
+                    }
+                    else
+                    {
+                        <span class="muted">Nessuna presenza live</span>
+                    }
+                </td>
+                <td>@user.FriendsCount</td>
+                <td>
+                    <span>@user.PrivacyLevel</span><br />
+                    <span class="muted">presence: @(user.SharePresenceWithFriends ? "on" : "off") · intent: @(user.ShareIntentionsWithFriends ? "on" : "off")</span>
+                </td>
+                <td>@(user.LastSignalAtUtc?.ToLocalTime().ToString("g") ?? "-")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private readonly List<AdminUserMonitorDto> _users = new();
+    private string? _query;
+    private string? _error;
+    private bool _isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var path = string.IsNullOrWhiteSpace(_query)
+                ? "api/admin/users"
+                : $"api/admin/users?q={Uri.EscapeDataString(_query)}";
+            var users = await client.GetFromJsonAsync<List<AdminUserMonitorDto>>(path);
+            _users.Clear();
+            _users.AddRange(users ?? new List<AdminUserMonitorDto>());
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile caricare gli utenti: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string DisplayName(AdminUserMonitorDto user) =>
+        string.IsNullOrWhiteSpace(user.DisplayName) ? $"@{user.Nickname}" : user.DisplayName!;
+
+    private static string Initial(AdminUserMonitorDto user)
+    {
+        var source = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Nickname : user.DisplayName!;
+        return source.Length == 0 ? "?" : source[..1].ToUpperInvariant();
+    }
+
+    private static string PresenceLabel(string state) => state switch
+    {
+        "checked_in" => "Qui ora",
+        "intention" => "In arrivo",
+        "ghost" => "Ghost",
+        _ => "Idle"
+    };
+
+    private (double X, double Y) Project(AdminUserMonitorDto user)
+    {
+        var points = _users.Where(x => x.Latitude is not null && x.Longitude is not null).ToList();
+        if (points.Count == 0 || user.Latitude is null || user.Longitude is null) return (50, 50);
+        var minLat = points.Min(x => x.Latitude!.Value);
+        var maxLat = points.Max(x => x.Latitude!.Value);
+        var minLng = points.Min(x => x.Longitude!.Value);
+        var maxLng = points.Max(x => x.Longitude!.Value);
+        var latSpan = Math.Max(maxLat - minLat, 0.001);
+        var lngSpan = Math.Max(maxLng - minLng, 0.001);
+        var x = 8 + ((user.Longitude.Value - minLng) / lngSpan) * 84;
+        var y = 92 - ((user.Latitude.Value - minLat) / latSpan) * 84;
+        return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
+    }
+}

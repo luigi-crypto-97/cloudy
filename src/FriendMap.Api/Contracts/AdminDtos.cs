@@ -15,3 +15,21 @@ public record DashboardOverviewDto(
     int IntentionsActive,
     int OpenReports,
     int ActiveTables);
+
+public record AdminUserMonitorDto(
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    string Status,
+    int FriendsCount,
+    bool IsGhostModeEnabled,
+    bool SharePresenceWithFriends,
+    bool ShareIntentionsWithFriends,
+    string PresenceState,
+    string? VenueName,
+    string? VenueCategory,
+    double? Latitude,
+    double? Longitude,
+    DateTimeOffset? LastSignalAtUtc,
+    string PrivacyLevel);

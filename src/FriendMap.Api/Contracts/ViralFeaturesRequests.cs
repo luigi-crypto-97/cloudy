@@ -4,4 +4,6 @@ public record CreateFlareRequest(double Latitude, double Longitude, string Messa
 
 public record RespondToFlareRequest(string Body);
 
+public record RelayFlareRequest(IEnumerable<Guid> TargetUserIds);
+
 public record SubmitVibeRequest(string VibeEmoji);

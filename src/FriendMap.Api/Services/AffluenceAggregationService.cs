@@ -112,6 +112,16 @@ public class AffluenceAggregationService
 
         var snapshotMap = latestSnapshots.ToDictionary(x => x.VenueId);
 
+        var trendStart = now.AddMinutes(-60);
+        var recentSnapshots = await _db.VenueAffluenceSnapshots
+            .AsNoTracking()
+            .Where(x => venueIds.Contains(x.VenueId) && x.BucketStartUtc >= trendStart)
+            .OrderBy(x => x.BucketStartUtc)
+            .ToListAsync(ct);
+        var snapshotsByVenue = recentSnapshots
+            .GroupBy(x => x.VenueId)
+            .ToDictionary(x => x.Key, x => x.ToList());
+
         var activeCheckIns = await _db.VenueCheckIns
             .AsNoTracking()
             .Where(x => venueIds.Contains(x.VenueId) && x.ExpiresAtUtc >= now)
@@ -241,6 +251,11 @@ public class AffluenceAggregationService
             var venueCheckIns = activeCheckIns.Count(x => x.VenueId == venue.Id);
             var venueIntentions = activeIntentions.Count(x => x.VenueId == venue.Id);
             var venueTables = openTables.Count(x => x.VenueId == venue.Id);
+            var venueCheckInRows = activeCheckIns.Where(x => x.VenueId == venue.Id).ToList();
+            var venueIntentionRows = activeIntentions.Where(x => x.VenueId == venue.Id).ToList();
+            snapshotsByVenue.TryGetValue(venue.Id, out var venueSnapshots);
+            var pulse = BuildPartyPulse(venueCheckInRows, venueIntentionRows, venueTables, venueSnapshots ?? new List<VenueAffluenceSnapshot>(), now);
+            var radar = BuildIntentRadar(venueCheckInRows, venueIntentionRows, now);
 
             var previewUserIds = previewByVenue.TryGetValue(venue.Id, out var presentIds)
                 ? presentIds
@@ -272,6 +287,8 @@ public class AffluenceAggregationService
                 venueCheckIns,
                 venueIntentions,
                 venueTables,
+                pulse,
+                radar,
                 previewUserIds
                     .Where(id => socialUsers.ContainsKey(id))
                     .Select(id =>
@@ -381,6 +398,22 @@ public class AffluenceAggregationService
                 0, // Will be calculated differently if needed
                 0)) // Will be calculated differently if needed
             .ToListAsync(ct);
+        var recentPulseSnapshots = await _db.VenueAffluenceSnapshots
+            .AsNoTracking()
+            .Where(x => x.VenueId == venueId && x.BucketStartUtc >= DateTimeOffset.UtcNow.AddMinutes(-60))
+            .OrderBy(x => x.BucketStartUtc)
+            .ToListAsync(ct);
+
+        var now = DateTimeOffset.UtcNow;
+        var activeCheckIns = await _db.VenueCheckIns
+            .AsNoTracking()
+            .Where(x => x.VenueId == venueId && x.ExpiresAtUtc >= now)
+            .ToListAsync(ct);
+        var activeIntentions = upcomingIntentions
+            .Where(x => x.StartsAtUtc <= now.AddHours(3) && x.EndsAtUtc >= now)
+            .ToList();
+        var pulse = BuildPartyPulse(activeCheckIns, activeIntentions, tables.Count, recentPulseSnapshots, now);
+        var radar = BuildIntentRadar(activeCheckIns, activeIntentions, now);
 
         object? ages = null;
         object? genders = null;
@@ -409,6 +442,8 @@ public class AffluenceAggregationService
             showDemographics,
             ages,
             genders,
+            pulse,
+            radar,
             tables.Select(t =>
             {
                 var group = participants.Where(p => p.SocialTableId == t.Id).ToList();
@@ -549,6 +584,69 @@ public class AffluenceAggregationService
             < 60 => 75,
             _ => 95
         };
+    }
+
+    private static PartyPulseDto BuildPartyPulse(
+        IReadOnlyCollection<VenueCheckIn> activeCheckIns,
+        IReadOnlyCollection<VenueIntention> activeIntentions,
+        int openTables,
+        IReadOnlyCollection<VenueAffluenceSnapshot> recentSnapshots,
+        DateTimeOffset now)
+    {
+        var hereNow = activeCheckIns.Count;
+        var intentionsSoon = activeIntentions.Count(x => x.StartsAtUtc <= now.AddMinutes(90) && x.EndsAtUtc >= now);
+        var arrivalsLast15 = activeCheckIns.Count(x => x.CreatedAtUtc >= now.AddMinutes(-15))
+            + activeIntentions.Count(x => x.StartsAtUtc >= now.AddMinutes(-10) && x.StartsAtUtc <= now.AddMinutes(20));
+        var sparkline = BuildSparkline(recentSnapshots, now);
+        var momentum = sparkline.Count > 1 ? Math.Max(0, sparkline[^1] - sparkline[0]) : 0;
+        var energyScore = Math.Clamp(hereNow * 12 + intentionsSoon * 7 + openTables * 9 + arrivalsLast15 * 8 + momentum * 3, 0, 100);
+        var mood = energyScore switch
+        {
+            >= 82 => "peak",
+            >= 62 => "rising",
+            >= 38 => "alive",
+            >= 18 => "warming",
+            _ => "quiet"
+        };
+
+        return new PartyPulseDto(energyScore, mood, arrivalsLast15, hereNow, intentionsSoon, sparkline);
+    }
+
+    private static IntentRadarDto BuildIntentRadar(
+        IReadOnlyCollection<VenueCheckIn> activeCheckIns,
+        IReadOnlyCollection<VenueIntention> activeIntentions,
+        DateTimeOffset now)
+    {
+        var goingOut = activeIntentions.Count(x => x.StartsAtUtc > now.AddMinutes(30) && x.StartsAtUtc <= now.AddHours(3));
+        var almostThere = activeIntentions.Count(x => x.StartsAtUtc >= now.AddMinutes(-10) && x.StartsAtUtc <= now.AddMinutes(30));
+        var hereNow = activeCheckIns.Count;
+        var coolingDown = activeCheckIns.Count(x => x.ExpiresAtUtc <= now.AddMinutes(30))
+            + activeIntentions.Count(x => x.EndsAtUtc >= now && x.EndsAtUtc <= now.AddMinutes(30));
+
+        return new IntentRadarDto(
+            goingOut,
+            almostThere,
+            hereNow,
+            coolingDown,
+            now,
+            "aggregated");
+    }
+
+    private static List<int> BuildSparkline(IReadOnlyCollection<VenueAffluenceSnapshot> snapshots, DateTimeOffset now)
+    {
+        var points = new List<int>();
+        for (var i = 4; i >= 0; i--)
+        {
+            var bucketStart = now.AddMinutes(-15 * i);
+            var bucketEnd = bucketStart.AddMinutes(15);
+            var value = snapshots
+                .Where(x => x.BucketStartUtc < bucketEnd && x.BucketEndUtc >= bucketStart)
+                .OrderByDescending(x => x.BucketStartUtc)
+                .Select(x => x.ActiveUsersEstimated)
+                .FirstOrDefault();
+            points.Add(value);
+        }
+        return points;
     }
 
     private static int GetMarkerPeopleCount(VenueMapMarkerDto marker)

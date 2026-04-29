@@ -346,6 +346,13 @@ enum API {
         try await APIClient.shared.deleteWithResponse("/api/social/flares/\(flareId.uuidString.lowercased())")
     }
 
+    static func relayFlare(flareId: UUID, targetUserIds: [UUID]) async throws -> SocialActionResult {
+        try await APIClient.shared.post(
+            "/api/social/flares/\(flareId.uuidString.lowercased())/relay",
+            body: RelayFlareRequest(targetUserIds: targetUserIds)
+        )
+    }
+
     // MARK: - Privacy / Ghost mode
 
     static func mySocialState() async throws -> SocialMeState {

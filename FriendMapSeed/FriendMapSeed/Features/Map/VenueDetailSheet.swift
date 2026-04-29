@@ -73,6 +73,10 @@ struct VenueDetailSheet: View {
                     statTile(icon: "person.3.fill", value: "\(venue.openTables)", label: "Tavoli")
                 }
 
+                PartyPulseCard(pulse: venue.partyPulse)
+
+                IntentRadarCard(radar: venue.intentRadar)
+
                 // Density indicator + tags
                 VStack(alignment: .leading, spacing: 8) {
                     DensityIndicator(level: venue.densityLevel, count: venue.peopleEstimate)
@@ -375,6 +379,179 @@ struct VenueDetailSheet: View {
 private struct VenueStoryViewerRoute: Identifiable {
     let id = UUID()
     let stories: [UserStory]
+}
+
+private struct PartyPulseCard: View {
+    let pulse: PartyPulse
+
+    private var energyColor: Color {
+        switch pulse.energyScore {
+        case 82...: return Theme.Palette.coral500
+        case 62...: return Theme.Palette.densityHigh
+        case 38...: return Theme.Palette.blue500
+        case 18...: return Theme.Palette.mint500
+        default: return Theme.Palette.inkMuted
+        }
+    }
+
+    private var moodLabel: String {
+        switch pulse.mood {
+        case "peak": return "Sta esplodendo"
+        case "rising": return "Si sta accendendo"
+        case "alive": return "Vivo"
+        case "warming": return "Si scalda"
+        default: return "Calmo"
+        }
+    }
+
+    var body: some View {
+        SectionCard {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(Theme.Palette.blue100, lineWidth: 8)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(pulse.energyScore) / 100)
+                        .stroke(energyColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    VStack(spacing: 0) {
+                        Text("\(pulse.energyScore)")
+                            .font(Theme.Font.heroNumber(24).monospacedDigit())
+                            .foregroundStyle(Theme.Palette.ink)
+                        Text("pulse")
+                            .font(Theme.Font.caption(10, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                    }
+                }
+                .frame(width: 76, height: 76)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Party Pulse")
+                                .font(Theme.Font.title(17, weight: .heavy))
+                            Text(moodLabel)
+                                .font(Theme.Font.body(13, weight: .semibold))
+                                .foregroundStyle(energyColor)
+                        }
+                        Spacer()
+                        Image(systemName: "waveform.path.ecg")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundStyle(energyColor)
+                    }
+
+                    PulseSparkline(values: pulse.sparkline, tint: energyColor)
+                        .frame(height: 34)
+
+                    HStack(spacing: 8) {
+                        pulseMetric("\(pulse.arrivalsLast15)", "arrivi 15m")
+                        pulseMetric("\(pulse.checkInsNow)", "qui ora")
+                        pulseMetric("\(pulse.intentionsSoon)", "in rotta")
+                    }
+                }
+            }
+        }
+    }
+
+    private func pulseMetric(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(Theme.Font.heroNumber(17).monospacedDigit())
+                .foregroundStyle(Theme.Palette.ink)
+            Text(label)
+                .font(Theme.Font.caption(10, weight: .semibold))
+                .foregroundStyle(Theme.Palette.inkMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+    }
+}
+
+private struct PulseSparkline: View {
+    let values: [Int]
+    let tint: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            let points = normalizedPoints(in: proxy.size)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.Palette.blue50.opacity(0.7))
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: first)
+                    for point in points.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                }
+                .stroke(tint, style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+
+    private func normalizedPoints(in size: CGSize) -> [CGPoint] {
+        let values = values.isEmpty ? [0, 0, 0, 0, 0] : values
+        let maxValue = max(values.max() ?? 1, 1)
+        let step = values.count <= 1 ? 0 : size.width / CGFloat(values.count - 1)
+        return values.enumerated().map { index, value in
+            let x = CGFloat(index) * step
+            let y = size.height - (CGFloat(value) / CGFloat(maxValue) * (size.height - 8)) - 4
+            return CGPoint(x: x, y: y)
+        }
+    }
+}
+
+private struct IntentRadarCard: View {
+    let radar: IntentRadar
+
+    var body: some View {
+        SectionCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Intent Radar Tonight")
+                        .font(Theme.Font.title(17, weight: .heavy))
+                    Text("Aggregato e anonimo")
+                        .font(Theme.Font.caption(11, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                Spacer()
+                Image(systemName: "scope")
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+            }
+
+            HStack(spacing: 8) {
+                radarChip(value: radar.goingOut, label: "Escono", icon: "figure.walk")
+                radarChip(value: radar.almostThere, label: "In arrivo", icon: "arrow.down.right.circle.fill")
+                radarChip(value: radar.hereNow, label: "Qui", icon: "location.fill")
+                radarChip(value: radar.coolingDown, label: "Rientro", icon: "moon.fill")
+            }
+        }
+    }
+
+    private func radarChip(value: Int, label: String, icon: String) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(value > 0 ? Theme.Palette.blue500 : Theme.Palette.inkMuted)
+            Text("\(value)")
+                .font(Theme.Font.heroNumber(18).monospacedDigit())
+                .foregroundStyle(Theme.Palette.ink)
+                .contentTransition(.numericText())
+            Text(label)
+                .font(Theme.Font.caption(10, weight: .semibold))
+                .foregroundStyle(Theme.Palette.inkMuted)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(value > 0 ? Theme.Palette.blue50 : Theme.Palette.surfaceAlt)
+        )
+    }
 }
 
 private struct VenueStoryThumbnail: View {

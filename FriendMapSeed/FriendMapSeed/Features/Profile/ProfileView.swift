@@ -9,6 +9,7 @@ struct ProfileView: View {
     @Environment(AuthStore.self) private var auth
     @State private var showEditProfile = false
     @State private var profile: EditableUserProfile?
+    @State private var publicProfile: UserProfile?
     @State private var isLoadingProfile = false
 
     var body: some View {
@@ -57,7 +58,7 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack {
-            stat(value: "0", label: "Amici")
+            stat(value: "\(publicProfile?.friendsCount ?? 0)", label: "Amici")
             stat(value: "0", label: "Tavoli")
             stat(value: "0", label: "Check-in")
         }
@@ -144,9 +145,12 @@ struct ProfileView: View {
     }
 
     private func loadProfile() async {
-        guard case .loggedIn = auth.state else { return }
+        guard case .loggedIn(let user) = auth.state else { return }
         isLoadingProfile = true
         defer { isLoadingProfile = false }
-        profile = try? await API.myEditableProfile()
+        async let editable = API.myEditableProfile()
+        async let publicUser = API.userProfile(userId: user.userId)
+        profile = try? await editable
+        publicProfile = try? await publicUser
     }
 }

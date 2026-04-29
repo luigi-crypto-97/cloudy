@@ -132,6 +132,12 @@ struct MapView: View {
     private var mapLayer: some View {
         ZStack {
             Map(position: $camera, interactionModes: .all, selection: .constant(nil as VenueMarker?)) {
+                ForEach(densityClusters) { cluster in
+                    MapCircle(center: cluster.coordinate, radius: densityRadiusMeters(for: cluster.weight))
+                        .foregroundStyle(densityColor(for: cluster.weight).opacity(0.15))
+                        .stroke(densityColor(for: cluster.weight).opacity(0.28), lineWidth: 1)
+                }
+
                 // Fog links (overlay). MapKit disegna MapPolyline.
                 ForEach(store.fogLinks, id: \.id) { link in
                     MapPolyline(coordinates: [link.from, link.to])
@@ -172,10 +178,18 @@ struct MapView: View {
                             VenueDotMarker(
                                 peopleCount: activityWeight(for: marker),
                                 densityLevel: marker.densityLevel,
+                                energyScore: marker.partyPulse.energyScore,
                                 isSelected: selectedVenue?.id == marker.id
                             )
                         }
                         .buttonStyle(.plain)
+                    }
+                    .annotationTitles(.hidden)
+                }
+
+                ForEach(friendPresenceAnnotations) { presence in
+                    Annotation(presence.name, coordinate: presence.coordinate, anchor: .center) {
+                        FriendPresenceMapMarker(presence: presence)
                     }
                     .annotationTitles(.hidden)
                 }
@@ -235,9 +249,6 @@ struct MapView: View {
                 store.onViewportChanged(ctx.region)
                 Task { await loadMapSocialOverlays(region: ctx.region) }
             }
-
-            DensityCanvasView(clusters: densityClusters, region: visibleRegion)
-                .opacity(0.68)
         }
     }
 
@@ -497,6 +508,19 @@ struct MapView: View {
         return markerClusters + areaClusters
     }
 
+    private func densityRadiusMeters(for weight: Double) -> CLLocationDistance {
+        28 + min(max(weight, 1), 16) * 7
+    }
+
+    private func densityColor(for weight: Double) -> Color {
+        switch weight {
+        case 0..<3: return Theme.Palette.densityLow
+        case 3..<7: return Theme.Palette.densityMedium
+        case 7..<11: return Theme.Palette.densityHigh
+        default: return Theme.Palette.densityPeak
+        }
+    }
+
     private var activeAreas: [VenueMapArea] {
         store.areas.filter { $0.peopleCount > 0 || $0.activeCheckIns > 0 || $0.activeIntentions > 0 || $0.openTables > 0 }
     }
@@ -505,6 +529,32 @@ struct MapView: View {
         store.markers.filter { marker in
             activityWeight(for: marker) > 0 || isVenueZoomLevel
         }
+    }
+
+    private var friendPresenceAnnotations: [FriendPresenceAnnotation] {
+        visibleVenueMarkers.flatMap { marker in
+            marker.presencePreview.prefix(4).enumerated().map { index, presence in
+                FriendPresenceAnnotation(
+                    venueId: marker.venueId,
+                    userId: presence.userId,
+                    name: presence.displayName,
+                    avatarUrl: presence.avatarUrl,
+                    coordinate: offsetCoordinate(marker.coordinate, index: index),
+                    initials: String(presence.displayName.prefix(1)).uppercased()
+                )
+            }
+        }
+        .prefix(80)
+        .map { $0 }
+    }
+
+    private func offsetCoordinate(_ coordinate: CLLocationCoordinate2D, index: Int) -> CLLocationCoordinate2D {
+        let offsets: [(Double, Double)] = [(0, 0), (0.000055, -0.000055), (-0.000055, 0.000055), (0.000065, 0.000065)]
+        let offset = offsets[index % offsets.count]
+        return CLLocationCoordinate2D(
+            latitude: coordinate.latitude + offset.0,
+            longitude: coordinate.longitude + offset.1
+        )
     }
 
     private var isVenueZoomLevel: Bool {
@@ -551,6 +601,17 @@ struct MapView: View {
                 )
             }
     }
+}
+
+private struct FriendPresenceAnnotation: Identifiable {
+    let venueId: UUID
+    let userId: UUID
+    let name: String
+    let avatarUrl: String?
+    let coordinate: CLLocationCoordinate2D
+    let initials: String
+
+    var id: String { "\(venueId.uuidString)-\(userId.uuidString)" }
 }
 
 private struct VenueStoryGroup: Identifiable {
@@ -600,6 +661,10 @@ private struct FlareResponseSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var reply = "Io ci sono"
     @State private var isSending = false
+    @State private var friends: [SocialConnection] = []
+    @State private var selectedRelayFriendIds: Set<UUID> = []
+    @State private var relayTask: Task<Void, Never>?
+    @State private var relayPending = false
     @State private var error: String?
 
     var body: some View {
@@ -617,6 +682,7 @@ private struct FlareResponseSheet: View {
                 if let error {
                     Text(error).font(Theme.Font.caption(12)).foregroundStyle(Theme.Palette.densityHigh)
                 }
+                relayChainSection
                 if canDelete {
                     Button(role: .destructive) {
                         Task { await deleteFlare() }
@@ -641,7 +707,67 @@ private struct FlareResponseSheet: View {
             .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
             .navigationTitle("Flare")
             .navigationBarTitleDisplayMode(.inline)
+            .task { await loadFriends() }
+            .onDisappear {
+                relayTask?.cancel()
+                relayTask = nil
+            }
         }
+    }
+
+    private var relayChainSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Viral chain")
+                        .font(Theme.Font.title(16, weight: .heavy))
+                    Text("Rilancia a massimo 3 amici. Parte tra 3 secondi, puoi annullare.")
+                        .font(Theme.Font.caption(11, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                Spacer()
+                Image(systemName: "link")
+                    .font(.system(size: 17, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+            }
+
+            if friends.isEmpty {
+                Text("Aggiungi amici per far viaggiare i flare.")
+                    .font(Theme.Font.caption(12, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(friends.prefix(12)) { friend in
+                            RelayFriendChip(
+                                friend: friend,
+                                isSelected: selectedRelayFriendIds.contains(friend.userId)
+                            ) {
+                                toggleRelayFriend(friend.userId)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button {
+                relayPending ? cancelRelay() : startRelayCountdown()
+            } label: {
+                HStack {
+                    Image(systemName: relayPending ? "arrow.uturn.backward.circle.fill" : "bolt.horizontal.circle.fill")
+                    Text(relayPending ? "Annulla rilancio" : "Rilancia a \(selectedRelayFriendIds.count) amici")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(CloudyButtonStyle(variant: relayPending ? .ghost : .secondary))
+            .disabled(isSending || (!relayPending && selectedRelayFriendIds.isEmpty))
+        }
+        .padding(14)
+        .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Theme.Palette.blue100.opacity(0.8), lineWidth: 1)
+        )
     }
 
     private func send() async {
@@ -660,6 +786,58 @@ private struct FlareResponseSheet: View {
         }
     }
 
+    private func loadFriends() async {
+        friends = (try? await API.socialHub().friends) ?? []
+    }
+
+    private func toggleRelayFriend(_ userId: UUID) {
+        if selectedRelayFriendIds.contains(userId) {
+            selectedRelayFriendIds.remove(userId)
+        } else if selectedRelayFriendIds.count < 3 {
+            selectedRelayFriendIds.insert(userId)
+        } else {
+            Haptics.error()
+        }
+    }
+
+    private func startRelayCountdown() {
+        guard !selectedRelayFriendIds.isEmpty else { return }
+        Haptics.tap()
+        relayPending = true
+        error = nil
+        let targets = Array(selectedRelayFriendIds)
+        relayTask?.cancel()
+        relayTask = Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled else { return }
+            await relay(to: targets)
+        }
+    }
+
+    private func cancelRelay() {
+        relayTask?.cancel()
+        relayTask = nil
+        relayPending = false
+        Haptics.tap()
+    }
+
+    private func relay(to targets: [UUID]) async {
+        isSending = true
+        defer {
+            isSending = false
+            relayPending = false
+        }
+        do {
+            _ = try await API.relayFlare(flareId: flare.flareId, targetUserIds: targets)
+            selectedRelayFriendIds.removeAll()
+            Haptics.success()
+            onSent()
+        } catch {
+            Haptics.error()
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     private func deleteFlare() async {
         isSending = true
         defer { isSending = false }
@@ -672,6 +850,37 @@ private struct FlareResponseSheet: View {
             Haptics.error()
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+}
+
+private struct RelayFriendChip: View {
+    let friend: SocialConnection
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                StoryAvatar(
+                    url: APIClient.shared.mediaURL(from: friend.avatarUrl),
+                    size: 28,
+                    hasStory: false,
+                    initials: String((friend.displayName ?? friend.nickname).prefix(1)).uppercased()
+                )
+                Text(friend.displayName ?? friend.nickname)
+                    .font(Theme.Font.caption(12, weight: .heavy))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? .white : Theme.Palette.ink)
+            .padding(.leading, 4)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .background(
+                Capsule()
+                    .fill(isSelected ? Theme.Palette.blue500 : Theme.Palette.surfaceAlt)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -700,12 +909,40 @@ private struct UserLocationMarker: View {
     }
 }
 
+private struct FriendPresenceMapMarker: View {
+    let presence: FriendPresenceAnnotation
+
+    var body: some View {
+        StoryAvatar(
+            url: APIClient.shared.mediaURL(from: presence.avatarUrl),
+            size: 36,
+            hasStory: false,
+            initials: presence.initials
+        )
+        .overlay(
+            Circle()
+                .stroke(Theme.Palette.mint500, lineWidth: 3)
+        )
+        .overlay(alignment: .bottomTrailing) {
+            Circle()
+                .fill(Theme.Palette.mint500)
+                .frame(width: 10, height: 10)
+                .overlay(Circle().stroke(.white, lineWidth: 1.5))
+        }
+        .shadow(color: Theme.Palette.blue500.opacity(0.16), radius: 10, x: 0, y: 5)
+        .accessibilityLabel(Text("\(presence.name) e qui"))
+    }
+}
+
 private struct VenueDotMarker: View {
     let peopleCount: Int
     let densityLevel: String
+    let energyScore: Int
     let isSelected: Bool
 
     private var color: Color {
+        if energyScore >= 82 { return Theme.Palette.coral500 }
+        if energyScore >= 62 { return Theme.Palette.densityHigh }
         switch densityLevel.lowercased() {
         case "low", "very_low": return Theme.Palette.densityLow
         case "medium": return Theme.Palette.densityMedium
@@ -725,6 +962,11 @@ private struct VenueDotMarker: View {
                 .fill(Theme.Palette.surface)
                 .frame(width: size, height: size)
                 .shadow(color: Theme.Palette.blue500.opacity(0.08), radius: 12, x: 0, y: 6)
+            if energyScore >= 62 {
+                Circle()
+                    .stroke(color.opacity(0.18), lineWidth: 7)
+                    .frame(width: size + 12, height: size + 12)
+            }
             Circle()
                 .fill(color.opacity(0.20))
                 .frame(width: size - 6, height: size - 6)
@@ -741,8 +983,17 @@ private struct VenueDotMarker: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Theme.Palette.blue500)
             }
+            if energyScore >= 38 {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(color))
+                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    .offset(x: size * 0.36, y: -size * 0.34)
+            }
         }
-        .accessibilityLabel(Text(peopleCount > 0 ? "\(peopleCount) persone" : "Locale"))
+        .accessibilityLabel(Text(peopleCount > 0 ? "\(peopleCount) persone, energia \(energyScore)" : "Locale"))
     }
 }
 

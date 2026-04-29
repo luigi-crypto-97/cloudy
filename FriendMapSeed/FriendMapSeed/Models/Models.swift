@@ -69,12 +69,32 @@ struct VenueMarker: Codable, Hashable, Identifiable {
     let activeCheckIns: Int
     let activeIntentions: Int
     let openTables: Int
+    let partyPulse: PartyPulse
+    let intentRadar: IntentRadar
     let presencePreview: [PresencePreview]
 
     var id: UUID { venueId }
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
+}
+
+struct PartyPulse: Codable, Hashable {
+    let energyScore: Int
+    let mood: String
+    let arrivalsLast15: Int
+    let checkInsNow: Int
+    let intentionsSoon: Int
+    let sparkline: [Int]
+}
+
+struct IntentRadar: Codable, Hashable {
+    let goingOut: Int
+    let almostThere: Int
+    let hereNow: Int
+    let coolingDown: Int
+    let updatedAtUtc: Date
+    let privacyLevel: String
 }
 
 struct PresencePreview: Codable, Hashable, Identifiable {
@@ -500,6 +520,10 @@ struct FlareSignal: Codable, Hashable, Identifiable {
 
 struct RespondToFlareRequest: Codable {
     let body: String
+}
+
+struct RelayFlareRequest: Codable {
+    let targetUserIds: [UUID]
 }
 
 struct CreateSocialTableRequest: Codable {
