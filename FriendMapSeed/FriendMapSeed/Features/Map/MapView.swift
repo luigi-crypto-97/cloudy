@@ -130,7 +130,7 @@ struct MapView: View {
     // MARK: - Map layer
 
     private var mapLayer: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        ZStack {
             Map(position: $camera, interactionModes: .all, selection: .constant(nil as VenueMarker?)) {
                 // Fog links (overlay). MapKit disegna MapPolyline.
                 ForEach(store.fogLinks, id: \.id) { link in
@@ -169,12 +169,11 @@ struct MapView: View {
                             selectedVenue = marker
                             Haptics.tap()
                         } label: {
-                            CloudBubble(
-                                intensity: marker.bubbleIntensity,
+                            VenueDotMarker(
                                 peopleCount: activityWeight(for: marker),
                                 densityLevel: marker.densityLevel,
-                                isSelected: selectedVenue?.id == marker.id,
-                                phase: cloudPhase(timeline.date)
+                                energyScore: marker.partyPulse.energyScore,
+                                isSelected: selectedVenue?.id == marker.id
                             )
                         }
                         .buttonStyle(.plain)
@@ -266,6 +265,10 @@ struct MapView: View {
                 store.onViewportChanged(ctx.region)
                 Task { await loadMapSocialOverlays(region: ctx.region) }
             }
+
+            DensityCanvasView(clusters: densityClusters, region: visibleRegion)
+                .opacity(0.72)
+                .blendMode(.multiply)
         }
     }
 
@@ -525,19 +528,6 @@ struct MapView: View {
         return markerClusters + areaClusters
     }
 
-    private func densityRadiusMeters(for weight: Double) -> CLLocationDistance {
-        28 + min(max(weight, 1), 16) * 7
-    }
-
-    private func densityColor(for weight: Double) -> Color {
-        switch weight {
-        case 0..<3: return Theme.Palette.densityLow
-        case 3..<7: return Theme.Palette.densityMedium
-        case 7..<11: return Theme.Palette.densityHigh
-        default: return Theme.Palette.densityPeak
-        }
-    }
-
     private var activeAreas: [VenueMapArea] {
         store.areas.filter { $0.peopleCount > 0 || $0.activeCheckIns > 0 || $0.activeIntentions > 0 || $0.openTables > 0 }
     }
@@ -594,11 +584,6 @@ struct MapView: View {
 
     private func activityWeight(for marker: VenueMarker) -> Int {
         marker.peopleEstimate + marker.activeCheckIns + marker.activeIntentions + marker.openTables
-    }
-
-    private func cloudPhase(_ date: Date) -> Double {
-        let interval = date.timeIntervalSinceReferenceDate
-        return interval.truncatingRemainder(dividingBy: 3.6) / 3.6
     }
 
     private var venueStoryGroups: [VenueStoryGroup] {
