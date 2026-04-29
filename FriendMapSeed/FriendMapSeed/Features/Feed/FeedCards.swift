@@ -343,7 +343,7 @@ private struct GhostPingCard: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(spacing: 12) {
                 Image(systemName: "eye.slash.fill")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(Theme.Font.title(22, weight: .heavy))
                     .foregroundStyle(Theme.Palette.blue500)
                     .frame(width: 52, height: 52)
                     .background(Circle().fill(Theme.Palette.blue50))
@@ -378,7 +378,7 @@ private struct FeedEmptyOnboardingCard: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "sparkles")
-                .font(.system(size: 38, weight: .heavy))
+                .font(Theme.Font.display(38, weight: .heavy))
                 .foregroundStyle(Theme.Palette.blue500)
             Text(payload.title)
                 .font(Theme.Font.display(25))
@@ -435,7 +435,7 @@ private struct FeedCTACluster: View {
             if let shareText {
                 ShareLink(item: shareText) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 14, weight: .heavy))
+                        .font(Theme.Font.body(14, weight: .heavy))
                         .foregroundStyle(Theme.Palette.blue600)
                         .frame(width: 40, height: 40)
                         .background(Theme.Palette.blue50, in: Circle())
@@ -489,7 +489,7 @@ private struct FeedRemoteMedia: View {
         ZStack {
             LinearGradient(colors: [Theme.Palette.blue100, Theme.Palette.blue500], startPoint: .topLeading, endPoint: .bottomTrailing)
             Image(systemName: symbol)
-                .font(.system(size: 46, weight: .heavy))
+                .font(Theme.Font.display(46, weight: .heavy))
                 .foregroundStyle(.white.opacity(0.34))
         }
     }
@@ -517,7 +517,7 @@ private struct FeedMetric: View {
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .heavy))
+                .font(Theme.Font.body(13, weight: .heavy))
                 .foregroundStyle(Theme.Palette.blue500)
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
@@ -619,7 +619,7 @@ private struct EnergyRing: View {
                 .rotationEffect(.degrees(-90))
             VStack(spacing: 0) {
                 Text("\(value)")
-                    .font(.system(size: 25, weight: .black, design: .rounded))
+                    .font(Theme.Font.display(25, weight: .black))
                     .foregroundStyle(.white)
                     .contentTransition(.numericText())
                 Text("%")

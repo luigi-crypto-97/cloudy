@@ -188,7 +188,7 @@ struct FeedView: View {
                 showCreateStory = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .heavy))
+                    .font(Theme.Font.title(22, weight: .heavy))
                     .foregroundStyle(Theme.Palette.blue500)
                     .frame(width: 52, height: 52)
                     .background(Circle().fill(Theme.Palette.surface))
@@ -210,7 +210,7 @@ struct FeedView: View {
                 showChats = true
             } label: {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 23, weight: .heavy))
+                    .font(Theme.Font.title(23, weight: .heavy))
                     .foregroundStyle(Theme.Palette.blue600)
                     .frame(width: 52, height: 52)
                     .background(Circle().fill(Theme.Palette.surface))
@@ -315,7 +315,7 @@ struct FeedView: View {
                     showCreateStory = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .black))
+                        .font(Theme.Font.body(16, weight: .black))
                         .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
                         .background(Circle().fill(Theme.Palette.blue500))
@@ -540,7 +540,7 @@ private struct FeedStoryBubble: View {
 
             if isLive {
                 Text("LIVE")
-                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .font(Theme.Font.caption(10, weight: .black))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
