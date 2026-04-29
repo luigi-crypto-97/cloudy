@@ -121,7 +121,6 @@ struct StoryViewerView: View {
                         }
                     }
             )
-        }
         .onAppear {
             router.isTabBarHidden = true
             userIndex = initialUserIndex
