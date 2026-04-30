@@ -104,6 +104,7 @@ builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<SignedDeepLinkService>();
 builder.Services.AddScoped<NotificationOutboxService>();
 builder.Services.AddScoped<FeedReentryService>();
+builder.Services.AddSingleton<AdminOpsStateService>();
 builder.Services.AddSingleton<ApnsClient>();
 builder.Services.AddHostedService<NotificationDispatchService>();
 builder.Services.AddHostedService<FeedReentryBackgroundService>();

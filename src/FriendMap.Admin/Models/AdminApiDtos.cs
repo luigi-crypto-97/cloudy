@@ -30,6 +30,8 @@ public record AdminMonitorSnapshotDto(
     AdminKpiDto Kpi,
     AdminSystemHealthDto Health,
     AdminPrivacySnapshotDto Privacy,
+    AdminEngagementSnapshotDto Engagement,
+    AdminFeatureFlagsDto FeatureFlags,
     IEnumerable<AdminVenuePulseDto> VenuePulses,
     IEnumerable<AdminTimelineEventDto> Timeline,
     IEnumerable<AdminUserMonitorDto> Users);
@@ -82,6 +84,110 @@ public record AdminTimelineEventDto(
     string Subtitle,
     DateTimeOffset CreatedAtUtc,
     string Severity);
+
+public record AdminEngagementSnapshotDto(
+    int StoryCommentsLast24h,
+    int StoryReactionsLast24h,
+    int StorySharesLast24h,
+    int VenueRatingsLast24h,
+    int FlaggedRatings,
+    int FlareResponsesLast24h,
+    int FlareRelaysLast24h,
+    int TableJoinsLast24h,
+    int FeedReentryPending,
+    int ActiveAdventures,
+    int ActiveObjectives);
+
+public record AdminFeatureFlagsDto(
+    bool DemoSignalsEnabled,
+    bool TestUsersEnabled);
+
+public record AdminFeatureFlagsUpdateRequest(
+    bool? DemoSignalsEnabled,
+    bool? TestUsersEnabled);
+
+public record AdminAdventureDto(
+    Guid Id,
+    string Title,
+    string Description,
+    string Scope,
+    bool IsActive,
+    int RewardPoints,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<AdminObjectiveDto> Objectives);
+
+public record AdminObjectiveDto(
+    Guid Id,
+    string Title,
+    string MetricKey,
+    int Target,
+    int RewardPoints,
+    bool IsActive);
+
+public record AdminAdventureUpsertRequest(
+    string Title,
+    string Description,
+    string Scope,
+    bool IsActive,
+    IReadOnlyList<AdminObjectiveUpsertRequest> Objectives);
+
+public record AdminObjectiveUpsertRequest(
+    Guid Id,
+    string Title,
+    string MetricKey,
+    int Target,
+    int RewardPoints,
+    bool IsActive);
+
+public class AdventureEditModel
+{
+    public Guid? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Scope { get; set; } = "weekly";
+    public bool IsActive { get; set; } = true;
+    public List<ObjectiveEditModel> Objectives { get; set; } =
+    [
+        new ObjectiveEditModel()
+    ];
+
+    public AdminAdventureUpsertRequest ToRequest() =>
+        new(Title, Description, Scope, IsActive, Objectives.Select(x => x.ToRequest()).ToList());
+
+    public static AdventureEditModel FromDto(AdminAdventureDto dto) => new()
+    {
+        Id = dto.Id,
+        Title = dto.Title,
+        Description = dto.Description,
+        Scope = dto.Scope,
+        IsActive = dto.IsActive,
+        Objectives = dto.Objectives.Select(ObjectiveEditModel.FromDto).ToList()
+    };
+}
+
+public class ObjectiveEditModel
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Title { get; set; } = "Visita un locale";
+    public string MetricKey { get; set; } = "check_in";
+    public int Target { get; set; } = 1;
+    public int RewardPoints { get; set; } = 50;
+    public bool IsActive { get; set; } = true;
+
+    public AdminObjectiveUpsertRequest ToRequest() =>
+        new(Id, Title, MetricKey, Target, RewardPoints, IsActive);
+
+    public static ObjectiveEditModel FromDto(AdminObjectiveDto dto) => new()
+    {
+        Id = dto.Id,
+        Title = dto.Title,
+        MetricKey = dto.MetricKey,
+        Target = dto.Target,
+        RewardPoints = dto.RewardPoints,
+        IsActive = dto.IsActive
+    };
+}
 
 public record ModerationQueueItemDto(
     Guid ReportId,

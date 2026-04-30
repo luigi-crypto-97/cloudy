@@ -78,6 +78,10 @@ enum API {
         try await APIClient.shared.get("/api/venues/\(venueId.uuidString.lowercased())/rating")
     }
 
+    static func venueRatingReviews(venueId: UUID) async throws -> [VenueRatingReview] {
+        try await APIClient.shared.get("/api/venues/\(venueId.uuidString.lowercased())/ratings")
+    }
+
     static func rateVenue(venueId: UUID, stars: Int, comment: String? = nil) async throws -> VenueRatingSummary {
         try await APIClient.shared.post(
             "/api/venues/\(venueId.uuidString.lowercased())/rating",

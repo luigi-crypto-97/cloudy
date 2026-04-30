@@ -139,6 +139,15 @@ public sealed class SocialFlowsTests : IClassFixture<ApiTestFactory>
         Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
         Assert.StartsWith("https://api.iron-quote.it/uploads/stories/", uploadResult.Url);
 
+        using var videoUpload = Authorized(HttpMethod.Post, "/api/stories/media", token.AccessToken);
+        videoUpload.Headers.Add("X-Forwarded-Host", "api.iron-quote.it");
+        videoUpload.Headers.Add("X-Forwarded-Proto", "https");
+        videoUpload.Content = Multipart("file", "story.mp4", "video/mp4", new byte[] { 0, 0, 0, 24, 102, 116, 121, 112 });
+        using var videoUploadResponse = await _client.SendAsync(videoUpload);
+        var videoUploadResult = await ReadJsonAsync<UploadResultDto>(videoUploadResponse);
+        Assert.Equal(HttpStatusCode.OK, videoUploadResponse.StatusCode);
+        Assert.EndsWith(".mp4", videoUploadResult.Url, StringComparison.OrdinalIgnoreCase);
+
         using var create = Authorized(HttpMethod.Post, "/api/stories", token.AccessToken);
         create.Content = JsonContent.Create(new { MediaUrl = uploadResult.Url, Caption = "Titolo\n\nCaption", VenueId = DevelopmentDataSeeder.BreraVenueId });
         using var createResponse = await _client.SendAsync(create);
@@ -320,6 +329,15 @@ public sealed class SocialFlowsTests : IClassFixture<ApiTestFactory>
         Assert.True(ratingJson.RootElement.GetProperty("myRatingIsVerified").GetBoolean());
         Assert.True(ratingJson.RootElement.GetProperty("myRatingEarnsPoints").GetBoolean());
         var ratingId = ratingJson.RootElement.GetProperty("myRatingId").GetGuid();
+
+        using var reviews = Authorized(HttpMethod.Get, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/ratings", token.AccessToken);
+        using var reviewsResponse = await _client.SendAsync(reviews);
+        using var reviewsJson = await ReadJsonDocumentAsync(reviewsResponse);
+        var review = Assert.Single(reviewsJson.RootElement.EnumerateArray());
+        Assert.Equal(ratingId, review.GetProperty("ratingId").GetGuid());
+        Assert.Equal("Serata reale, bel mood", review.GetProperty("comment").GetString());
+        Assert.True(review.GetProperty("isVerifiedVisit").GetBoolean());
+        Assert.True(review.GetProperty("isMine").GetBoolean());
 
         using var gamification = Authorized(HttpMethod.Get, "/api/gamification/me", token.AccessToken);
         using var gamificationResponse = await _client.SendAsync(gamification);

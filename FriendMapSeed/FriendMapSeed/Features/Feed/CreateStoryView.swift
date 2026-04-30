@@ -10,6 +10,8 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import AVKit
+import UniformTypeIdentifiers
 
 struct CreateStoryView: View {
     var venue: VenueMarker? = nil
@@ -22,7 +24,10 @@ struct CreateStoryView: View {
     @State private var caption: String = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var selectedImageData: Data?
+    @State private var selectedVideoData: Data?
+    @State private var selectedVideoPreviewURL: URL?
     @State private var showsCamera: Bool = false
+    @State private var cameraMode: StoryCameraMode = .photo
     @State private var isSending: Bool = false
     @State private var error: String?
 
@@ -31,7 +36,11 @@ struct CreateStoryView: View {
     }
 
     private var hasMedia: Bool {
-        selectedImageData != nil || (URL(string: mediaUrl.trimmingCharacters(in: .whitespaces))?.scheme?.hasPrefix("http") == true)
+        selectedImageData != nil || selectedVideoData != nil || (URL(string: mediaUrl.trimmingCharacters(in: .whitespaces))?.scheme?.hasPrefix("http") == true)
+    }
+
+    private var isSelectedVideo: Bool {
+        selectedVideoData != nil || mediaUrl.isCloudyVideoURL
     }
 
     var body: some View {
@@ -59,8 +68,17 @@ struct CreateStoryView: View {
             Task { await loadPhoto(newValue) }
         }
         .sheet(isPresented: $showsCamera) {
-            CameraCaptureView { image in
+            CameraCaptureView(mode: cameraMode) { result in
+                switch result {
+                case .photo(let image):
                 selectedImageData = image.cloudyStoryJPEGData()
+                    selectedVideoData = nil
+                    selectedVideoPreviewURL = nil
+                case .video(let url):
+                    selectedVideoData = try? Data(contentsOf: url)
+                    selectedVideoPreviewURL = url
+                    selectedImageData = nil
+                }
                 mediaUrl = ""
             }
             .ignoresSafeArea()
@@ -93,7 +111,7 @@ struct CreateStoryView: View {
                     Image(systemName: "link")
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.6))
-                    TextField("URL immagine...", text: $mediaUrl)
+                    TextField("URL foto o video...", text: $mediaUrl)
                         .font(Theme.Font.caption(13))
                         .foregroundStyle(.white)
                         .textFieldStyle(.plain)
@@ -135,6 +153,7 @@ struct CreateStoryView: View {
             VStack(spacing: 12) {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button {
+                        cameraMode = .photo
                         showsCamera = true
                     } label: {
                         HStack {
@@ -148,12 +167,28 @@ struct CreateStoryView: View {
                         .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
+
+                    Button {
+                        cameraMode = .video
+                        showsCamera = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "video.fill")
+                            Text("Registra video")
+                            Spacer()
+                        }
+                        .padding(14)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
                 }
 
-                PhotosPicker(selection: $photoItem, matching: .images) {
+                PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
                     HStack {
                         Image(systemName: "photo.on.rectangle.angled")
-                        Text("Scegli dalla galleria")
+                        Text("Scegli foto o video")
                         Spacer()
                     }
                     .padding(14)
@@ -196,8 +231,17 @@ struct CreateStoryView: View {
                         .scaledToFill()
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
+                } else if let selectedVideoPreviewURL {
+                    VideoPlayer(player: AVPlayer(url: selectedVideoPreviewURL))
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
                 } else if let url = URL(string: mediaUrl.trimmingCharacters(in: .whitespaces)) {
-                    AsyncImage(url: url) { phase in
+                    if url.isCloudyVideoURL {
+                        VideoPlayer(player: AVPlayer(url: url))
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                    } else {
+                        AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let img):
                             img
@@ -212,6 +256,7 @@ struct CreateStoryView: View {
                                 .tint(.white)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
+                    }
                     }
                 }
             }
@@ -302,7 +347,7 @@ struct CreateStoryView: View {
 
     private func send() async {
         let typedUrl = mediaUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !typedUrl.isEmpty || selectedImageData != nil else { return }
+        guard !typedUrl.isEmpty || selectedImageData != nil || selectedVideoData != nil else { return }
         isSending = true
         error = nil
         defer { isSending = false }
@@ -313,6 +358,12 @@ struct CreateStoryView: View {
                     data: selectedImageData,
                     fileName: "story-\(UUID().uuidString).jpg",
                     mimeType: "image/jpeg"
+                )
+            } else if let selectedVideoData {
+                finalMediaUrl = try await API.uploadStoryMedia(
+                    data: selectedVideoData,
+                    fileName: "story-\(UUID().uuidString).mp4",
+                    mimeType: "video/mp4"
                 )
             } else {
                 finalMediaUrl = typedUrl
@@ -334,13 +385,36 @@ struct CreateStoryView: View {
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         do {
+            if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) || $0.conforms(to: .video) }) {
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    selectedVideoData = data
+                    selectedVideoPreviewURL = writeTemporaryVideo(data: data)
+                    selectedImageData = nil
+                    mediaUrl = ""
+                    return
+                }
+            }
             if let data = try await item.loadTransferable(type: Data.self),
                let image = UIImage(data: data) {
                 selectedImageData = image.cloudyStoryJPEGData()
+                selectedVideoData = nil
+                selectedVideoPreviewURL = nil
                 mediaUrl = ""
             }
         } catch {
-            self.error = "Impossibile leggere la foto selezionata."
+            self.error = "Impossibile leggere il media selezionato."
+        }
+    }
+
+    private func writeTemporaryVideo(data: Data) -> URL? {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloudy-story-\(UUID().uuidString)")
+            .appendingPathExtension("mp4")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
         }
     }
 
@@ -407,14 +481,30 @@ private extension UIImage {
 
 // MARK: - Camera capture
 
+private enum StoryCameraMode {
+    case photo
+    case video
+}
+
+private enum StoryCameraCaptureResult {
+    case photo(UIImage)
+    case video(URL)
+}
+
 private struct CameraCaptureView: UIViewControllerRepresentable {
-    var onCapture: (UIImage) -> Void
+    let mode: StoryCameraMode
+    var onCapture: (StoryCameraCaptureResult) -> Void
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
-        picker.cameraCaptureMode = .photo
+        picker.mediaTypes = mode == .video
+            ? [UTType.movie.identifier]
+            : [UTType.image.identifier]
+        picker.cameraCaptureMode = mode == .video ? .video : .photo
+        picker.videoQuality = .typeHigh
+        picker.videoMaximumDuration = 15
         picker.delegate = context.coordinator
         return picker
     }
@@ -426,17 +516,19 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
     }
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        private let onCapture: (UIImage) -> Void
+        private let onCapture: (StoryCameraCaptureResult) -> Void
         private let dismiss: DismissAction
 
-        init(onCapture: @escaping (UIImage) -> Void, dismiss: DismissAction) {
+        init(onCapture: @escaping (StoryCameraCaptureResult) -> Void, dismiss: DismissAction) {
             self.onCapture = onCapture
             self.dismiss = dismiss
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
             if let image = info[.originalImage] as? UIImage {
-                onCapture(image)
+                onCapture(.photo(image))
+            } else if let mediaURL = info[.mediaURL] as? URL {
+                onCapture(.video(mediaURL))
             }
             dismiss()
         }
@@ -444,5 +536,22 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             dismiss()
         }
+    }
+}
+
+extension URL {
+    var isCloudyVideoURL: Bool {
+        pathExtension.lowercased().isCloudyVideoExtension
+    }
+}
+
+extension String {
+    var isCloudyVideoURL: Bool {
+        guard let url = URL(string: trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        return url.isCloudyVideoURL
+    }
+
+    fileprivate var isCloudyVideoExtension: Bool {
+        ["mp4", "mov", "m4v", "webm"].contains(lowercased())
     }
 }

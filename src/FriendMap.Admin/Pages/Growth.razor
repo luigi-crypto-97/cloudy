@@ -1,0 +1,283 @@
+@page "/growth"
+@inject IHttpClientFactory HttpClientFactory
+
+<section class="ops-hero">
+    <div>
+        <p class="eyebrow">Growth Ops</p>
+        <h1>Avventure e dati demo</h1>
+        <p class="muted">Gestisci missioni sociali, utenti di prova e segnali demo che animano feed, Party Pulse e Intent Radar.</p>
+    </div>
+    <div class="ops-actions">
+        <button @onclick="LoadAsync" disabled="@_isLoading">@(_isLoading ? "Aggiorno..." : "Aggiorna")</button>
+    </div>
+</section>
+
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+@if (_notice is not null)
+{
+    <p class="success">@_notice</p>
+}
+
+<section class="ops-panel">
+    <div class="panel-title">
+        <div>
+            <p class="eyebrow">Runtime</p>
+            <h2>Controlli ambiente</h2>
+        </div>
+        @if (_flags is not null)
+        {
+            <span class="pill">@(_flags.DemoSignalsEnabled ? "demo feed on" : "demo feed off")</span>
+        }
+    </div>
+    <div class="ops-controls">
+        <div class="toggle-card">
+            <strong>Dati demo feed / Party Pulse</strong>
+            <p>Popola segnali aggregati se venue, pulse e radar sono vuoti. Utile in beta e demo, da spegnere quando il traffico reale è sufficiente.</p>
+            <button class="@(_flags?.DemoSignalsEnabled == true ? "danger" : "")" @onclick="ToggleDemoSignalsAsync">
+                @(_flags?.DemoSignalsEnabled == true ? "Disattiva dati demo" : "Attiva dati demo")
+            </button>
+        </div>
+        <div class="toggle-card">
+            <strong>Utenti di prova</strong>
+            <p>Attiva/disattiva gli account seed <code>@@cloudy.dev</code>. Gli utenti disattivati restano storici ma vengono marcati come non attivi.</p>
+            <button class="@(_flags?.TestUsersEnabled == true ? "danger" : "")" @onclick="ToggleTestUsersAsync">
+                @(_flags?.TestUsersEnabled == true ? "Disattiva utenti test" : "Attiva utenti test")
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="adventure-grid">
+    <div class="ops-panel">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">Gamification</p>
+                <h2>Avventure attive</h2>
+            </div>
+            <button class="secondary" @onclick="NewAdventure">Nuova avventura</button>
+        </div>
+        <div class="venue-list">
+            @foreach (var adventure in _adventures)
+            {
+                <article class="adventure-card">
+                    <header>
+                        <div>
+                            <strong>@adventure.Title</strong>
+                            <p class="muted">@adventure.Description</p>
+                        </div>
+                        <span class="pill @(adventure.IsActive ? "checked_in" : "")">@(adventure.IsActive ? "attiva" : "spenta")</span>
+                    </header>
+                    <div class="button-row">
+                        <span class="pill">@adventure.Scope</span>
+                        <span class="pill">@adventure.RewardPoints punti</span>
+                        <button class="secondary" @onclick="() => EditAdventure(adventure)">Modifica</button>
+                        <button class="danger" @onclick="() => DeleteAdventureAsync(adventure.Id)">Elimina</button>
+                    </div>
+                    <div class="objective-list">
+                        @foreach (var objective in adventure.Objectives)
+                        {
+                            <div class="objective-item">
+                                <div>
+                                    <strong>@objective.Title</strong>
+                                    <span class="muted">@objective.MetricKey · target @objective.Target</span>
+                                </div>
+                                <span class="pill">@objective.RewardPoints pt</span>
+                            </div>
+                        }
+                    </div>
+                </article>
+            }
+            @if (!_adventures.Any())
+            {
+                <p class="muted">Nessuna avventura configurata.</p>
+            }
+        </div>
+    </div>
+
+    <div class="ops-panel">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">@(_edit.Id is null ? "Crea" : "Modifica")</p>
+                <h2>Editor avventura</h2>
+            </div>
+        </div>
+        <label>Titolo</label>
+        <input @bind="_edit.Title" />
+        <label>Descrizione</label>
+        <textarea rows="3" @bind="_edit.Description"></textarea>
+        <label>Scope</label>
+        <select @bind="_edit.Scope">
+            <option value="weekly">Settimanale</option>
+            <option value="city">Città</option>
+            <option value="venue">Locale</option>
+            <option value="social">Sociale</option>
+        </select>
+        <label class="check">
+            <input type="checkbox" @bind="_edit.IsActive" />
+            Attiva
+        </label>
+
+        <div class="panel-title" style="margin-top:18px">
+            <div>
+                <p class="eyebrow">Obiettivi</p>
+                <h2>Missioni</h2>
+            </div>
+            <button class="secondary" @onclick="AddObjective">Aggiungi</button>
+        </div>
+
+        @foreach (var objective in _edit.Objectives)
+        {
+            <div class="objective-form">
+                <input placeholder="Titolo" @bind="objective.Title" />
+                <select @bind="objective.MetricKey">
+                    <option value="check_in">Check-in</option>
+                    <option value="venue_story">Story locale</option>
+                    <option value="verified_rating">Recensione verificata</option>
+                    <option value="table_join">Tavolo</option>
+                    <option value="flare_relay">Relay flare</option>
+                    <option value="invite_friend">Invito amico</option>
+                </select>
+                <input type="number" min="1" max="100" @bind="objective.Target" />
+                <input type="number" min="0" max="10000" @bind="objective.RewardPoints" />
+                <label class="check"><input type="checkbox" @bind="objective.IsActive" /> on</label>
+            </div>
+        }
+
+        <div class="button-row" style="margin-top:18px">
+            <button @onclick="SaveAdventureAsync" disabled="@_isSaving">@(_isSaving ? "Salvo..." : "Salva")</button>
+            <button class="secondary" @onclick="NewAdventure">Reset</button>
+        </div>
+    </div>
+</section>
+
+@code {
+    private AdminFeatureFlagsDto? _flags;
+    private readonly List<AdminAdventureDto> _adventures = new();
+    private AdventureEditModel _edit = new();
+    private string? _error;
+    private string? _notice;
+    private bool _isLoading;
+    private bool _isSaving;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            _flags = await client.GetFromJsonAsync<AdminFeatureFlagsDto>("api/admin/ops/flags");
+            var adventures = await client.GetFromJsonAsync<List<AdminAdventureDto>>("api/admin/ops/adventures");
+            _adventures.Clear();
+            _adventures.AddRange(adventures ?? []);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile caricare Growth Ops: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleDemoSignalsAsync()
+    {
+        var enabled = !(_flags?.DemoSignalsEnabled ?? false);
+        await UpdateFlagsAsync(new AdminFeatureFlagsUpdateRequest(enabled, null), enabled ? "Dati demo attivati." : "Dati demo disattivati.");
+    }
+
+    private async Task ToggleTestUsersAsync()
+    {
+        var enabled = !(_flags?.TestUsersEnabled ?? false);
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.PostAsync($"api/admin/ops/test-users/{enabled.ToString().ToLowerInvariant()}", null);
+            response.EnsureSuccessStatusCode();
+            _flags = _flags is null ? new AdminFeatureFlagsDto(false, enabled) : _flags with { TestUsersEnabled = enabled };
+            _notice = enabled ? "Utenti test attivati." : "Utenti test disattivati.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile aggiornare utenti test: {ex.Message}";
+        }
+    }
+
+    private async Task UpdateFlagsAsync(AdminFeatureFlagsUpdateRequest request, string notice)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.PutAsJsonAsync("api/admin/ops/flags", request);
+            response.EnsureSuccessStatusCode();
+            _flags = await response.Content.ReadFromJsonAsync<AdminFeatureFlagsDto>();
+            _notice = notice;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile aggiornare i flag: {ex.Message}";
+        }
+    }
+
+    private void NewAdventure()
+    {
+        _edit = new AdventureEditModel();
+    }
+
+    private void EditAdventure(AdminAdventureDto adventure)
+    {
+        _edit = AdventureEditModel.FromDto(adventure);
+    }
+
+    private void AddObjective()
+    {
+        _edit.Objectives.Add(new ObjectiveEditModel());
+    }
+
+    private async Task SaveAdventureAsync()
+    {
+        _isSaving = true;
+        _error = null;
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            HttpResponseMessage response = _edit.Id is null
+                ? await client.PostAsJsonAsync("api/admin/ops/adventures", _edit.ToRequest())
+                : await client.PutAsJsonAsync($"api/admin/ops/adventures/{_edit.Id}", _edit.ToRequest());
+            response.EnsureSuccessStatusCode();
+            _notice = "Avventura salvata.";
+            NewAdventure();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile salvare l'avventura: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteAdventureAsync(Guid adventureId)
+    {
+        try
+        {
+            var client = HttpClientFactory.CreateClient("api");
+            var response = await client.DeleteAsync($"api/admin/ops/adventures/{adventureId}");
+            response.EnsureSuccessStatusCode();
+            _notice = "Avventura eliminata.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossibile eliminare l'avventura: {ex.Message}";
+        }
+    }
+}

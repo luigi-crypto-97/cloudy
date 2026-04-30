@@ -112,6 +112,44 @@ public static class VenueEndpoints
             return Results.Ok(await BuildRatingSummaryAsync(db, venueId, viewerUserId, ct));
         });
 
+        group.MapGet("/{venueId:guid}/ratings", async (
+            Guid venueId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var viewerUserId = CurrentUser.GetUserId(user);
+            if (!await db.Venues.AsNoTracking().AnyAsync(x => x.Id == venueId, ct))
+            {
+                return Results.NotFound();
+            }
+
+            var reviews = await db.VenueRatings
+                .AsNoTracking()
+                .Where(x => x.VenueId == venueId && !x.IsFlagged)
+                .Join(
+                    db.Users.AsNoTracking(),
+                    rating => rating.UserId,
+                    user => user.Id,
+                    (rating, user) => new VenueRatingReviewDto(
+                        rating.Id,
+                        user.Id,
+                        user.Nickname,
+                        user.DisplayName,
+                        user.AvatarUrl,
+                        rating.Stars,
+                        rating.Comment,
+                        rating.IsVerifiedVisit,
+                        user.Id == viewerUserId,
+                        rating.CreatedAtUtc))
+                .OrderByDescending(x => x.IsVerifiedVisit)
+                .ThenByDescending(x => x.CreatedAtUtc)
+                .Take(30)
+                .ToListAsync(ct);
+
+            return Results.Ok(reviews);
+        });
+
         group.MapPost("/{venueId:guid}/rating", async (
             Guid venueId,
             RateVenueRequest request,

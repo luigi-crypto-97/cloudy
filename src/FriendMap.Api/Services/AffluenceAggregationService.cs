@@ -17,21 +17,20 @@ public class AffluenceAggregationService
     private readonly IMemoryCache _cache;
     private readonly PrivacyOptions _privacy;
     private readonly MediaStorageService _mediaStorage;
-    private readonly bool _demoSignalsEnabled;
+    private readonly AdminOpsStateService _adminOps;
 
     public AffluenceAggregationService(
         AppDbContext db,
         IMemoryCache cache,
         IOptions<PrivacyOptions> privacy,
         MediaStorageService mediaStorage,
-        IHostEnvironment environment)
+        AdminOpsStateService adminOps)
     {
         _db = db;
         _cache = cache;
         _privacy = privacy.Value;
         _mediaStorage = mediaStorage;
-        _demoSignalsEnabled = environment.IsDevelopment() ||
-            string.Equals(Environment.GetEnvironmentVariable("Cloudy__DemoSignals"), "true", StringComparison.OrdinalIgnoreCase);
+        _adminOps = adminOps;
     }
 
     public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(
@@ -278,13 +277,13 @@ public class AffluenceAggregationService
             snapshotsByVenue.TryGetValue(venue.Id, out var venueSnapshots);
             var pulse = BuildPartyPulse(venueCheckInRows, venueIntentionRows, venueTables, venueSnapshots ?? new List<VenueAffluenceSnapshot>(), now);
             var radar = BuildIntentRadar(venueCheckInRows, venueIntentionRows, now);
-            if (_demoSignalsEnabled)
+            if (_adminOps.DemoSignalsEnabled)
             {
                 (pulse, radar) = EnrichDemoSignalsIfEmpty(venue, pulse, radar, now);
             }
             ratingMap.TryGetValue(venue.Id, out var rating);
             myRatings.TryGetValue(venue.Id, out var myRating);
-            var peopleEstimate = Math.Max(snap?.ActiveUsersEstimated ?? 0, _demoSignalsEnabled ? DemoPeopleEstimate(pulse) : 0);
+            var peopleEstimate = Math.Max(snap?.ActiveUsersEstimated ?? 0, _adminOps.DemoSignalsEnabled ? DemoPeopleEstimate(pulse) : 0);
             var density = snap?.DensityLevel ?? ResolveDensityLevel(peopleEstimate);
 
             var previewUserIds = previewByVenue.TryGetValue(venue.Id, out var presentIds)
@@ -473,7 +472,7 @@ public class AffluenceAggregationService
             .ToList();
         var pulse = BuildPartyPulse(activeCheckIns, activeIntentions, tables.Count, recentPulseSnapshots, now);
         var radar = BuildIntentRadar(activeCheckIns, activeIntentions, now);
-        if (_demoSignalsEnabled)
+        if (_adminOps.DemoSignalsEnabled)
         {
             (pulse, radar) = EnrichDemoSignalsIfEmpty(venue, pulse, radar, now);
         }

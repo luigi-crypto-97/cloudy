@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct StoryViewerView: View {
     let storiesByUser: [[UserStory]]
@@ -21,7 +22,7 @@ struct StoryViewerView: View {
     @State private var userIndex: Int = 0
     @State private var storyIndex: Int = 0
     @State private var progress: Double = 0
-    @State private var timer: Timer?
+    @State private var progressTask: Task<Void, Never>?
     @State private var isPaused: Bool = false
     @State private var dragOffset: CGSize = .zero
 
@@ -132,8 +133,8 @@ struct StoryViewerView: View {
         }
         .onDisappear {
             router.isTabBarHidden = false
-            timer?.invalidate()
-            timer = nil
+            progressTask?.cancel()
+            progressTask = nil
         }
         .onChange(of: storyIndex) {
             resetPerStoryState()
@@ -159,7 +160,12 @@ struct StoryViewerView: View {
     private var mediaView: some View {
         GeometryReader { geometry in
             if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
-                AsyncImage(url: mediaUrl) { phase in
+                if mediaUrl.isCloudyVideoURL {
+                    StoryVideoPlayer(url: mediaUrl)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                } else {
+                    AsyncImage(url: mediaUrl) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -176,6 +182,7 @@ struct StoryViewerView: View {
                     @unknown default:
                         placeholder
                     }
+                }
                 }
             } else {
                 placeholder
@@ -593,8 +600,8 @@ struct StoryViewerView: View {
     }
 
     private func close() {
-        timer?.invalidate()
-        timer = nil
+        progressTask?.cancel()
+        progressTask = nil
         onDismiss()
     }
 
@@ -609,21 +616,31 @@ struct StoryViewerView: View {
     // MARK: - Progress
 
     private func startProgress() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
-            guard !isPaused, !showsShare, !showsComments else { return }
-            progress += 0.016 / storyDuration
-            if progress >= 1 {
-                if storyIndex < currentUserStories.count - 1 {
-                    storyIndex += 1
-                    progress = 0
-                } else if userIndex < storiesByUser.count - 1 {
-                    userIndex += 1
-                    storyIndex = 0
-                    progress = 0
-                } else {
-                    close()
-                }
+        progressTask?.cancel()
+        let storyId = currentStory.id
+        progressTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+                guard !Task.isCancelled, currentStory.id == storyId else { return }
+                guard !isPaused, !showsShare, !showsComments else { continue }
+                tickProgress(delta: 0.05)
+            }
+        }
+    }
+
+    private func tickProgress(delta: Double) {
+        guard currentUserStories.indices.contains(storyIndex) else { return }
+        progress += delta / storyDuration
+        if progress >= 1 {
+            if storyIndex < currentUserStories.count - 1 {
+                storyIndex += 1
+                progress = 0
+            } else if userIndex < storiesByUser.count - 1 {
+                userIndex += 1
+                storyIndex = 0
+                progress = 0
+            } else {
+                close()
             }
         }
     }
@@ -721,6 +738,29 @@ struct StoryViewerView: View {
         formatter.unitsStyle = .short
         formatter.locale = Locale(identifier: "it_IT")
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+private struct StoryVideoPlayer: View {
+    let url: URL
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        ZStack {
+            if let player {
+                VideoPlayer(player: player)
+                    .onAppear { player.play() }
+                    .onDisappear { player.pause() }
+            } else {
+                Color.black
+                    .overlay(ProgressView().tint(.white))
+            }
+        }
+        .task(id: url) {
+            let newPlayer = AVPlayer(url: url)
+            player = newPlayer
+            newPlayer.play()
+        }
     }
 }
 

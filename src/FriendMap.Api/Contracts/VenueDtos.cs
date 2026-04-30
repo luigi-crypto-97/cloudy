@@ -110,6 +110,18 @@ public record VenueRatingSummaryDto(
     bool MyRatingIsVerified,
     bool MyRatingEarnsPoints);
 
+public record VenueRatingReviewDto(
+    Guid RatingId,
+    Guid UserId,
+    string Nickname,
+    string? DisplayName,
+    string? AvatarUrl,
+    int Stars,
+    string? Comment,
+    bool IsVerifiedVisit,
+    bool IsMine,
+    DateTimeOffset CreatedAtUtc);
+
 public record RateVenueRequest(
     int Stars,
     string? Comment);

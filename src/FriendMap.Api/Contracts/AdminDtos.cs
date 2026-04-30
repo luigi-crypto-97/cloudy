@@ -39,6 +39,8 @@ public record AdminMonitorSnapshotDto(
     AdminKpiDto Kpi,
     AdminSystemHealthDto Health,
     AdminPrivacySnapshotDto Privacy,
+    AdminEngagementSnapshotDto Engagement,
+    AdminFeatureFlagsDto FeatureFlags,
     IEnumerable<AdminVenuePulseDto> VenuePulses,
     IEnumerable<AdminTimelineEventDto> Timeline,
     IEnumerable<AdminUserMonitorDto> Users);
@@ -91,3 +93,58 @@ public record AdminTimelineEventDto(
     string Subtitle,
     DateTimeOffset CreatedAtUtc,
     string Severity);
+
+public record AdminEngagementSnapshotDto(
+    int StoryCommentsLast24h,
+    int StoryReactionsLast24h,
+    int StorySharesLast24h,
+    int VenueRatingsLast24h,
+    int FlaggedRatings,
+    int FlareResponsesLast24h,
+    int FlareRelaysLast24h,
+    int TableJoinsLast24h,
+    int FeedReentryPending,
+    int ActiveAdventures,
+    int ActiveObjectives);
+
+public record AdminFeatureFlagsDto(
+    bool DemoSignalsEnabled,
+    bool TestUsersEnabled);
+
+public record AdminFeatureFlagsUpdateRequest(
+    bool? DemoSignalsEnabled,
+    bool? TestUsersEnabled);
+
+public record AdminAdventureDto(
+    Guid Id,
+    string Title,
+    string Description,
+    string Scope,
+    bool IsActive,
+    int RewardPoints,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    IReadOnlyList<AdminObjectiveDto> Objectives);
+
+public record AdminObjectiveDto(
+    Guid Id,
+    string Title,
+    string MetricKey,
+    int Target,
+    int RewardPoints,
+    bool IsActive);
+
+public record AdminAdventureUpsertRequest(
+    string Title,
+    string Description,
+    string Scope,
+    bool IsActive,
+    IReadOnlyList<AdminObjectiveUpsertRequest> Objectives);
+
+public record AdminObjectiveUpsertRequest(
+    Guid Id,
+    string Title,
+    string MetricKey,
+    int Target,
+    int RewardPoints,
+    bool IsActive);

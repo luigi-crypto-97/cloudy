@@ -470,7 +470,16 @@ private struct FeedRemoteMedia: View {
 
     var body: some View {
         ZStack {
-            if let url = APIClient.shared.mediaURL(from: urlString) {
+            if let url = APIClient.shared.mediaURL(from: urlString), url.isCloudyVideoURL {
+                fallback
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(Theme.Font.title(22, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(12)
+                            .background(.black.opacity(0.24), in: Circle())
+                    )
+            } else if let url = APIClient.shared.mediaURL(from: urlString) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
@@ -583,7 +592,14 @@ private struct StoryPreviewCircle: View {
 
     var body: some View {
         ZStack {
-            if let url = APIClient.shared.mediaURL(from: story.mediaUrl) {
+            if let url = APIClient.shared.mediaURL(from: story.mediaUrl), url.isCloudyVideoURL {
+                Theme.Palette.blue500
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(Theme.Font.caption(13, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+            } else if let url = APIClient.shared.mediaURL(from: story.mediaUrl) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):

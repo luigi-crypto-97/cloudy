@@ -17,6 +17,7 @@ struct VenueDetailSheet: View {
     @State private var venueStories: [VenueStory] = []
     @State private var selectedStoryRoute: VenueStoryViewerRoute?
     @State private var ratingSummary: VenueRatingSummary?
+    @State private var ratingReviews: [VenueRatingReview] = []
     @State private var isSubmittingRating = false
 
     var body: some View {
@@ -72,9 +73,13 @@ struct VenueDetailSheet: View {
                     count: ratingSummary?.ratingCount ?? venue.ratingCount,
                     myRating: ratingSummary?.myRating ?? venue.myRating,
                     isVerified: ratingSummary?.myRatingIsVerified ?? false,
+                    reviews: ratingReviews,
                     isSubmitting: isSubmittingRating,
                     onRate: { stars in
                         Task { await rateVenue(stars: stars) }
+                    },
+                    onReport: { review in
+                        Task { await reportRating(review) }
                     }
                 )
 
@@ -264,6 +269,7 @@ struct VenueDetailSheet: View {
         .task {
             await loadVenueStories()
             await loadRating()
+            await loadRatingReviews()
         }
     }
 
@@ -367,11 +373,16 @@ struct VenueDetailSheet: View {
         ratingSummary = try? await API.venueRating(venueId: venue.venueId)
     }
 
+    private func loadRatingReviews() async {
+        ratingReviews = (try? await API.venueRatingReviews(venueId: venue.venueId)) ?? []
+    }
+
     private func rateVenue(stars: Int) async {
         isSubmittingRating = true
         defer { isSubmittingRating = false }
         do {
             ratingSummary = try await API.rateVenue(venueId: venue.venueId, stars: stars)
+            await loadRatingReviews()
             Haptics.success()
             if ratingSummary?.myRatingEarnsPoints == true {
                 actionMessage = "Valutazione salvata. Se verificata, vale punti classifica."
@@ -379,6 +390,25 @@ struct VenueDetailSheet: View {
                 actionMessage = "Valutazione salvata. I punti si sbloccano dopo un check-in, una story o un piano reale qui."
             }
             NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+        } catch {
+            Haptics.error()
+            actionMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    private func reportRating(_ review: VenueRatingReview) async {
+        guard !review.isMine else { return }
+        do {
+            _ = try await API.reportVenueRating(
+                venueId: venue.venueId,
+                ratingId: review.ratingId,
+                reasonCode: "fake_venue_rating",
+                details: "Segnalata da scheda locale iOS."
+            )
+            ratingReviews.removeAll { $0.id == review.id }
+            ratingSummary = try? await API.venueRating(venueId: venue.venueId)
+            Haptics.success()
+            actionMessage = "Recensione segnalata. Se confermata, comporta perdita punti."
         } catch {
             Haptics.error()
             actionMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -595,12 +625,14 @@ private struct VenueRatingCard: View {
     let count: Int
     let myRating: Int?
     let isVerified: Bool
+    let reviews: [VenueRatingReview]
     let isSubmitting: Bool
     var onRate: (Int) -> Void
+    var onReport: (VenueRatingReview) -> Void
 
     var body: some View {
         SectionCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Stelle del locale")
@@ -637,6 +669,24 @@ private struct VenueRatingCard: View {
                     }
                 }
                 .disabled(isSubmitting)
+
+                if !reviews.isEmpty {
+                    Divider()
+                        .overlay(Theme.Palette.hairline)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Recensioni")
+                                .font(Theme.Font.title(15, weight: .heavy))
+                            Spacer()
+                            Text("\(reviews.count)")
+                                .font(Theme.Font.caption(11, weight: .heavy))
+                                .foregroundStyle(Theme.Palette.inkMuted)
+                        }
+                        ForEach(reviews.prefix(4)) { review in
+                            VenueRatingReviewRow(review: review, onReport: { onReport(review) })
+                        }
+                    }
+                }
             }
         }
     }
@@ -654,22 +704,99 @@ private struct VenueRatingCard: View {
     }
 }
 
+private struct VenueRatingReviewRow: View {
+    let review: VenueRatingReview
+    var onReport: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            StoryAvatar(
+                url: APIClient.shared.mediaURL(from: review.avatarUrl),
+                size: 34,
+                hasStory: false,
+                initials: String((review.displayName ?? review.nickname).prefix(1)).uppercased()
+            )
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 7) {
+                    Text(review.displayName ?? review.nickname)
+                        .font(Theme.Font.body(13, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                        .lineLimit(1)
+                    if review.isVerifiedVisit {
+                        Label("verificata", systemImage: "checkmark.seal.fill")
+                            .font(Theme.Font.caption(10, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.mint500)
+                    }
+                    Spacer()
+                    HStack(spacing: 2) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10, weight: .heavy))
+                        Text("\(review.stars)")
+                            .font(Theme.Font.caption(11, weight: .heavy))
+                    }
+                    .foregroundStyle(Theme.Palette.blue500)
+                }
+                if let comment = review.comment, !comment.isEmpty {
+                    Text(comment)
+                        .font(Theme.Font.caption(12, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineLimit(3)
+                } else {
+                    Text("Ha lasciato una valutazione.")
+                        .font(Theme.Font.caption(12, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+                HStack {
+                    Text(review.createdAtUtc, style: .relative)
+                        .font(Theme.Font.caption(10, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                    Spacer()
+                    if !review.isMine {
+                        Button("Segnala") {
+                            Haptics.tap()
+                            onReport()
+                        }
+                        .font(Theme.Font.caption(10, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+}
+
 private struct VenueStoryThumbnail: View {
     let story: VenueStory
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
+            Group {
+                if let url = APIClient.shared.mediaURL(from: story.mediaUrl), url.isCloudyVideoURL {
                     Rectangle()
-                        .fill(Theme.Palette.blue50)
+                        .fill(LinearGradient(colors: [Theme.Palette.blue100, Theme.Palette.blue500], startPoint: .topLeading, endPoint: .bottomTrailing))
                         .overlay(
-                            Image(systemName: "photo.fill")
-                                .foregroundStyle(Theme.Palette.blue500)
+                            Image(systemName: "play.fill")
+                                .font(Theme.Font.title(24, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(.black.opacity(0.28), in: Circle())
                         )
+                } else {
+                    AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            Rectangle()
+                                .fill(Theme.Palette.blue50)
+                                .overlay(
+                                    Image(systemName: "photo.fill")
+                                        .foregroundStyle(Theme.Palette.blue500)
+                                )
+                        }
+                    }
                 }
             }
             .frame(width: 86, height: 116)

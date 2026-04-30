@@ -333,17 +333,30 @@ public static class StoriesEndpoints
             return Results.BadRequest(new { message = "File media mancante." });
         }
 
-        const long maxBytes = 12 * 1024 * 1024;
+        const long maxImageBytes = 12 * 1024 * 1024;
+        const long maxVideoBytes = 85 * 1024 * 1024;
+        var contentType = file.ContentType ?? string.Empty;
+        var isVideo = contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+        var maxBytes = isVideo ? maxVideoBytes : maxImageBytes;
         if (file.Length > maxBytes)
         {
-            return Results.BadRequest(new { message = "Media troppo grande. Massimo 12MB." });
+            return Results.BadRequest(new { message = isVideo ? "Video troppo grande. Massimo 85MB." : "Media troppo grande. Massimo 12MB." });
         }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".webp", ".heic" };
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".webp", ".heic",
+            ".mp4", ".mov", ".m4v", ".webm"
+        };
         if (!allowed.Contains(extension))
         {
-            return Results.BadRequest(new { message = "Formato non supportato. Usa jpg, png, webp o heic." });
+            return Results.BadRequest(new { message = "Formato non supportato. Usa jpg, png, webp, heic, mp4, mov, m4v o webm." });
+        }
+
+        if (isVideo && extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".heic")
+        {
+            return Results.BadRequest(new { message = "Il file video ha un'estensione non valida." });
         }
 
         try

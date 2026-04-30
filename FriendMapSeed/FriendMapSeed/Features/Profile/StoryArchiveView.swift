@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct StoryArchiveView: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,9 +14,9 @@ struct StoryArchiveView: View {
     @State private var selectedStory: UserStory?
 
     private let columns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
     ]
 
     var body: some View {
@@ -34,15 +35,24 @@ struct StoryArchiveView: View {
                     .padding()
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(stories) { story in
-                                Button {
-                                    selectedStory = story
-                                    Haptics.tap()
-                                } label: {
-                                    archiveTile(story)
+                        LazyVStack(alignment: .leading, spacing: 18) {
+                            ForEach(archiveSections, id: \.title) { section in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text(section.title)
+                                        .font(Theme.Font.title(18, weight: .heavy))
+                                        .foregroundStyle(Theme.Palette.ink)
+                                    LazyVGrid(columns: columns, spacing: 10) {
+                                        ForEach(section.stories) { story in
+                                            Button {
+                                                selectedStory = story
+                                                Haptics.tap()
+                                            } label: {
+                                                archiveTile(story)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         .padding(Theme.Spacing.lg)
@@ -78,24 +88,38 @@ struct StoryArchiveView: View {
 
     private func archiveTile(_ story: UserStory) -> some View {
         ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Theme.Palette.surface)
+
             AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFill()
-                case .failure:
+                if APIClient.shared.mediaURL(from: story.mediaUrl)?.isCloudyVideoURL == true {
                     Rectangle()
-                        .fill(Theme.Palette.surface)
-                        .overlay(Image(systemName: "photo").foregroundStyle(Theme.Palette.inkMuted))
-                default:
-                    Rectangle()
-                        .fill(Theme.Palette.blue50)
-                        .overlay(ProgressView().tint(Theme.Palette.blue500))
+                        .fill(Theme.Palette.blue900)
+                        .overlay(
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 26, weight: .heavy))
+                                .foregroundStyle(.white)
+                                .frame(width: 54, height: 54)
+                                .background(.black.opacity(0.32), in: Circle())
+                        )
+                } else {
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        Rectangle()
+                            .fill(Theme.Palette.surface)
+                            .overlay(Image(systemName: "photo").foregroundStyle(Theme.Palette.inkMuted))
+                    default:
+                        Rectangle()
+                            .fill(Theme.Palette.blue50)
+                            .overlay(ProgressView().tint(Theme.Palette.blue500))
+                    }
                 }
             }
-            .frame(maxWidth: .infinity)
-            .aspectRatio(9 / 16, contentMode: .fit)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
             LinearGradient(
@@ -116,7 +140,23 @@ struct StoryArchiveView: View {
             .foregroundStyle(.white)
             .padding(8)
         }
+        .aspectRatio(9 / 16, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Theme.Palette.hairline.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private var archiveSections: [(title: String, stories: [UserStory])] {
+        let grouped = Dictionary(grouping: stories) { story in
+            monthTitle(story.createdAtUtc)
+        }
+        return grouped
+            .map { (title: $0.key, stories: $0.value.sorted { $0.createdAtUtc > $1.createdAtUtc }) }
+            .sorted { lhs, rhs in
+                (lhs.stories.first?.createdAtUtc ?? .distantPast) > (rhs.stories.first?.createdAtUtc ?? .distantPast)
+            }
     }
 
     private func load() async {
@@ -136,6 +176,13 @@ struct StoryArchiveView: View {
         formatter.setLocalizedDateFormatFromTemplate("d MMM")
         return formatter.string(from: date)
     }
+
+    private func monthTitle(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "it_IT")
+        formatter.setLocalizedDateFormatFromTemplate("MMMM yyyy")
+        return formatter.string(from: date).capitalized
+    }
 }
 
 private struct ArchivedStoryViewer: View {
@@ -147,7 +194,11 @@ private struct ArchivedStoryViewer: View {
             Color.black.ignoresSafeArea()
 
             GeometryReader { geometry in
-                AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
+                if let url = APIClient.shared.mediaURL(from: story.mediaUrl), url.isCloudyVideoURL {
+                    VideoPlayer(player: AVPlayer(url: url))
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -165,6 +216,7 @@ private struct ArchivedStoryViewer: View {
                             .tint(.white)
                             .frame(width: geometry.size.width, height: geometry.size.height)
                     }
+                }
                 }
             }
             .ignoresSafeArea()

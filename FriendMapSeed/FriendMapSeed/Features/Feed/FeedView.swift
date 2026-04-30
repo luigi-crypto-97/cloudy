@@ -793,7 +793,16 @@ private struct LiveMomentRow: View {
     @ViewBuilder
     private var thumbnail: some View {
         let urlString = previewMedia
-        if let url = APIClient.shared.mediaURL(from: urlString) {
+        if let url = APIClient.shared.mediaURL(from: urlString), url.isCloudyVideoURL {
+            momentFallback
+                .overlay(
+                    Image(systemName: "play.fill")
+                        .font(Theme.Font.title(22, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(12)
+                        .background(.black.opacity(0.24), in: Circle())
+                )
+        } else if let url = APIClient.shared.mediaURL(from: urlString) {
             AsyncImage(url: url) { phase in
                 switch phase {
                 case .success(let image): image.resizable().scaledToFill()
@@ -927,7 +936,16 @@ private struct FeedHeroMedia: View {
 
     var body: some View {
         ZStack {
-            if let url = APIClient.shared.mediaURL(from: urlString) {
+            if let url = APIClient.shared.mediaURL(from: urlString), url.isCloudyVideoURL {
+                fallback
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(Theme.Font.title(24, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(14)
+                            .background(.black.opacity(0.24), in: Circle())
+                    )
+            } else if let url = APIClient.shared.mediaURL(from: urlString) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image): image.resizable().scaledToFill()

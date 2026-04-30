@@ -41,6 +41,7 @@ public static class AdminEndpoints
             AppDbContext db,
             MediaStorageService mediaStorage,
             IConfiguration configuration,
+            AdminOpsStateService adminOps,
             CancellationToken ct) =>
         {
             var now = DateTimeOffset.UtcNow;
@@ -102,6 +103,20 @@ public static class AdminEndpoints
                 FailedNotificationBacklog: failedNotifications,
                 CheckedAtUtc: now);
 
+            var activeAdventures = adminOps.GetAdventures().Where(x => x.IsActive).ToList();
+            var engagement = new AdminEngagementSnapshotDto(
+                StoryCommentsLast24h: await db.UserStoryComments.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h, ct),
+                StoryReactionsLast24h: await db.UserStoryReactions.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h, ct),
+                StorySharesLast24h: await db.DirectMessages.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h && x.Body.ToLower().Contains("story"), ct),
+                VenueRatingsLast24h: await db.VenueRatings.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h, ct),
+                FlaggedRatings: await db.VenueRatings.AsNoTracking().CountAsync(x => x.IsFlagged, ct),
+                FlareResponsesLast24h: await db.FlareResponses.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h, ct),
+                FlareRelaysLast24h: await db.FlareRelayAudits.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h, ct),
+                TableJoinsLast24h: await db.SocialTableParticipants.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h && x.Status == "accepted", ct),
+                FeedReentryPending: await db.FeedReentryNotificationStates.AsNoTracking().CountAsync(ct),
+                ActiveAdventures: activeAdventures.Count,
+                ActiveObjectives: activeAdventures.Sum(x => x.Objectives.Count(o => o.IsActive)));
+
             var venuePulses = await BuildVenuePulsesAsync(db, now, ct);
             var timeline = await BuildTimelineAsync(db, now, ct);
 
@@ -110,6 +125,8 @@ public static class AdminEndpoints
                 kpi,
                 health,
                 privacy,
+                engagement,
+                adminOps.GetFlags(),
                 venuePulses,
                 timeline,
                 users));
@@ -154,6 +171,53 @@ public static class AdminEndpoints
         {
             var users = await BuildUserMonitorAsync(q, db, mediaStorage, 300, ct);
             return Results.Ok(users);
+        });
+
+        group.MapGet("/ops/flags", (AdminOpsStateService adminOps) =>
+        {
+            return Results.Ok(adminOps.GetFlags());
+        });
+
+        group.MapPut("/ops/flags", (AdminFeatureFlagsUpdateRequest request, AdminOpsStateService adminOps) =>
+        {
+            return Results.Ok(adminOps.UpdateFlags(request));
+        });
+
+        group.MapPost("/ops/test-users/{enabled:bool}", async (bool enabled, AppDbContext db, AdminOpsStateService adminOps, CancellationToken ct) =>
+        {
+            adminOps.UpdateFlags(new AdminFeatureFlagsUpdateRequest(null, enabled));
+            var status = enabled ? "active" : "disabled";
+            var users = await db.Users
+                .Where(x => x.DiscoverableEmailNormalized != null && x.DiscoverableEmailNormalized.EndsWith("@cloudy.dev"))
+                .ToListAsync(ct);
+            foreach (var user in users)
+            {
+                user.Status = status;
+                user.UpdatedAtUtc = DateTimeOffset.UtcNow;
+            }
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { enabled, affected = users.Count });
+        });
+
+        group.MapGet("/ops/adventures", (AdminOpsStateService adminOps) =>
+        {
+            return Results.Ok(adminOps.GetAdventures());
+        });
+
+        group.MapPost("/ops/adventures", (AdminAdventureUpsertRequest request, AdminOpsStateService adminOps) =>
+        {
+            return Results.Created("/api/admin/ops/adventures", adminOps.CreateAdventure(request));
+        });
+
+        group.MapPut("/ops/adventures/{adventureId:guid}", (Guid adventureId, AdminAdventureUpsertRequest request, AdminOpsStateService adminOps) =>
+        {
+            var adventure = adminOps.UpdateAdventure(adventureId, request);
+            return adventure is null ? Results.NotFound() : Results.Ok(adventure);
+        });
+
+        group.MapDelete("/ops/adventures/{adventureId:guid}", (Guid adventureId, AdminOpsStateService adminOps) =>
+        {
+            return adminOps.DeleteAdventure(adventureId) ? Results.NoContent() : Results.NotFound();
         });
 
         group.MapPost("/venues", async (UpsertVenueRequest request, AppDbContext db, CancellationToken ct) =>

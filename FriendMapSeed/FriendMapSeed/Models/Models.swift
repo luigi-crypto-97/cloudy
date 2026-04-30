@@ -118,6 +118,21 @@ struct VenueRatingSummary: Codable, Hashable {
     let myRatingEarnsPoints: Bool
 }
 
+struct VenueRatingReview: Codable, Hashable, Identifiable {
+    let ratingId: UUID
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let stars: Int
+    let comment: String?
+    let isVerifiedVisit: Bool
+    let isMine: Bool
+    let createdAtUtc: Date
+
+    var id: UUID { ratingId }
+}
+
 struct RateVenueRequest: Codable {
     let stars: Int
     let comment: String?

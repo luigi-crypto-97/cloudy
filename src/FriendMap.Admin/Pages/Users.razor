@@ -1,5 +1,6 @@
 @page "/users"
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
 <h1>Monitor utenti</h1>
 <p class="muted">Vista operativa privacy-safe: mostra presenza a livello locale/intenzione, non coordinate GPS grezze.</p>
@@ -33,15 +34,9 @@
     </div>
 </div>
 
-<div class="monitor-map">
-    @foreach (var user in _users.Where(x => x.Latitude is not null && x.Longitude is not null).Take(80))
-    {
-        var pos = Project(user);
-        <div class="user-pin" style="left:@pos.X%; top:@pos.Y%;" title="@DisplayName(user) · @user.VenueName">
-            @Initial(user)
-        </div>
-    }
-    <div class="map-note">Presenze proiettate sui locali, aggregate per venue.</div>
+<div class="map-shell">
+    <div id="opsUsersMap" class="monitor-map osm-map"></div>
+    <div class="map-overlay-note">Utenti su venue/intenzioni · privacy-safe</div>
 </div>
 
 <table class="grid">
@@ -91,6 +86,7 @@
     private string? _query;
     private string? _error;
     private bool _isLoading;
+    private bool _mapPending;
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,6 +106,7 @@
             var users = await client.GetFromJsonAsync<List<AdminUserMonitorDto>>(path);
             _users.Clear();
             _users.AddRange(users ?? new List<AdminUserMonitorDto>());
+            _mapPending = true;
         }
         catch (Exception ex)
         {
@@ -118,6 +115,15 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mapPending)
+        {
+            _mapPending = false;
+            await RenderMapAsync();
         }
     }
 
@@ -138,18 +144,21 @@
         _ => "Idle"
     };
 
-    private (double X, double Y) Project(AdminUserMonitorDto user)
+    private async Task RenderMapAsync()
     {
-        var points = _users.Where(x => x.Latitude is not null && x.Longitude is not null).ToList();
-        if (points.Count == 0 || user.Latitude is null || user.Longitude is null) return (50, 50);
-        var minLat = points.Min(x => x.Latitude!.Value);
-        var maxLat = points.Max(x => x.Latitude!.Value);
-        var minLng = points.Min(x => x.Longitude!.Value);
-        var maxLng = points.Max(x => x.Longitude!.Value);
-        var latSpan = Math.Max(maxLat - minLat, 0.001);
-        var lngSpan = Math.Max(maxLng - minLng, 0.001);
-        var x = 8 + ((user.Longitude.Value - minLng) / lngSpan) * 84;
-        var y = 92 - ((user.Latitude.Value - minLat) / latSpan) * 84;
-        return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
+        var markers = _users
+            .Where(x => x.Latitude is not null && x.Longitude is not null)
+            .Take(200)
+            .Select(x => new
+            {
+                type = "user",
+                name = DisplayName(x),
+                subtitle = $"{PresenceLabel(x.PresenceState)} · {x.VenueName ?? "nessun locale"} · {x.PrivacyLevel}",
+                latitude = x.Latitude,
+                longitude = x.Longitude,
+                initial = Initial(x)
+            })
+            .ToList();
+        await JS.InvokeVoidAsync("cloudyAdminMap.render", "opsUsersMap", markers);
     }
 }

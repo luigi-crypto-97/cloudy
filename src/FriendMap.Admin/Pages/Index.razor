@@ -1,5 +1,6 @@
 @page "/"
 @inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS
 
 <section class="ops-hero">
     <div>
@@ -55,6 +56,10 @@ else if (_snapshot is not null)
         <MetricCard Label="Flare attivi" Value="@_snapshot.Kpi.ActiveFlares" Accent="coral" />
         <MetricCard Label="Tavoli aperti" Value="@_snapshot.Kpi.ActiveTables" Accent="mint" />
         <MetricCard Label="Msg ultima ora" Value="@_snapshot.Kpi.MessagesLastHour" Accent="blue" />
+        <MetricCard Label="Commenti stories 24h" Value="@_snapshot.Engagement.StoryCommentsLast24h" Accent="violet" />
+        <MetricCard Label="Recensioni 24h" Value="@_snapshot.Engagement.VenueRatingsLast24h" Accent="mint" />
+        <MetricCard Label="Relay flare 24h" Value="@_snapshot.Engagement.FlareRelaysLast24h" Accent="coral" />
+        <MetricCard Label="Avventure attive" Value="@_snapshot.Engagement.ActiveAdventures" Accent="blue" />
     </section>
 
     <section class="ops-grid">
@@ -67,20 +72,9 @@ else if (_snapshot is not null)
                 <span class="pill">@_snapshot.Privacy.LocationPrecision</span>
             </div>
 
-            <div class="command-map">
-                @foreach (var venue in _snapshot.VenuePulses.Where(x => x.Latitude is not null && x.Longitude is not null))
-                {
-                    var pos = Project(venue);
-                    var size = 28 + Math.Min(venue.EnergyScore, 100) * 0.34;
-                    <div class="venue-pulse" style="left:@($"{pos.X:0.##}")%; top:@($"{pos.Y:0.##}")%; width:@($"{size:0.#}")px; height:@($"{size:0.#}")px;" title="@venue.Name">
-                        <span>@venue.EnergyScore</span>
-                    </div>
-                }
-                <div class="map-legend">
-                    <span></span>
-                    <strong>Energia venue</strong>
-                    <em>check-in + intenzioni, no GPS grezzo</em>
-                </div>
+            <div class="map-shell">
+                <div id="opsVenueMap" class="osm-map"></div>
+                <div class="map-overlay-note">OpenStreetMap · venue-level, no GPS grezzo</div>
             </div>
         </div>
 
@@ -171,6 +165,10 @@ else if (_snapshot is not null)
                     <strong>@_snapshot.Kpi.FailedNotifications</strong>
                     <span>notifiche fallite</span>
                 </div>
+                <div class="@RiskClass(_snapshot.Engagement.FlaggedRatings > 0)">
+                    <strong>@_snapshot.Engagement.FlaggedRatings</strong>
+                    <span>recensioni segnalate</span>
+                </div>
                 <div class="@RiskClass(_snapshot.Health.DatabaseLatencyMs > 250)">
                     <strong>@_snapshot.Health.DatabaseLatencyMs ms</strong>
                     <span>latenza database</span>
@@ -238,6 +236,7 @@ else if (_snapshot is not null)
     private string? _query;
     private string? _error;
     private bool _isLoading = true;
+    private bool _mapPending;
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,6 +255,7 @@ else if (_snapshot is not null)
                 ? "api/admin/monitor"
                 : $"api/admin/monitor?q={Uri.EscapeDataString(_query)}";
             _snapshot = await client.GetFromJsonAsync<AdminMonitorSnapshotDto>(path);
+            _mapPending = true;
         }
         catch (Exception ex)
         {
@@ -264,6 +264,15 @@ else if (_snapshot is not null)
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mapPending && _snapshot is not null)
+        {
+            _mapPending = false;
+            await RenderMapAsync();
         }
     }
 
@@ -299,18 +308,20 @@ else if (_snapshot is not null)
     private static string HealthLabel(string status) => status == "operational" ? "Operativo" : "Degradato";
     private static string RiskClass(bool isHot) => isHot ? "risk-card hot" : "risk-card";
 
-    private (double X, double Y) Project(AdminVenuePulseDto venue)
+    private async Task RenderMapAsync()
     {
-        var points = _snapshot?.VenuePulses.Where(x => x.Latitude is not null && x.Longitude is not null).ToList() ?? new List<AdminVenuePulseDto>();
-        if (points.Count == 0 || venue.Latitude is null || venue.Longitude is null) return (50, 50);
-        var minLat = points.Min(x => x.Latitude!.Value);
-        var maxLat = points.Max(x => x.Latitude!.Value);
-        var minLng = points.Min(x => x.Longitude!.Value);
-        var maxLng = points.Max(x => x.Longitude!.Value);
-        var latSpan = Math.Max(maxLat - minLat, 0.001);
-        var lngSpan = Math.Max(maxLng - minLng, 0.001);
-        var x = 8 + ((venue.Longitude.Value - minLng) / lngSpan) * 84;
-        var y = 92 - ((venue.Latitude.Value - minLat) / latSpan) * 84;
-        return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
+        var markers = _snapshot?.VenuePulses
+            .Where(x => x.Latitude is not null && x.Longitude is not null)
+            .Select(x => new
+            {
+                type = "venue",
+                name = x.Name,
+                subtitle = $"{x.Category} · {x.City} · energia {x.EnergyScore} · {x.CheckedInCount} qui · {x.IntentionCount} in arrivo",
+                latitude = x.Latitude,
+                longitude = x.Longitude,
+                energy = x.EnergyScore
+            })
+            .ToList() ?? [];
+        await JS.InvokeVoidAsync("cloudyAdminMap.render", "opsVenueMap", markers);
     }
 }
