@@ -48,6 +48,7 @@ public static class StoriesEndpoints
             .AsNoTracking()
             .Where(x => x.ExpiresAtUtc > now && (x.UserId == currentUserId || friendIds.Contains(x.UserId)))
             .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(160)
             .Join(
                 db.Users.AsNoTracking(),
                 story => story.UserId,

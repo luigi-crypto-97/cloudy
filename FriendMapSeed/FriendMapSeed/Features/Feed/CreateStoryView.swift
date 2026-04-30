@@ -26,9 +26,9 @@ struct CreateStoryView: View {
     @State private var selectedImageData: Data?
     @State private var selectedVideoData: Data?
     @State private var selectedVideoPreviewURL: URL?
-    @State private var showsCamera: Bool = false
-    @State private var cameraMode: StoryCameraMode = .photo
+    @State private var activeCameraMode: StoryCameraMode?
     @State private var isSending: Bool = false
+    @State private var isPreparingVideo: Bool = false
     @State private var error: String?
 
     private enum Field: Hashable {
@@ -36,7 +36,10 @@ struct CreateStoryView: View {
     }
 
     private var hasMedia: Bool {
-        selectedImageData != nil || selectedVideoData != nil || (URL(string: mediaUrl.trimmingCharacters(in: .whitespaces))?.scheme?.hasPrefix("http") == true)
+        selectedImageData != nil ||
+        selectedVideoData != nil ||
+        selectedVideoPreviewURL != nil ||
+        (URL(string: mediaUrl.trimmingCharacters(in: .whitespaces))?.scheme?.hasPrefix("http") == true)
     }
 
     private var isSelectedVideo: Bool {
@@ -67,17 +70,18 @@ struct CreateStoryView: View {
         .onChange(of: photoItem) { _, newValue in
             Task { await loadPhoto(newValue) }
         }
-        .sheet(isPresented: $showsCamera) {
-            CameraCaptureView(mode: cameraMode) { result in
+        .sheet(item: $activeCameraMode) { mode in
+            CameraCaptureView(mode: mode) { result in
                 switch result {
                 case .photo(let image):
-                selectedImageData = image.cloudyStoryJPEGData()
+                    selectedImageData = image.cloudyStoryJPEGData()
                     selectedVideoData = nil
                     selectedVideoPreviewURL = nil
                 case .video(let url):
-                    selectedVideoData = try? Data(contentsOf: url)
                     selectedVideoPreviewURL = url
+                    selectedVideoData = nil
                     selectedImageData = nil
+                    Task { await prepareVideoData(from: url) }
                 }
                 mediaUrl = ""
             }
@@ -153,8 +157,7 @@ struct CreateStoryView: View {
             VStack(spacing: 12) {
                 if UIImagePickerController.isSourceTypeAvailable(.camera) {
                     Button {
-                        cameraMode = .photo
-                        showsCamera = true
+                        activeCameraMode = .photo
                     } label: {
                         HStack {
                             Image(systemName: "camera.fill")
@@ -169,8 +172,7 @@ struct CreateStoryView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        cameraMode = .video
-                        showsCamera = true
+                        activeCameraMode = .video
                     } label: {
                         HStack {
                             Image(systemName: "video.fill")
@@ -307,7 +309,7 @@ struct CreateStoryView: View {
                             Circle()
                                 .fill(Theme.Gradients.honeyCTA)
                                 .frame(width: 52, height: 52)
-                            if isSending {
+                            if isSending || isPreparingVideo {
                                 ProgressView()
                                     .tint(Theme.Palette.ink)
                             } else {
@@ -317,7 +319,7 @@ struct CreateStoryView: View {
                             }
                         }
                     }
-                    .disabled(isSending)
+                    .disabled(isSending || isPreparingVideo)
                 }
                 .background(Color.white.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -347,7 +349,12 @@ struct CreateStoryView: View {
 
     private func send() async {
         let typedUrl = mediaUrl.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !typedUrl.isEmpty || selectedImageData != nil || selectedVideoData != nil else { return }
+        guard !typedUrl.isEmpty || selectedImageData != nil || selectedVideoData != nil else {
+            if selectedVideoPreviewURL != nil {
+                error = "Sto preparando il video. Riprova tra un istante."
+            }
+            return
+        }
         isSending = true
         error = nil
         defer { isSending = false }
@@ -418,6 +425,19 @@ struct CreateStoryView: View {
         }
     }
 
+    private func prepareVideoData(from url: URL) async {
+        isPreparingVideo = true
+        defer { isPreparingVideo = false }
+        let data = await Task.detached(priority: .userInitiated) {
+            try? Data(contentsOf: url)
+        }.value
+        if let data {
+            selectedVideoData = data
+        } else {
+            error = "Impossibile leggere il video registrato."
+        }
+    }
+
     private var storyCaption: String? {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -481,9 +501,11 @@ private extension UIImage {
 
 // MARK: - Camera capture
 
-private enum StoryCameraMode {
+private enum StoryCameraMode: String, Identifiable {
     case photo
     case video
+
+    var id: String { rawValue }
 }
 
 private enum StoryCameraCaptureResult {
@@ -499,11 +521,15 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .camera
-        picker.mediaTypes = mode == .video
-            ? [UTType.movie.identifier]
-            : [UTType.image.identifier]
-        picker.cameraCaptureMode = mode == .video ? .video : .photo
-        picker.videoQuality = .typeHigh
+        let availableMediaTypes = UIImagePickerController.availableMediaTypes(for: .camera) ?? []
+        let requestedType = mode == .video ? UTType.movie.identifier : UTType.image.identifier
+        let resolvedType = availableMediaTypes.contains(requestedType)
+            ? requestedType
+            : (availableMediaTypes.first ?? UTType.image.identifier)
+        picker.mediaTypes = [resolvedType]
+        picker.cameraCaptureMode = resolvedType == UTType.movie.identifier ? .video : .photo
+        picker.cameraDevice = .rear
+        picker.videoQuality = .typeMedium
         picker.videoMaximumDuration = 15
         picker.delegate = context.coordinator
         return picker

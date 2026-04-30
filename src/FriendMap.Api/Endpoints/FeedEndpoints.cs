@@ -30,7 +30,6 @@ public static class FeedEndpoints
         AppDbContext db,
         AffluenceAggregationService affluence,
         SignedDeepLinkService links,
-        FeedReentryService reentry,
         IOptions<FeedOptions> feedOptions,
         MediaStorageService mediaStorage,
         ClaimsPrincipal user,
@@ -72,6 +71,8 @@ public static class FeedEndpoints
         var fatigueMap = fatigue.ToDictionary(x => x.CardKey, x => x);
 
         var items = new List<FeedServerItemDto>();
+        // Keep feed refresh read-only and cheap: signed/share links are minted by
+        // POST /api/feed/links only when the user actually shares or opens a card.
 
         foreach (var venue in venues)
         {
@@ -96,8 +97,8 @@ public static class FeedEndpoints
                 $"{venue.PartyPulse.EnergyScore}% energia · dato aggregato",
                 "Dato aggregato, nessuna posizione precisa.",
                 "server_feed:venue_heat",
-                await links.CreateAsync("venue", venue.VenueId, currentUserId, TimeSpan.FromHours(4), ct: ct),
-                await links.CreateAsync("venue", venue.VenueId, currentUserId, TimeSpan.FromHours(12), maxUses: 100, ct: ct)));
+                links.BuildUnsignedFallback("venue", venue.VenueId),
+                null));
 
             if (venue.IntentRadar.GoingOut + venue.IntentRadar.AlmostThere >= 3)
             {
@@ -113,7 +114,7 @@ public static class FeedEndpoints
                     $"Tra poco movimento a {venue.Name}",
                     "Mostrato in modalita fuzzy in base alle impostazioni privacy.",
                     "server_feed:intent_radar",
-                    await links.CreateAsync("venue", venue.VenueId, currentUserId, TimeSpan.FromHours(4), ct: ct),
+                    links.BuildUnsignedFallback("venue", venue.VenueId),
                     null));
             }
         }
@@ -133,8 +134,8 @@ public static class FeedEndpoints
                 $"{table.AcceptedCount}/{table.Capacity} posti · {table.VenueName}",
                 "Mostrato perche il tavolo e visibile a te.",
                 "server_feed:tables",
-                await links.CreateAsync("table", table.TableId, currentUserId, TimeSpan.FromHours(6), ct: ct),
-                await links.CreateAsync("table", table.TableId, currentUserId, TimeSpan.FromHours(12), maxUses: 60, ct: ct)));
+                links.BuildUnsignedFallback("table", table.TableId),
+                null));
         }
 
         foreach (var flare in flares)
@@ -152,16 +153,14 @@ public static class FeedEndpoints
                 flare.Message,
                 "Flare mostrato in zona, senza coordinate utente precise.",
                 "server_feed:flares",
-                await links.CreateAsync("flare", flare.FlareId, currentUserId, TimeSpan.FromMinutes(Math.Max(10, minutesLeft)), ct: ct),
-                await links.CreateAsync("flare", flare.FlareId, currentUserId, TimeSpan.FromMinutes(Math.Max(10, minutesLeft)), maxUses: 30, ct: ct)));
+                links.BuildUnsignedFallback("flare", flare.FlareId),
+                null));
         }
 
         var ranked = items
             .OrderByDescending(x => x.Score)
             .Take(Math.Clamp(feedOptions.Value.FeedTake, 12, 80))
             .ToList();
-
-        await reentry.QueueForUserAsync(currentUserId, venues, flares, tables, ct);
 
         return Results.Ok(new FeedResponseDto(
             ranked,

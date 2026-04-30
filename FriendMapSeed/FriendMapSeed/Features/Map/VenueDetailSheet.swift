@@ -670,18 +670,25 @@ private struct VenueRatingCard: View {
                 }
                 .disabled(isSubmitting)
 
-                if !reviews.isEmpty {
-                    Divider()
-                        .overlay(Theme.Palette.hairline)
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("Recensioni")
-                                .font(Theme.Font.title(15, weight: .heavy))
-                            Spacer()
-                            Text("\(reviews.count)")
-                                .font(Theme.Font.caption(11, weight: .heavy))
-                                .foregroundStyle(Theme.Palette.inkMuted)
-                        }
+                Divider()
+                    .overlay(Theme.Palette.hairline)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Recensioni degli utenti")
+                            .font(Theme.Font.title(15, weight: .heavy))
+                        Spacer()
+                        Text("\(reviews.count)")
+                            .font(Theme.Font.caption(11, weight: .heavy))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                    }
+                    if reviews.isEmpty {
+                        Text("Ancora nessuna recensione pubblica. Le prime recensioni verificate compariranno qui.")
+                            .font(Theme.Font.caption(12, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    } else {
                         ForEach(reviews.prefix(4)) { review in
                             VenueRatingReviewRow(review: review, onReport: { onReport(review) })
                         }

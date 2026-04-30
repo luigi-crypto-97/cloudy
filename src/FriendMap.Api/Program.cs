@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -14,6 +15,10 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseWebRoot("wwwroot");
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024;
+});
 
 builder.Host.UseSerilog((context, configuration) =>
 {
@@ -57,6 +62,10 @@ builder.Services.Configure<FeedOptions>(builder.Configuration.GetSection("Feed")
 builder.Services.Configure<FoursquareOptions>(builder.Configuration.GetSection("Foursquare"));
 builder.Services.Configure<OverpassOptions>(builder.Configuration.GetSection("Overpass"));
 builder.Services.Configure<MediaStorageOptions>(builder.Configuration.GetSection("MediaStorage"));
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024;
+});
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =

@@ -51,8 +51,8 @@ final class APIClient {
         self.baseURL = URL(string: "https://api.iron-quote.it")!
 
         let cfg = URLSessionConfiguration.default
-        cfg.timeoutIntervalForRequest = 15
-        cfg.timeoutIntervalForResource = 30
+        cfg.timeoutIntervalForRequest = 30
+        cfg.timeoutIntervalForResource = 180
         cfg.waitsForConnectivity = false
         self.session = URLSession(configuration: cfg)
 
@@ -144,6 +144,7 @@ final class APIClient {
         let boundary = "Boundary-\(UUID().uuidString)"
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
+        req.timeoutInterval = data.count > 12 * 1024 * 1024 ? 180 : 45
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if let token = bearerToken, !token.isEmpty {
