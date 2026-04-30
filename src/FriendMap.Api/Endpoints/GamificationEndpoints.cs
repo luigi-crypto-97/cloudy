@@ -21,6 +21,7 @@ public static class GamificationEndpoints
     private static async Task<IResult> GetMyGamificationAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        AdminOpsStateService adminOps,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -37,7 +38,7 @@ public static class GamificationEndpoints
             .OrderByDescending(x => x.EarnedAtUtc)
             .Select(x => new UserBadgeDto(x.BadgeCode, BadgeTitle(x.BadgeCode), x.EarnedAtUtc))
             .ToListAsync(ct);
-        var missions = await BuildWeeklyMissionsAsync(db, currentUserId, now, ct);
+        var missions = await BuildWeeklyMissionsAsync(db, currentUserId, now, adminOps, ct);
 
         return Results.Ok(new GamificationSummaryDto(
             score.TotalPoints,
@@ -116,6 +117,7 @@ public static class GamificationEndpoints
     private static async Task<IResult> GetWeeklyMissionsAsync(
         ClaimsPrincipal user,
         AppDbContext db,
+        AdminOpsStateService adminOps,
         CancellationToken ct)
     {
         var currentUserId = CurrentUser.GetUserId(user);
@@ -124,7 +126,7 @@ public static class GamificationEndpoints
             return Results.Forbid();
         }
 
-        return Results.Ok(await BuildWeeklyMissionsAsync(db, currentUserId, DateTimeOffset.UtcNow, ct));
+        return Results.Ok(await BuildWeeklyMissionsAsync(db, currentUserId, DateTimeOffset.UtcNow, adminOps, ct));
     }
 
     private static async Task<IResult> CheckAchievementsAsync(
@@ -184,6 +186,7 @@ public static class GamificationEndpoints
         AppDbContext db,
         Guid userId,
         DateTimeOffset now,
+        AdminOpsStateService adminOps,
         CancellationToken ct)
     {
         var weekStart = WeekStart(now);
@@ -215,13 +218,53 @@ public static class GamificationEndpoints
             .AsNoTracking()
             .CountAsync(x => x.UserId == userId && x.IsVerifiedVisit && !x.IsFlagged && x.CreatedAtUtc >= weekStart, ct);
 
-        return new List<WeeklyMissionDto>
+        var flareRelays = await db.FlareRelayAudits
+            .AsNoTracking()
+            .CountAsync(x => x.SenderUserId == userId && x.CreatedAtUtc >= weekStart, ct);
+
+        var invitedFriends = await db.FriendRelations
+            .AsNoTracking()
+            .CountAsync(x => x.RequesterId == userId && x.CreatedAtUtc >= weekStart, ct);
+
+        var metricProgress = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["check_in"] = distinctVenues,
+            ["venue_story"] = storyCount,
+            ["verified_rating"] = verifiedRatings,
+            ["table_join"] = hostedTables + joinedTables,
+            ["flare_relay"] = flareRelays,
+            ["invite_friend"] = invitedFriends
+        };
+
+        var missions = new List<WeeklyMissionDto>
         {
             Mission("weekly_explorer", "Giro nuovo", "Visita 3 locali diversi questa settimana", "mappin.and.ellipse", distinctVenues, 3, 120),
             Mission("weekly_story", "Racconta la serata", "Posta 2 stories taggate a un locale", "camera.fill", storyCount, 2, 100),
             Mission("weekly_group", "Muovi il gruppo", "Crea un tavolo o dichiara 2 intenzioni", "person.3.fill", hostedTables + joinedTables + intentionCount, 2, 150),
             Mission("weekly_reviewer", "Occhio locale", "Valuta 3 locali che hai davvero vissuto", "star.fill", verifiedRatings, 3, 90)
         };
+
+        foreach (var adventure in adminOps.GetAdventures().Where(x => x.IsActive))
+        {
+            foreach (var objective in adventure.Objectives.Where(x => x.IsActive))
+            {
+                var progress = metricProgress.GetValueOrDefault(objective.MetricKey);
+                missions.Add(Mission(
+                    $"admin_{adventure.Id:N}_{objective.Id:N}",
+                    objective.Title,
+                    $"{adventure.Title} · {MetricLabel(objective.MetricKey)}",
+                    MetricIcon(objective.MetricKey),
+                    progress,
+                    objective.Target,
+                    objective.RewardPoints));
+            }
+        }
+
+        return missions
+            .OrderBy(x => x.IsCompleted)
+            .ThenByDescending(x => x.RewardPoints)
+            .Take(12)
+            .ToList();
     }
 
     private static WeeklyMissionDto Mission(string code, string title, string subtitle, string icon, int progress, int target, int points)
@@ -229,6 +272,26 @@ public static class GamificationEndpoints
         var clamped = Math.Clamp(progress, 0, target);
         return new WeeklyMissionDto(code, title, subtitle, icon, clamped, target, points, clamped >= target);
     }
+
+    private static string MetricIcon(string metricKey) => metricKey switch
+    {
+        "venue_story" => "camera.fill",
+        "verified_rating" => "star.fill",
+        "table_join" => "person.3.fill",
+        "flare_relay" => "flame.fill",
+        "invite_friend" => "person.badge.plus",
+        _ => "mappin.and.ellipse"
+    };
+
+    private static string MetricLabel(string metricKey) => metricKey switch
+    {
+        "venue_story" => "stories nei locali",
+        "verified_rating" => "recensioni verificate",
+        "table_join" => "tavoli sociali",
+        "flare_relay" => "flare rilanciati",
+        "invite_friend" => "inviti amici",
+        _ => "visite locali"
+    };
 
     private static async Task<UserScoreSnapshot> BuildUserScoreAsync(
         AppDbContext db,
