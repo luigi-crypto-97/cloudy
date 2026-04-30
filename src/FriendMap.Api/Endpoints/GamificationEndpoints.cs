@@ -47,7 +47,7 @@ public static class GamificationEndpoints
             score.PrimaryCity,
             badges,
             missions,
-            "Punti calcolati da azioni sociali reali con cap anti-spam giornalieri: check-in, intenzioni, stories, tavoli, flare, commenti, like ricevuti e nuove connessioni."));
+            "Punti calcolati da azioni sociali reali con cap anti-spam giornalieri: check-in, intenzioni, stories, tavoli, flare, commenti, like ricevuti, valutazioni verificate e nuove connessioni. Le valutazioni segnalate come false tolgono punti."));
     }
 
     private static async Task<IResult> GetLeaderboardAsync(
@@ -155,6 +155,7 @@ public static class GamificationEndpoints
         Award("social_spark", score.Comments >= 5 || score.LikesReceived >= 10);
         Award("flare_starter", score.FlaresLaunched >= 3);
         Award("connector_5", score.AcceptedFriends >= 5);
+        Award("trusted_reviewer", score.VerifiedRatings >= 3);
         Award("weekly_heat", score.WeeklyPoints >= 250);
 
         if (newAchievements.Count > 0)
@@ -210,11 +211,16 @@ public static class GamificationEndpoints
             .AsNoTracking()
             .CountAsync(x => x.UserId == userId && x.Status == "accepted" && x.CreatedAtUtc >= weekStart, ct);
 
+        var verifiedRatings = await db.VenueRatings
+            .AsNoTracking()
+            .CountAsync(x => x.UserId == userId && x.IsVerifiedVisit && !x.IsFlagged && x.CreatedAtUtc >= weekStart, ct);
+
         return new List<WeeklyMissionDto>
         {
             Mission("weekly_explorer", "Giro nuovo", "Visita 3 locali diversi questa settimana", "mappin.and.ellipse", distinctVenues, 3, 120),
             Mission("weekly_story", "Racconta la serata", "Posta 2 stories taggate a un locale", "camera.fill", storyCount, 2, 100),
-            Mission("weekly_group", "Muovi il gruppo", "Crea un tavolo o dichiara 2 intenzioni", "person.3.fill", hostedTables + joinedTables + intentionCount, 2, 150)
+            Mission("weekly_group", "Muovi il gruppo", "Crea un tavolo o dichiara 2 intenzioni", "person.3.fill", hostedTables + joinedTables + intentionCount, 2, 150),
+            Mission("weekly_reviewer", "Occhio locale", "Valuta 3 locali che hai davvero vissuto", "star.fill", verifiedRatings, 3, 90)
         };
     }
 
@@ -306,6 +312,20 @@ public static class GamificationEndpoints
             .ToListAsync(ct);
         acceptedFriendEvents = ApplyScope(acceptedFriendEvents, scope);
 
+        var verifiedRatings = await db.VenueRatings
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.IsVerifiedVisit && !x.IsFlagged)
+            .Join(db.Venues.AsNoTracking(), r => r.VenueId, v => v.Id, (r, v) => new ScoredVenueEvent(r.CreatedAtUtc, v.Id, v.City))
+            .ToListAsync(ct);
+        verifiedRatings = ApplyScope(verifiedRatings, scope);
+
+        var flaggedRatings = await db.VenueRatings
+            .AsNoTracking()
+            .Where(x => x.UserId == userId && x.IsFlagged)
+            .Select(x => new ScoredVenueEvent(x.FlaggedAtUtc ?? x.UpdatedAtUtc ?? x.CreatedAtUtc, x.VenueId, null))
+            .ToListAsync(ct);
+        flaggedRatings = ApplyScope(flaggedRatings, scope);
+
         var totalPoints =
             CappedDailyPoints(checkIns, 10, 5) +
             CappedDailyPoints(intentions, 6, 5) +
@@ -315,8 +335,10 @@ public static class GamificationEndpoints
             CappedDailyPoints(flaresLaunched, 8, 4) +
             CappedDailyPoints(comments, 4, 12) +
             CappedDailyPoints(likesReceived, 2, 30) +
+            CappedDailyPoints(verifiedRatings, 7, 5) +
             CappedDailyPoints(acceptedFriendEvents, 25, 5) +
-            Math.Min(flareResponses, 20) * 5;
+            Math.Min(flareResponses, 20) * 5 -
+            Math.Min(flaggedRatings.Count, 10) * 30;
 
         var weeklyPoints =
             CappedDailyPoints(checkIns.Where(x => x.CreatedAtUtc >= weekStart), 10, 5) +
@@ -327,8 +349,13 @@ public static class GamificationEndpoints
             CappedDailyPoints(flaresLaunched.Where(x => x.CreatedAtUtc >= weekStart), 8, 4) +
             CappedDailyPoints(comments.Where(x => x.CreatedAtUtc >= weekStart), 4, 12) +
             CappedDailyPoints(likesReceived.Where(x => x.CreatedAtUtc >= weekStart), 2, 30) +
+            CappedDailyPoints(verifiedRatings.Where(x => x.CreatedAtUtc >= weekStart), 7, 5) +
             CappedDailyPoints(acceptedFriendEvents.Where(x => x.CreatedAtUtc >= weekStart), 25, 5) +
-            Math.Min(weeklyFlareResponses, 10) * 5;
+            Math.Min(weeklyFlareResponses, 10) * 5 -
+            Math.Min(flaggedRatings.Count(x => x.CreatedAtUtc >= weekStart), 10) * 30;
+
+        totalPoints = Math.Max(0, totalPoints);
+        weeklyPoints = Math.Max(0, weeklyPoints);
 
         var level = Math.Max(1, (totalPoints / 250) + 1);
         var progress = (totalPoints % 250) / 250.0;
@@ -359,7 +386,9 @@ public static class GamificationEndpoints
             comments.Count,
             likesReceived.Count,
             flaresLaunched.Count,
-            acceptedFriendEvents.Count);
+            acceptedFriendEvents.Count,
+            verifiedRatings.Count,
+            flaggedRatings.Count);
     }
 
     private static List<ScoredVenueEvent> ApplyScope(List<ScoredVenueEvent> events, GamificationScope? scope)
@@ -399,6 +428,7 @@ public static class GamificationEndpoints
         "social_spark" => "Conversazione viva",
         "flare_starter" => "Flare starter",
         "connector_5" => "Connettore",
+        "trusted_reviewer" => "Occhio locale",
         "weekly_heat" => "Settimana calda",
         "checkin_10" => "10 check-in",
         "first_host" => "Primo tavolo",
@@ -425,7 +455,9 @@ public static class GamificationEndpoints
         int Comments,
         int LikesReceived,
         int FlaresLaunched,
-        int AcceptedFriends);
+        int AcceptedFriends,
+        int VerifiedRatings,
+        int FlaggedRatings);
 }
 
 public record GamificationSummaryDto(

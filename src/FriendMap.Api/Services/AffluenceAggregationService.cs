@@ -17,17 +17,21 @@ public class AffluenceAggregationService
     private readonly IMemoryCache _cache;
     private readonly PrivacyOptions _privacy;
     private readonly MediaStorageService _mediaStorage;
+    private readonly bool _demoSignalsEnabled;
 
     public AffluenceAggregationService(
         AppDbContext db,
         IMemoryCache cache,
         IOptions<PrivacyOptions> privacy,
-        MediaStorageService mediaStorage)
+        MediaStorageService mediaStorage,
+        IHostEnvironment environment)
     {
         _db = db;
         _cache = cache;
         _privacy = privacy.Value;
         _mediaStorage = mediaStorage;
+        _demoSignalsEnabled = environment.IsDevelopment() ||
+            string.Equals(Environment.GetEnvironmentVariable("Cloudy__DemoSignals"), "true", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<List<VenueMapMarkerDto>> GetVenueMarkersAsync(
@@ -121,6 +125,26 @@ public class AffluenceAggregationService
         var snapshotsByVenue = recentSnapshots
             .GroupBy(x => x.VenueId)
             .ToDictionary(x => x.Key, x => x.ToList());
+
+        var ratingRows = await _db.VenueRatings
+            .AsNoTracking()
+            .Where(x => venueIds.Contains(x.VenueId) && !x.IsFlagged)
+            .GroupBy(x => x.VenueId)
+            .Select(g => new
+            {
+                VenueId = g.Key,
+                Average = g.Average(x => x.Stars),
+                Count = g.Count()
+            })
+            .ToListAsync(ct);
+        var ratingMap = ratingRows.ToDictionary(x => x.VenueId);
+
+        var myRatings = viewerUserId == Guid.Empty
+            ? new Dictionary<Guid, VenueRating>()
+            : await _db.VenueRatings
+                .AsNoTracking()
+                .Where(x => venueIds.Contains(x.VenueId) && x.UserId == viewerUserId)
+                .ToDictionaryAsync(x => x.VenueId, ct);
 
         var activeCheckIns = await _db.VenueCheckIns
             .AsNoTracking()
@@ -246,8 +270,6 @@ public class AffluenceAggregationService
         return venues.Select(venue =>
         {
             snapshotMap.TryGetValue(venue.Id, out var snap);
-            var peopleEstimate = snap?.ActiveUsersEstimated ?? 0;
-            var density = snap?.DensityLevel ?? "unknown";
             var venueCheckIns = activeCheckIns.Count(x => x.VenueId == venue.Id);
             var venueIntentions = activeIntentions.Count(x => x.VenueId == venue.Id);
             var venueTables = openTables.Count(x => x.VenueId == venue.Id);
@@ -256,6 +278,14 @@ public class AffluenceAggregationService
             snapshotsByVenue.TryGetValue(venue.Id, out var venueSnapshots);
             var pulse = BuildPartyPulse(venueCheckInRows, venueIntentionRows, venueTables, venueSnapshots ?? new List<VenueAffluenceSnapshot>(), now);
             var radar = BuildIntentRadar(venueCheckInRows, venueIntentionRows, now);
+            if (_demoSignalsEnabled)
+            {
+                (pulse, radar) = EnrichDemoSignalsIfEmpty(venue, pulse, radar, now);
+            }
+            ratingMap.TryGetValue(venue.Id, out var rating);
+            myRatings.TryGetValue(venue.Id, out var myRating);
+            var peopleEstimate = Math.Max(snap?.ActiveUsersEstimated ?? 0, _demoSignalsEnabled ? DemoPeopleEstimate(pulse) : 0);
+            var density = snap?.DensityLevel ?? ResolveDensityLevel(peopleEstimate);
 
             var previewUserIds = previewByVenue.TryGetValue(venue.Id, out var presentIds)
                 ? presentIds
@@ -300,7 +330,10 @@ public class AffluenceAggregationService
                             user.Nickname,
                             _mediaStorage.ResolveUrl(user.AvatarUrl));
                     })
-                    .ToList());
+                    .ToList(),
+                Math.Round(rating?.Average ?? 0, 1),
+                rating?.Count ?? 0,
+                myRating?.Stars);
         }).ToList();
     }
 
@@ -440,6 +473,17 @@ public class AffluenceAggregationService
             .ToList();
         var pulse = BuildPartyPulse(activeCheckIns, activeIntentions, tables.Count, recentPulseSnapshots, now);
         var radar = BuildIntentRadar(activeCheckIns, activeIntentions, now);
+        if (_demoSignalsEnabled)
+        {
+            (pulse, radar) = EnrichDemoSignalsIfEmpty(venue, pulse, radar, now);
+        }
+
+        var ratings = await _db.VenueRatings
+            .AsNoTracking()
+            .Where(x => x.VenueId == venueId && !x.IsFlagged)
+            .GroupBy(x => x.VenueId)
+            .Select(g => new { Average = g.Average(x => x.Stars), Count = g.Count() })
+            .FirstOrDefaultAsync(ct);
 
         object? ages = null;
         object? genders = null;
@@ -484,7 +528,9 @@ public class AffluenceAggregationService
                     t.Status);
             }),
             intentions,
-            trends);
+            trends,
+            Math.Round(ratings?.Average ?? 0, 1),
+            ratings?.Count ?? 0);
     }
 
     private static IReadOnlyList<string> ParseVenueTags(string? tagsCsv)
@@ -656,6 +702,66 @@ public class AffluenceAggregationService
             coolingDown,
             now,
             "aggregated");
+    }
+
+    private static (PartyPulseDto Pulse, IntentRadarDto Radar) EnrichDemoSignalsIfEmpty(
+        Venue venue,
+        PartyPulseDto pulse,
+        IntentRadarDto radar,
+        DateTimeOffset now)
+    {
+        if (pulse.EnergyScore > 0 || radar.GoingOut + radar.AlmostThere + radar.HereNow + radar.CoolingDown > 0)
+        {
+            return (pulse, radar);
+        }
+
+        var seed = Math.Abs(HashCode.Combine(venue.Id, now.UtcDateTime.Date, now.Hour));
+        var localHour = now.LocalDateTime.Hour;
+        var eveningBoost = localHour is >= 18 or <= 2 ? 18 : localHour is >= 12 and <= 15 ? 9 : 0;
+        var categoryBoost = venue.Category.ToLowerInvariant() switch
+        {
+            "club" or "discoteca" or "pub" or "casino" => 18,
+            "bar" or "cafe" or "caffè" => 12,
+            "restaurant" or "ristorante" => 10,
+            _ => 5
+        };
+        var baseEnergy = Math.Clamp(22 + categoryBoost + eveningBoost + seed % 28, 12, 76);
+        var goingOut = baseEnergy >= 52 ? 2 + seed % 4 : seed % 2;
+        var almostThere = baseEnergy >= 60 ? 1 + (seed / 7) % 3 : (seed / 5) % 2;
+        var hereNow = baseEnergy >= 68 ? 2 + (seed / 11) % 4 : (seed / 13) % 2;
+        var sparkline = Enumerable.Range(0, 5)
+            .Select(i => Math.Clamp(baseEnergy / 5 + i * Math.Max(1, baseEnergy / 22) + (seed + i * 7) % 5, 3, 26))
+            .ToList();
+        var mood = baseEnergy switch
+        {
+            >= 68 => "rising",
+            >= 48 => "alive",
+            >= 28 => "warming",
+            _ => "quiet"
+        };
+
+        return (
+            new PartyPulseDto(baseEnergy, mood, Math.Max(0, almostThere), hereNow, goingOut + almostThere, sparkline),
+            new IntentRadarDto(goingOut, almostThere, hereNow, 0, now, "aggregated_demo"));
+    }
+
+    private static int DemoPeopleEstimate(PartyPulseDto pulse)
+    {
+        if (pulse.EnergyScore <= 0) return 0;
+        return Math.Max(pulse.CheckInsNow + pulse.IntentionsSoon, pulse.EnergyScore / 9);
+    }
+
+    private static string ResolveDensityLevel(int peopleEstimate)
+    {
+        return peopleEstimate switch
+        {
+            <= 0 => "unknown",
+            < 5 => "very_low",
+            < 15 => "low",
+            < 30 => "medium",
+            < 60 => "high",
+            _ => "very_high"
+        };
     }
 
     private static List<int> BuildSparkline(IReadOnlyCollection<VenueAffluenceSnapshot> snapshots, DateTimeOffset now)

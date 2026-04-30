@@ -97,6 +97,116 @@ public static class VenueEndpoints
             return marker is null ? Results.NotFound() : Results.Ok(marker);
         });
 
+        group.MapGet("/{venueId:guid}/rating", async (
+            Guid venueId,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var viewerUserId = CurrentUser.GetUserId(user);
+            if (!await db.Venues.AsNoTracking().AnyAsync(x => x.Id == venueId, ct))
+            {
+                return Results.NotFound();
+            }
+
+            return Results.Ok(await BuildRatingSummaryAsync(db, venueId, viewerUserId, ct));
+        });
+
+        group.MapPost("/{venueId:guid}/rating", async (
+            Guid venueId,
+            RateVenueRequest request,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var userId = CurrentUser.GetUserId(user);
+            if (userId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            if (request.Stars is < 1 or > 5)
+            {
+                return Results.BadRequest("Scegli da 1 a 5 stelle.");
+            }
+
+            if (!await db.Venues.AsNoTracking().AnyAsync(x => x.Id == venueId, ct))
+            {
+                return Results.NotFound();
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var isVerified = await HasVerifiedVenueSignalAsync(db, venueId, userId, now, ct);
+            var comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim();
+            if (comment?.Length > 280)
+            {
+                comment = comment[..280];
+            }
+
+            var rating = await db.VenueRatings.FirstOrDefaultAsync(x => x.VenueId == venueId && x.UserId == userId, ct);
+            if (rating is null)
+            {
+                rating = new VenueRating
+                {
+                    VenueId = venueId,
+                    UserId = userId
+                };
+                db.VenueRatings.Add(rating);
+            }
+
+            rating.Stars = request.Stars;
+            rating.Comment = comment;
+            rating.IsVerifiedVisit = isVerified;
+            rating.IsFlagged = false;
+            rating.FlaggedAtUtc = null;
+            rating.FlagReason = null;
+            rating.UpdatedAtUtc = now;
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(await BuildRatingSummaryAsync(db, venueId, userId, ct));
+        }).RequireAuthorization();
+
+        group.MapPost("/{venueId:guid}/ratings/{ratingId:guid}/report", async (
+            Guid venueId,
+            Guid ratingId,
+            ReportVenueRatingRequest request,
+            ClaimsPrincipal user,
+            AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var reporterUserId = CurrentUser.GetUserId(user);
+            if (reporterUserId == Guid.Empty)
+            {
+                return Results.Forbid();
+            }
+
+            var rating = await db.VenueRatings.FirstOrDefaultAsync(x => x.Id == ratingId && x.VenueId == venueId, ct);
+            if (rating is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (rating.UserId == reporterUserId)
+            {
+                return Results.BadRequest("Non puoi segnalare una tua valutazione.");
+            }
+
+            rating.IsFlagged = true;
+            rating.FlaggedAtUtc = DateTimeOffset.UtcNow;
+            rating.FlagReason = string.IsNullOrWhiteSpace(request.ReasonCode) ? "fake_venue_rating" : request.ReasonCode.Trim();
+            db.ModerationReports.Add(new ModerationReport
+            {
+                ReporterUserId = reporterUserId,
+                ReportedUserId = rating.UserId,
+                ReportedVenueId = venueId,
+                ReasonCode = rating.FlagReason,
+                Details = string.IsNullOrWhiteSpace(request.Details) ? "Valutazione locale segnalata come non veritiera." : request.Details.Trim()
+            });
+            await db.SaveChangesAsync(ct);
+
+            return Results.Ok(new SocialActionResultDto("reported", "Valutazione segnalata. Se confermata, comporta perdita punti."));
+        }).RequireAuthorization();
+
         group.MapPost("/{venueId:guid}/intentions", async (
             Guid venueId,
             CreateIntentionRequest request,
@@ -205,5 +315,46 @@ public static class VenueEndpoints
         });
 
         return group;
+    }
+
+    private static async Task<VenueRatingSummaryDto> BuildRatingSummaryAsync(
+        AppDbContext db,
+        Guid venueId,
+        Guid viewerUserId,
+        CancellationToken ct)
+    {
+        var ratings = await db.VenueRatings
+            .AsNoTracking()
+            .Where(x => x.VenueId == venueId && !x.IsFlagged)
+            .ToListAsync(ct);
+        var myRating = viewerUserId == Guid.Empty
+            ? null
+            : ratings.FirstOrDefault(x => x.UserId == viewerUserId);
+
+        return new VenueRatingSummaryDto(
+            venueId,
+            ratings.Count == 0 ? 0 : Math.Round(ratings.Average(x => x.Stars), 1),
+            ratings.Count,
+            myRating?.Stars,
+            myRating?.Id,
+            myRating?.IsVerifiedVisit == true,
+            myRating?.IsVerifiedVisit == true && myRating?.IsFlagged != true);
+    }
+
+    private static async Task<bool> HasVerifiedVenueSignalAsync(
+        AppDbContext db,
+        Guid venueId,
+        Guid userId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var since = now.AddDays(-14);
+        return await db.VenueCheckIns.AsNoTracking().AnyAsync(x => x.VenueId == venueId && x.UserId == userId && x.CreatedAtUtc >= since, ct)
+            || await db.VenueIntentions.AsNoTracking().AnyAsync(x => x.VenueId == venueId && x.UserId == userId && x.CreatedAtUtc >= since, ct)
+            || await db.UserStories.AsNoTracking().AnyAsync(x => x.VenueId == venueId && x.UserId == userId && x.CreatedAtUtc >= since, ct)
+            || await db.SocialTables.AsNoTracking().AnyAsync(x => x.VenueId == venueId && x.HostUserId == userId && x.CreatedAtUtc >= since, ct)
+            || await db.SocialTableParticipants.AsNoTracking()
+                .Join(db.SocialTables.AsNoTracking(), p => p.SocialTableId, t => t.Id, (p, t) => new { Participant = p, Table = t })
+                .AnyAsync(x => x.Table.VenueId == venueId && x.Participant.UserId == userId && x.Participant.Status == "accepted" && x.Participant.CreatedAtUtc >= since, ct);
     }
 }

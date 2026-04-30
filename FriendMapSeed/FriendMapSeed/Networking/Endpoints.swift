@@ -74,6 +74,24 @@ enum API {
         try await APIClient.shared.get("/api/venues/\(venueId.uuidString.lowercased())/marker")
     }
 
+    static func venueRating(venueId: UUID) async throws -> VenueRatingSummary {
+        try await APIClient.shared.get("/api/venues/\(venueId.uuidString.lowercased())/rating")
+    }
+
+    static func rateVenue(venueId: UUID, stars: Int, comment: String? = nil) async throws -> VenueRatingSummary {
+        try await APIClient.shared.post(
+            "/api/venues/\(venueId.uuidString.lowercased())/rating",
+            body: RateVenueRequest(stars: stars, comment: comment)
+        )
+    }
+
+    static func reportVenueRating(venueId: UUID, ratingId: UUID, reasonCode: String = "fake_venue_rating", details: String? = nil) async throws -> SocialActionResult {
+        try await APIClient.shared.post(
+            "/api/venues/\(venueId.uuidString.lowercased())/ratings/\(ratingId.uuidString.lowercased())/report",
+            body: ReportVenueRatingRequest(reasonCode: reasonCode, details: details)
+        )
+    }
+
     // MARK: - Feed
 
     static func feed(latitude: Double? = nil, longitude: Double? = nil) async throws -> FeedServerResponse {

@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<FeedCardFatigue> FeedCardFatigues => Set<FeedCardFatigue>();
     public DbSet<FlareRelayAudit> FlareRelayAudits => Set<FlareRelayAudit>();
     public DbSet<FeedReentryNotificationState> FeedReentryNotificationStates => Set<FeedReentryNotificationState>();
+    public DbSet<VenueRating> VenueRatings => Set<VenueRating>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,6 +71,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FeedCardFatigue>().ToTable("feed_card_fatigues");
         modelBuilder.Entity<FlareRelayAudit>().ToTable("flare_relay_audits");
         modelBuilder.Entity<FeedReentryNotificationState>().ToTable("feed_reentry_notification_states");
+        modelBuilder.Entity<VenueRating>().ToTable("venue_ratings");
 
         modelBuilder.Entity<UserStory>()
             .HasOne<AppUser>()
@@ -137,6 +139,25 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Venue>()
             .HasIndex(x => x.Location)
             .HasMethod("GIST");
+
+        modelBuilder.Entity<VenueRating>()
+            .HasOne<Venue>()
+            .WithMany()
+            .HasForeignKey(x => x.VenueId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VenueRating>()
+            .HasOne<AppUser>()
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<VenueRating>()
+            .HasIndex(x => new { x.VenueId, x.UserId })
+            .IsUnique();
+
+        modelBuilder.Entity<VenueRating>()
+            .HasIndex(x => new { x.UserId, x.CreatedAtUtc });
 
         modelBuilder.Entity<FriendRelation>()
             .HasOne<AppUser>()

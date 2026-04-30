@@ -284,6 +284,67 @@ public sealed class SocialFlowsTests : IClassFixture<ApiTestFactory>
         Assert.Equal(1, tableResult.AcceptedCount);
     }
 
+    [Fact]
+    public async Task PartyPulseIntentRadarAndVenueRatings_AreAggregatedAndPrivacySafe()
+    {
+        var token = await LoginAsync("giulia", "Giulia Test");
+        var reporter = await LoginAsync("marco", "Marco Test");
+
+        using var venueDetails = Authorized(HttpMethod.Get, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}", token.AccessToken);
+        using var venueDetailsResponse = await _client.SendAsync(venueDetails);
+        using var venueDetailsJson = await ReadJsonDocumentAsync(venueDetailsResponse);
+        Assert.True(venueDetailsJson.RootElement.GetProperty("partyPulse").GetProperty("energyScore").GetInt32() > 0);
+        Assert.NotEmpty(venueDetailsJson.RootElement.GetProperty("partyPulse").GetProperty("sparkline").EnumerateArray());
+        Assert.False(string.IsNullOrWhiteSpace(venueDetailsJson.RootElement.GetProperty("intentRadar").GetProperty("privacyLevel").GetString()));
+
+        using var invalidRating = Authorized(HttpMethod.Post, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/rating", token.AccessToken);
+        invalidRating.Content = JsonContent.Create(new { Stars = 6, Comment = "troppo" });
+        using var invalidRatingResponse = await _client.SendAsync(invalidRating);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRatingResponse.StatusCode);
+
+        using var checkIn = Authorized(HttpMethod.Post, "/api/social/check-ins", token.AccessToken);
+        checkIn.Content = JsonContent.Create(new
+        {
+            UserId = token.User.UserId,
+            VenueId = DevelopmentDataSeeder.BreraVenueId,
+            TtlMinutes = 60
+        });
+        using var checkInResponse = await _client.SendAsync(checkIn);
+        Assert.Equal(HttpStatusCode.Created, checkInResponse.StatusCode);
+
+        using var rating = Authorized(HttpMethod.Post, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/rating", token.AccessToken);
+        rating.Content = JsonContent.Create(new { Stars = 5, Comment = "Serata reale, bel mood" });
+        using var ratingResponse = await _client.SendAsync(rating);
+        using var ratingJson = await ReadJsonDocumentAsync(ratingResponse);
+        Assert.Equal(5, ratingJson.RootElement.GetProperty("myRating").GetInt32());
+        Assert.True(ratingJson.RootElement.GetProperty("myRatingIsVerified").GetBoolean());
+        Assert.True(ratingJson.RootElement.GetProperty("myRatingEarnsPoints").GetBoolean());
+        var ratingId = ratingJson.RootElement.GetProperty("myRatingId").GetGuid();
+
+        using var gamification = Authorized(HttpMethod.Get, "/api/gamification/me", token.AccessToken);
+        using var gamificationResponse = await _client.SendAsync(gamification);
+        using var gamificationJson = await ReadJsonDocumentAsync(gamificationResponse);
+        Assert.Contains(
+            gamificationJson.RootElement.GetProperty("weeklyMissions").EnumerateArray(),
+            mission => mission.GetProperty("code").GetString() == "weekly_reviewer");
+
+        using var reportOwn = Authorized(HttpMethod.Post, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/ratings/{ratingId}/report", token.AccessToken);
+        reportOwn.Content = JsonContent.Create(new { ReasonCode = "fake_venue_rating", Details = "self report" });
+        using var reportOwnResponse = await _client.SendAsync(reportOwn);
+        Assert.Equal(HttpStatusCode.BadRequest, reportOwnResponse.StatusCode);
+
+        using var report = Authorized(HttpMethod.Post, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/ratings/{ratingId}/report", reporter.AccessToken);
+        report.Content = JsonContent.Create(new { ReasonCode = "fake_venue_rating", Details = "test moderation" });
+        using var reportResponse = await _client.SendAsync(report);
+        var reportResult = await ReadJsonAsync<ActionDto>(reportResponse);
+        Assert.Equal("reported", reportResult.Status);
+
+        using var afterReport = Authorized(HttpMethod.Get, $"/api/venues/{DevelopmentDataSeeder.BreraVenueId}/rating", token.AccessToken);
+        using var afterReportResponse = await _client.SendAsync(afterReport);
+        using var afterReportJson = await ReadJsonDocumentAsync(afterReportResponse);
+        Assert.Equal(0, afterReportJson.RootElement.GetProperty("ratingCount").GetInt32());
+    }
+
     private async Task<LoginDto> LoginAsync(string nickname, string displayName)
     {
         using var response = await _client.PostAsJsonAsync("/api/auth/dev-login", new { Nickname = nickname, DisplayName = displayName });
@@ -312,6 +373,13 @@ public sealed class SocialFlowsTests : IClassFixture<ApiTestFactory>
         Assert.True(response.IsSuccessStatusCode, $"Expected success but got {(int)response.StatusCode}: {body}");
         return JsonSerializer.Deserialize<T>(body, JsonOptions)
             ?? throw new InvalidOperationException($"Unable to deserialize {typeof(T).Name}: {body}");
+    }
+
+    private static async Task<JsonDocument> ReadJsonDocumentAsync(HttpResponseMessage response)
+    {
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.IsSuccessStatusCode, $"Expected success but got {(int)response.StatusCode}: {body}");
+        return JsonDocument.Parse(body);
     }
 
     private sealed record LoginDto(string AccessToken, DateTimeOffset ExpiresAtUtc, AuthUserDto User);

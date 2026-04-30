@@ -16,6 +16,8 @@ struct VenueDetailSheet: View {
     @State private var showsVenueChat = false
     @State private var venueStories: [VenueStory] = []
     @State private var selectedStoryRoute: VenueStoryViewerRoute?
+    @State private var ratingSummary: VenueRatingSummary?
+    @State private var isSubmittingRating = false
 
     var body: some View {
         ScrollView {
@@ -64,6 +66,17 @@ struct VenueDetailSheet: View {
                         .font(Theme.Font.body())
                         .foregroundStyle(Theme.Palette.inkSoft)
                 }
+
+                VenueRatingCard(
+                    average: ratingSummary?.averageRating ?? venue.averageRating,
+                    count: ratingSummary?.ratingCount ?? venue.ratingCount,
+                    myRating: ratingSummary?.myRating ?? venue.myRating,
+                    isVerified: ratingSummary?.myRatingIsVerified ?? false,
+                    isSubmitting: isSubmittingRating,
+                    onRate: { stars in
+                        Task { await rateVenue(stars: stars) }
+                    }
+                )
 
                 // Density / stats
                 HStack(spacing: Theme.Spacing.md) {
@@ -250,6 +263,7 @@ struct VenueDetailSheet: View {
         }
         .task {
             await loadVenueStories()
+            await loadRating()
         }
     }
 
@@ -346,6 +360,28 @@ struct VenueDetailSheet: View {
                 .sorted { $0.createdAtUtc > $1.createdAtUtc }
         } catch {
             venueStories = []
+        }
+    }
+
+    private func loadRating() async {
+        ratingSummary = try? await API.venueRating(venueId: venue.venueId)
+    }
+
+    private func rateVenue(stars: Int) async {
+        isSubmittingRating = true
+        defer { isSubmittingRating = false }
+        do {
+            ratingSummary = try await API.rateVenue(venueId: venue.venueId, stars: stars)
+            Haptics.success()
+            if ratingSummary?.myRatingEarnsPoints == true {
+                actionMessage = "Valutazione salvata. Se verificata, vale punti classifica."
+            } else {
+                actionMessage = "Valutazione salvata. I punti si sbloccano dopo un check-in, una story o un piano reale qui."
+            }
+            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+        } catch {
+            Haptics.error()
+            actionMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -551,6 +587,70 @@ private struct IntentRadarCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(value > 0 ? Theme.Palette.blue50 : Theme.Palette.surfaceAlt)
         )
+    }
+}
+
+private struct VenueRatingCard: View {
+    let average: Double
+    let count: Int
+    let myRating: Int?
+    let isVerified: Bool
+    let isSubmitting: Bool
+    var onRate: (Int) -> Void
+
+    var body: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Stelle del locale")
+                            .font(Theme.Font.title(17, weight: .heavy))
+                        Text(subtitle)
+                            .font(Theme.Font.caption(11, weight: .semibold))
+                            .foregroundStyle(Theme.Palette.inkMuted)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(Theme.Palette.blue500)
+                        Text(average > 0 ? String(format: "%.1f", average) : "—")
+                            .font(Theme.Font.heroNumber(18).monospacedDigit())
+                            .foregroundStyle(Theme.Palette.ink)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    ForEach(1...5, id: \.self) { star in
+                        Button {
+                            guard !isSubmitting else { return }
+                            Haptics.tap()
+                            onRate(star)
+                        } label: {
+                            Image(systemName: star <= (myRating ?? 0) ? "star.fill" : "star")
+                                .font(.system(size: 25, weight: .heavy))
+                                .foregroundStyle(star <= (myRating ?? 0) ? Theme.Palette.blue500 : Theme.Palette.inkMuted.opacity(0.45))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Theme.Palette.surfaceAlt, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .disabled(isSubmitting)
+            }
+        }
+    }
+
+    private var subtitle: String {
+        if let myRating {
+            return isVerified
+                ? "La tua valutazione \(myRating)/5 è verificata e vale punti."
+                : "La tua valutazione è salvata. Serve un segnale reale qui per i punti."
+        }
+        if count > 0 {
+            return "\(count) valutazioni. Le recensioni false vengono segnalate e penalizzate."
+        }
+        return "Valuta solo locali che hai vissuto: le recensioni false fanno perdere punti."
     }
 }
 

@@ -72,6 +72,9 @@ struct VenueMarker: Codable, Hashable, Identifiable {
     let partyPulse: PartyPulse
     let intentRadar: IntentRadar
     let presencePreview: [PresencePreview]
+    let averageRating: Double
+    let ratingCount: Int
+    let myRating: Int?
 
     var id: UUID { venueId }
     var coordinate: CLLocationCoordinate2D {
@@ -103,6 +106,26 @@ struct PresencePreview: Codable, Hashable, Identifiable {
     let nickname: String
     let avatarUrl: String?
     var id: UUID { userId }
+}
+
+struct VenueRatingSummary: Codable, Hashable {
+    let venueId: UUID
+    let averageRating: Double
+    let ratingCount: Int
+    let myRating: Int?
+    let myRatingId: UUID?
+    let myRatingIsVerified: Bool
+    let myRatingEarnsPoints: Bool
+}
+
+struct RateVenueRequest: Codable {
+    let stars: Int
+    let comment: String?
+}
+
+struct ReportVenueRatingRequest: Codable {
+    let reasonCode: String
+    let details: String?
 }
 
 struct VenueMapArea: Codable, Hashable, Identifiable {

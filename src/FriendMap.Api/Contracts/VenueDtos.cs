@@ -32,7 +32,10 @@ public record VenueMapMarkerDto(
     int OpenTables,
     PartyPulseDto PartyPulse,
     IntentRadarDto IntentRadar,
-    IEnumerable<PresencePreviewDto> PresencePreview);
+    IEnumerable<PresencePreviewDto> PresencePreview,
+    double AverageRating,
+    int RatingCount,
+    int? MyRating);
 
 public record VenueMapAreaDto(
     string AreaId,
@@ -78,7 +81,9 @@ public record VenueDetailsDto(
     IntentRadarDto IntentRadar,
     IEnumerable<SocialTableDto> UpcomingTables,
     IEnumerable<IntentionCountDto> IntentionWindows,
-    IEnumerable<AffluenceTrendPointDto> AffluenceTrends);
+    IEnumerable<AffluenceTrendPointDto> AffluenceTrends,
+    double AverageRating,
+    int RatingCount);
 
 public record PartyPulseDto(
     int EnergyScore,
@@ -95,6 +100,23 @@ public record IntentRadarDto(
     int CoolingDown,
     DateTimeOffset UpdatedAtUtc,
     string PrivacyLevel);
+
+public record VenueRatingSummaryDto(
+    Guid VenueId,
+    double AverageRating,
+    int RatingCount,
+    int? MyRating,
+    Guid? MyRatingId,
+    bool MyRatingIsVerified,
+    bool MyRatingEarnsPoints);
+
+public record RateVenueRequest(
+    int Stars,
+    string? Comment);
+
+public record ReportVenueRatingRequest(
+    string ReasonCode,
+    string? Details);
 
 public record AdminVenueDto(
     Guid Id,

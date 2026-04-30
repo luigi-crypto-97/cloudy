@@ -385,7 +385,10 @@ enum FeedDemoFactory {
             ),
             presencePreview: [
                 PresencePreview(userId: friendId, displayName: "Gigi", nickname: "gigi", avatarUrl: nil)
-            ]
+            ],
+            averageRating: 4.6,
+            ratingCount: 42,
+            myRating: nil
         )
         let hub = SocialHub(
             friends: [

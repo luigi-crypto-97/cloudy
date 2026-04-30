@@ -32,6 +32,11 @@ struct MapView: View {
     @State private var selectedVenueStoryGroup: VenueStoryGroup?
     @State private var visibleRegion: MKCoordinateRegion = MapStore.milanDefault
     @State private var didCenterOnInitialLocation = false
+    @State private var hotVenueSuggestion: VenueMarker?
+    @State private var dismissedHotVenueIds: Set<UUID> = []
+    @State private var lastHotVenuePromptAt: Date?
+    @State private var hotVenueActionMessage: String?
+    @State private var isSubmittingHotVenueAction = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -69,6 +74,28 @@ struct MapView: View {
                     }
                     .padding(.trailing, Theme.Spacing.lg)
                     .padding(.bottom, 170)
+                }
+            }
+
+            VStack {
+                Spacer()
+                if let hotVenueSuggestion {
+                    HotVenuePromptCard(
+                        venue: hotVenueSuggestion,
+                        message: hotVenueActionMessage,
+                        isSubmitting: isSubmittingHotVenueAction,
+                        onGoing: { Task { await respondToHotVenue(hotVenueSuggestion, mode: .going) } },
+                        onMaybe: { Task { await respondToHotVenue(hotVenueSuggestion, mode: .maybe) } },
+                        onClose: { dismissHotVenueSuggestion(forSession: false) },
+                        onNotInterested: { dismissHotVenueSuggestion(forSession: true) },
+                        onOpen: {
+                            selectedVenue = hotVenueSuggestion
+                            dismissHotVenueSuggestion(forSession: false)
+                        }
+                    )
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, 186)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
@@ -128,6 +155,9 @@ struct MapView: View {
         .onChange(of: router.pendingVenue) { _, route in
             guard let route else { return }
             Task { await openVenueRoute(route) }
+        }
+        .onChange(of: store.markers) { _, _ in
+            considerHotVenueSuggestion()
         }
         .task(id: router.pendingVenue) {
             guard let route = router.pendingVenue else { return }
@@ -532,6 +562,87 @@ struct MapView: View {
         }
     }
 
+    private func considerHotVenueSuggestion() {
+        guard hotVenueSuggestion == nil, !store.usesAreaLayer, !store.markers.isEmpty else { return }
+        if let lastHotVenuePromptAt, Date().timeIntervalSince(lastHotVenuePromptAt) < 300 {
+            return
+        }
+
+        let candidate = store.markers
+            .filter { !dismissedHotVenueIds.contains($0.venueId) }
+            .filter { marker in
+                marker.partyPulse.energyScore >= 62 ||
+                    marker.intentRadar.goingOut + marker.intentRadar.almostThere >= 2 ||
+                    marker.partyPulse.arrivalsLast15 >= 2
+            }
+            .max { lhs, rhs in
+                hotVenueScore(lhs) < hotVenueScore(rhs)
+            }
+
+        guard let candidate else { return }
+        hotVenueSuggestion = candidate
+        hotVenueActionMessage = nil
+        lastHotVenuePromptAt = Date()
+    }
+
+    private func hotVenueScore(_ venue: VenueMarker) -> Int {
+        venue.partyPulse.energyScore
+            + (venue.intentRadar.goingOut * 10)
+            + (venue.intentRadar.almostThere * 12)
+            + (venue.partyPulse.arrivalsLast15 * 8)
+            + min(venue.ratingCount, 20)
+    }
+
+    private enum HotVenueIntentMode {
+        case going
+        case maybe
+    }
+
+    private func respondToHotVenue(_ venue: VenueMarker, mode: HotVenueIntentMode) async {
+        guard let userId = authUserId else {
+            selectedVenue = venue
+            dismissHotVenueSuggestion(forSession: false)
+            return
+        }
+
+        isSubmittingHotVenueAction = true
+        defer { isSubmittingHotVenueAction = false }
+
+        let now = Date()
+        let startsAt = mode == .going ? now.addingTimeInterval(20 * 60) : now.addingTimeInterval(60 * 60)
+        let endsAt = startsAt.addingTimeInterval(3 * 60 * 60)
+        let note = mode == .going ? "Vado" : "Forse"
+
+        do {
+            try await API.createIntention(
+                venueId: venue.venueId,
+                userId: userId,
+                startsAtUtc: startsAt,
+                endsAtUtc: endsAt,
+                note: note
+            )
+            hotVenueActionMessage = mode == .going ? "Segnato: vado." : "Segnato: forse."
+            Haptics.success()
+            await store.refresh()
+            await loadMapSocialOverlays(region: visibleRegion)
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            dismissHotVenueSuggestion(forSession: true)
+        } catch {
+            Haptics.error()
+            hotVenueActionMessage = "Non sono riuscito a salvarlo. Riprova tra poco."
+        }
+    }
+
+    private func dismissHotVenueSuggestion(forSession: Bool) {
+        if forSession, let hotVenueSuggestion {
+            dismissedHotVenueIds.insert(hotVenueSuggestion.venueId)
+        }
+        withAnimation(.cloudySmooth) {
+            hotVenueSuggestion = nil
+            hotVenueActionMessage = nil
+        }
+    }
+
     private var densityClusters: [DensityCanvasCluster] {
         let markerClusters = store.markers
             .filter { activityWeight(for: $0) > 0 }
@@ -696,6 +807,117 @@ private struct VenueStoryMarker: View {
             }
         }
         .accessibilityLabel("Storie del luogo")
+    }
+}
+
+private struct HotVenuePromptCard: View {
+    let venue: VenueMarker
+    let message: String?
+    let isSubmitting: Bool
+    var onGoing: () -> Void
+    var onMaybe: () -> Void
+    var onClose: () -> Void
+    var onNotInterested: () -> Void
+    var onOpen: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Theme.Palette.blue50)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.blue500)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Si sta accendendo qui vicino")
+                        .font(Theme.Font.caption(12, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.blue700)
+                    Button(action: onOpen) {
+                        HStack(spacing: 5) {
+                            Text(venue.name)
+                                .font(Theme.Font.title(18, weight: .heavy))
+                                .foregroundStyle(Theme.Palette.ink)
+                                .lineLimit(1)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .black))
+                                .foregroundStyle(Theme.Palette.inkMuted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    Text(promptSubtitle)
+                        .font(Theme.Font.body(13, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 6)
+
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("\(venue.partyPulse.energyScore)")
+                        .font(Theme.Font.heroNumber(28))
+                        .foregroundStyle(Theme.Palette.blue500)
+                        .contentTransition(.numericText())
+                    Text("pulse")
+                        .font(Theme.Font.caption(11, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+            }
+
+            if let message {
+                Text(message)
+                    .font(Theme.Font.caption(12, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.mint500)
+                    .transition(.opacity)
+            }
+
+            HStack(spacing: 8) {
+                Button(action: onGoing) {
+                    Label("Vado", systemImage: "location.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CloudyButtonStyle(variant: .primary, isCompact: true))
+                .disabled(isSubmitting)
+
+                Button(action: onMaybe) {
+                    Text("Forse")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(CloudyButtonStyle(variant: .secondary, isCompact: true))
+                .disabled(isSubmitting)
+            }
+
+            HStack {
+                Button("Chiudi", action: onClose)
+                    .font(Theme.Font.caption(12, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.inkMuted)
+                Spacer()
+                Button("Non mi interessa", action: onNotInterested)
+                    .font(Theme.Font.caption(12, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.inkMuted)
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1)
+        )
+        .shadow(color: Theme.Palette.blue500.opacity(0.14), radius: 22, x: 0, y: 10)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var promptSubtitle: String {
+        if venue.intentRadar.goingOut + venue.intentRadar.almostThere > 0 {
+            return "\(venue.intentRadar.goingOut + venue.intentRadar.almostThere) persone del tuo giro si stanno muovendo. Dato aggregato."
+        }
+        if venue.partyPulse.arrivalsLast15 > 0 {
+            return "\(venue.partyPulse.arrivalsLast15) arrivi negli ultimi 15 min. Dato aggregato."
+        }
+        return "Energia alta nella zona. Nessuna posizione precisa condivisa."
     }
 }
 
