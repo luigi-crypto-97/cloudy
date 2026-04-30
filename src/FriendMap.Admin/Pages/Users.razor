@@ -39,6 +39,14 @@
     <div class="map-overlay-note">Utenti su venue/intenzioni · privacy-safe</div>
 </div>
 
+@if (!_users.Any(x => x.Latitude is not null && x.Longitude is not null))
+{
+    <div class="empty-note">
+        Nessun utente ha una presenza venue-level o un'intenzione attiva in questo momento.
+        Attiva i dati demo da Growth Ops o usa check-in/intenzioni reali per popolare la mappa.
+    </div>
+}
+
 <table class="grid">
     <thead>
         <tr>
@@ -149,16 +157,35 @@
         var markers = _users
             .Where(x => x.Latitude is not null && x.Longitude is not null)
             .Take(200)
-            .Select(x => new
+            .Select((x, index) =>
             {
-                type = "user",
-                name = DisplayName(x),
-                subtitle = $"{PresenceLabel(x.PresenceState)} · {x.VenueName ?? "nessun locale"} · {x.PrivacyLevel}",
-                latitude = x.Latitude,
-                longitude = x.Longitude,
-                initial = Initial(x)
+                var (lat, lng) = OffsetCoordinate(x.Latitude!.Value, x.Longitude!.Value, index);
+                return new MapMarker(
+                    "user",
+                    DisplayName(x),
+                    $"{PresenceLabel(x.PresenceState)} · {x.VenueName ?? "nessun locale"} · {x.PrivacyLevel}",
+                    lat,
+                    lng,
+                    null,
+                    Initial(x));
             })
             .ToList();
         await JS.InvokeVoidAsync("cloudyAdminMap.render", "opsUsersMap", markers);
     }
+
+    private static (double Latitude, double Longitude) OffsetCoordinate(double latitude, double longitude, int index)
+    {
+        var angle = (index % 12) * (Math.PI / 6);
+        var radius = 0.00014 + ((index / 12) % 3) * 0.00008;
+        return (latitude + Math.Sin(angle) * radius, longitude + Math.Cos(angle) * radius);
+    }
+
+    private sealed record MapMarker(
+        string Type,
+        string Name,
+        string Subtitle,
+        double Latitude,
+        double Longitude,
+        int? Energy,
+        string? Initial);
 }

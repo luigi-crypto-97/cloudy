@@ -67,14 +67,14 @@ else if (_snapshot is not null)
             <div class="panel-title">
                 <div>
                     <p class="eyebrow">Live Map</p>
-                    <h2>Venue pulse</h2>
+                    <h2>Utenti e venue pulse</h2>
                 </div>
                 <span class="pill">@_snapshot.Privacy.LocationPrecision</span>
             </div>
 
             <div class="map-shell">
                 <div id="opsVenueMap" class="osm-map"></div>
-                <div class="map-overlay-note">OpenStreetMap · venue-level, no GPS grezzo</div>
+                <div class="map-overlay-note">OpenStreetMap · utenti su locale/intenzione, no GPS grezzo</div>
             </div>
         </div>
 
@@ -310,18 +310,59 @@ else if (_snapshot is not null)
 
     private async Task RenderMapAsync()
     {
-        var markers = _snapshot?.VenuePulses
-            .Where(x => x.Latitude is not null && x.Longitude is not null)
-            .Select(x => new
-            {
-                type = "venue",
-                name = x.Name,
-                subtitle = $"{x.Category} · {x.City} · energia {x.EnergyScore} · {x.CheckedInCount} qui · {x.IntentionCount} in arrivo",
-                latitude = x.Latitude,
-                longitude = x.Longitude,
-                energy = x.EnergyScore
-            })
-            .ToList() ?? [];
+        var markers = new List<MapMarker>();
+        if (_snapshot is not null)
+        {
+            markers.AddRange(_snapshot.VenuePulses
+                .Where(x => x.Latitude is not null && x.Longitude is not null)
+                .Select(x => new MapMarker(
+                    "venue",
+                    x.Name,
+                    $"{x.Category} · {x.City} · energia {x.EnergyScore} · {x.CheckedInCount} qui · {x.IntentionCount} in arrivo",
+                    x.Latitude!.Value,
+                    x.Longitude!.Value,
+                    x.EnergyScore,
+                    null)));
+
+            markers.AddRange(_snapshot.Users
+                .Where(x => x.Latitude is not null && x.Longitude is not null)
+                .Take(200)
+                .Select((x, index) =>
+                {
+                    var (lat, lng) = OffsetCoordinate(x.Latitude!.Value, x.Longitude!.Value, index);
+                    return new MapMarker(
+                        "user",
+                        DisplayName(x),
+                        $"{PresenceLabel(x.PresenceState)} · {x.VenueName ?? "nessun locale"} · {PrivacyLabel(x)}",
+                        lat,
+                        lng,
+                        null,
+                        Initial(x));
+                }));
+        }
+
         await JS.InvokeVoidAsync("cloudyAdminMap.render", "opsVenueMap", markers);
     }
+
+    private static string Initial(AdminUserMonitorDto user)
+    {
+        var source = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Nickname : user.DisplayName!;
+        return source.Length == 0 ? "?" : source[..1].ToUpperInvariant();
+    }
+
+    private static (double Latitude, double Longitude) OffsetCoordinate(double latitude, double longitude, int index)
+    {
+        var angle = (index % 12) * (Math.PI / 6);
+        var radius = 0.00012 + ((index / 12) % 3) * 0.00008;
+        return (latitude + Math.Sin(angle) * radius, longitude + Math.Cos(angle) * radius);
+    }
+
+    private sealed record MapMarker(
+        string Type,
+        string Name,
+        string Subtitle,
+        double Latitude,
+        double Longitude,
+        int? Energy,
+        string? Initial);
 }

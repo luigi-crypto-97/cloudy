@@ -4,8 +4,8 @@
 <section class="ops-hero">
     <div>
         <p class="eyebrow">Growth Ops</p>
-        <h1>Avventure e dati demo</h1>
-        <p class="muted">Gestisci missioni sociali, utenti di prova e segnali demo che animano feed, Party Pulse e Intent Radar.</p>
+        <h1>Growth Control</h1>
+        <p class="muted">Un pannello semplice per demo data, utenti test e missioni che finiscono nel feed/gamification.</p>
     </div>
     <div class="ops-actions">
         <button @onclick="LoadAsync" disabled="@_isLoading">@(_isLoading ? "Aggiorno..." : "Aggiorna")</button>
@@ -21,72 +21,91 @@
     <p class="success">@_notice</p>
 }
 
-<section class="ops-panel">
-    <div class="panel-title">
-        <div>
-            <p class="eyebrow">Runtime</p>
-            <h2>Controlli ambiente</h2>
-        </div>
-        @if (_flags is not null)
-        {
-            <span class="pill">@(_flags.DemoSignalsEnabled ? "demo feed on" : "demo feed off")</span>
-        }
-    </div>
-    <div class="ops-controls">
-        <div class="toggle-card">
-            <strong>Dati demo feed / Party Pulse</strong>
-            <p>Popola segnali aggregati se venue, pulse e radar sono vuoti. Utile in beta e demo, da spegnere quando il traffico reale è sufficiente.</p>
-            <button class="@(_flags?.DemoSignalsEnabled == true ? "danger" : "")" @onclick="ToggleDemoSignalsAsync">
-                @(_flags?.DemoSignalsEnabled == true ? "Disattiva dati demo" : "Attiva dati demo")
-            </button>
-        </div>
-        <div class="toggle-card">
-            <strong>Utenti di prova</strong>
-            <p>Attiva/disattiva gli account seed <code>@@cloudy.dev</code>. Gli utenti disattivati restano storici ma vengono marcati come non attivi.</p>
-            <button class="@(_flags?.TestUsersEnabled == true ? "danger" : "")" @onclick="ToggleTestUsersAsync">
-                @(_flags?.TestUsersEnabled == true ? "Disattiva utenti test" : "Attiva utenti test")
-            </button>
-        </div>
+<section class="ops-panel growth-tabs-panel">
+    <div class="segmented">
+        <button class="@TabClass("overview")" @onclick='() => _tab = "overview"'>Panoramica</button>
+        <button class="@TabClass("adventures")" @onclick='() => _tab = "adventures"'>Avventure</button>
+        <button class="@TabClass("editor")" @onclick='() => { NewAdventure(); _tab = "editor"; }'>Crea</button>
     </div>
 </section>
 
-<section class="adventure-grid">
-    <div class="ops-panel">
+@if (_tab == "overview")
+{
+    <section class="growth-shell">
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Runtime</p>
+                    <h2>Controlli rapidi</h2>
+                </div>
+                @if (_flags is not null)
+                {
+                    <span class="pill">@(_flags.DemoSignalsEnabled ? "demo feed on" : "demo feed off")</span>
+                }
+            </div>
+            <div class="flag-grid">
+                <article class="flag-card">
+                    <div>
+                        <strong>Dati demo feed</strong>
+                        <p>Animano Feed, Party Pulse e Intent Radar quando non ci sono ancora segnali reali.</p>
+                    </div>
+                    <button class="@(_flags?.DemoSignalsEnabled == true ? "danger" : "")" @onclick="ToggleDemoSignalsAsync">
+                        @(_flags?.DemoSignalsEnabled == true ? "Spegni" : "Accendi")
+                    </button>
+                </article>
+                <article class="flag-card">
+                    <div>
+                        <strong>Utenti di prova</strong>
+                        <p>Gestisce gli account seed <code>@@cloudy.dev</code> senza toccare gli utenti reali.</p>
+                    </div>
+                    <button class="@(_flags?.TestUsersEnabled == true ? "danger" : "")" @onclick="ToggleTestUsersAsync">
+                        @(_flags?.TestUsersEnabled == true ? "Disattiva" : "Attiva")
+                    </button>
+                </article>
+            </div>
+        </div>
+
+        <div class="ops-panel">
+            <div class="panel-title">
+                <div>
+                    <p class="eyebrow">Stato</p>
+                    <h2>Missioni configurate</h2>
+                </div>
+                <button class="secondary" @onclick='() => _tab = "adventures"'>Gestisci</button>
+            </div>
+            <div class="growth-summary">
+                <div><strong>@_adventures.Count(x => x.IsActive)</strong><span>avventure attive</span></div>
+                <div><strong>@_adventures.Sum(x => x.Objectives.Count(o => o.IsActive))</strong><span>obiettivi attivi</span></div>
+                <div><strong>@_adventures.Sum(x => x.RewardPoints)</strong><span>punti disponibili</span></div>
+            </div>
+        </div>
+    </section>
+}
+else if (_tab == "adventures")
+{
+    <section class="ops-panel">
         <div class="panel-title">
             <div>
                 <p class="eyebrow">Gamification</p>
-                <h2>Avventure attive</h2>
+                <h2>Avventure</h2>
             </div>
-            <button class="secondary" @onclick="NewAdventure">Nuova avventura</button>
+            <button @onclick='() => { NewAdventure(); _tab = "editor"; }'>Nuova avventura</button>
         </div>
-        <div class="venue-list">
+        <div class="adventure-list-simple">
             @foreach (var adventure in _adventures)
             {
-                <article class="adventure-card">
-                    <header>
+                <article class="adventure-row">
+                    <div class="adventure-main">
+                        <span class="pill @(adventure.IsActive ? "checked_in" : "")">@(adventure.IsActive ? "attiva" : "spenta")</span>
                         <div>
                             <strong>@adventure.Title</strong>
-                            <p class="muted">@adventure.Description</p>
+                            <p>@adventure.Description</p>
+                            <small>@adventure.Scope · @adventure.Objectives.Count obiettivi · @adventure.RewardPoints punti</small>
                         </div>
-                        <span class="pill @(adventure.IsActive ? "checked_in" : "")">@(adventure.IsActive ? "attiva" : "spenta")</span>
-                    </header>
+                    </div>
                     <div class="button-row">
-                        <span class="pill">@adventure.Scope</span>
-                        <span class="pill">@adventure.RewardPoints punti</span>
                         <button class="secondary" @onclick="() => EditAdventure(adventure)">Modifica</button>
                         <button class="danger" @onclick="() => DeleteAdventureAsync(adventure.Id)">Elimina</button>
-                    </div>
-                    <div class="objective-list">
-                        @foreach (var objective in adventure.Objectives)
-                        {
-                            <div class="objective-item">
-                                <div>
-                                    <strong>@objective.Title</strong>
-                                    <span class="muted">@objective.MetricKey · target @objective.Target</span>
-                                </div>
-                                <span class="pill">@objective.RewardPoints pt</span>
-                            </div>
-                        }
                     </div>
                 </article>
             }
@@ -95,63 +114,77 @@
                 <p class="muted">Nessuna avventura configurata.</p>
             }
         </div>
-    </div>
-
-    <div class="ops-panel">
+    </section>
+}
+else
+{
+    <section class="ops-panel editor-panel">
         <div class="panel-title">
             <div>
                 <p class="eyebrow">@(_edit.Id is null ? "Crea" : "Modifica")</p>
-                <h2>Editor avventura</h2>
+                <h2>Avventura</h2>
             </div>
+            <button class="secondary" @onclick='() => _tab = "adventures"'>Torna alla lista</button>
         </div>
-        <label>Titolo</label>
-        <input @bind="_edit.Title" />
-        <label>Descrizione</label>
-        <textarea rows="3" @bind="_edit.Description"></textarea>
-        <label>Scope</label>
-        <select @bind="_edit.Scope">
-            <option value="weekly">Settimanale</option>
-            <option value="city">Città</option>
-            <option value="venue">Locale</option>
-            <option value="social">Sociale</option>
-        </select>
-        <label class="check">
-            <input type="checkbox" @bind="_edit.IsActive" />
-            Attiva
-        </label>
 
-        <div class="panel-title" style="margin-top:18px">
+        <div class="editor-grid">
+            <label>
+                Titolo
+                <input @bind="_edit.Title" />
+            </label>
+            <label>
+                Scope
+                <select @bind="_edit.Scope">
+                    <option value="weekly">Settimanale</option>
+                    <option value="city">Città</option>
+                    <option value="venue">Locale</option>
+                    <option value="social">Sociale</option>
+                </select>
+            </label>
+            <label class="editor-wide">
+                Descrizione
+                <textarea rows="3" @bind="_edit.Description"></textarea>
+            </label>
+            <label class="check">
+                <input type="checkbox" @bind="_edit.IsActive" />
+                Attiva avventura
+            </label>
+        </div>
+
+        <div class="panel-title compact-title">
             <div>
                 <p class="eyebrow">Obiettivi</p>
                 <h2>Missioni</h2>
             </div>
-            <button class="secondary" @onclick="AddObjective">Aggiungi</button>
+            <button class="secondary" @onclick="AddObjective">Aggiungi obiettivo</button>
         </div>
 
-        @foreach (var objective in _edit.Objectives)
-        {
-            <div class="objective-form">
-                <input placeholder="Titolo" @bind="objective.Title" />
-                <select @bind="objective.MetricKey">
-                    <option value="check_in">Check-in</option>
-                    <option value="venue_story">Story locale</option>
-                    <option value="verified_rating">Recensione verificata</option>
-                    <option value="table_join">Tavolo</option>
-                    <option value="flare_relay">Relay flare</option>
-                    <option value="invite_friend">Invito amico</option>
-                </select>
-                <input type="number" min="1" max="100" @bind="objective.Target" />
-                <input type="number" min="0" max="10000" @bind="objective.RewardPoints" />
-                <label class="check"><input type="checkbox" @bind="objective.IsActive" /> on</label>
-            </div>
-        }
+        <div class="objective-editor-list">
+            @foreach (var objective in _edit.Objectives)
+            {
+                <article class="objective-editor-card">
+                    <input placeholder="Titolo obiettivo" @bind="objective.Title" />
+                    <select @bind="objective.MetricKey">
+                        <option value="check_in">Check-in</option>
+                        <option value="venue_story">Story locale</option>
+                        <option value="verified_rating">Recensione verificata</option>
+                        <option value="table_join">Tavolo</option>
+                        <option value="flare_relay">Relay flare</option>
+                        <option value="invite_friend">Invito amico</option>
+                    </select>
+                    <input type="number" min="1" max="100" @bind="objective.Target" />
+                    <input type="number" min="0" max="10000" @bind="objective.RewardPoints" />
+                    <label class="check"><input type="checkbox" @bind="objective.IsActive" /> attivo</label>
+                </article>
+            }
+        </div>
 
-        <div class="button-row" style="margin-top:18px">
-            <button @onclick="SaveAdventureAsync" disabled="@_isSaving">@(_isSaving ? "Salvo..." : "Salva")</button>
+        <div class="button-row save-row">
+            <button @onclick="SaveAdventureAsync" disabled="@_isSaving">@(_isSaving ? "Salvo..." : "Salva avventura")</button>
             <button class="secondary" @onclick="NewAdventure">Reset</button>
         </div>
-    </div>
-</section>
+    </section>
+}
 
 @code {
     private AdminFeatureFlagsDto? _flags;
@@ -161,6 +194,7 @@
     private string? _notice;
     private bool _isLoading;
     private bool _isSaving;
+    private string _tab = "overview";
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -233,6 +267,7 @@
     private void EditAdventure(AdminAdventureDto adventure)
     {
         _edit = AdventureEditModel.FromDto(adventure);
+        _tab = "editor";
     }
 
     private void AddObjective()
@@ -254,6 +289,7 @@
             _notice = "Avventura salvata.";
             NewAdventure();
             await LoadAsync();
+            _tab = "adventures";
         }
         catch (Exception ex)
         {
@@ -280,4 +316,6 @@
             _error = $"Impossibile eliminare l'avventura: {ex.Message}";
         }
     }
+
+    private string TabClass(string tab) => _tab == tab ? "active" : string.Empty;
 }

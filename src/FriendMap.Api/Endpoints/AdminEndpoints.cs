@@ -52,7 +52,7 @@ public static class AdminEndpoints
             _ = await db.Users.AsNoTracking().CountAsync(ct);
             sw.Stop();
 
-            var users = await BuildUserMonitorAsync(q, db, mediaStorage, 300, ct);
+            var users = await BuildUserMonitorAsync(q, db, mediaStorage, adminOps, 300, ct);
 
             var directMessagesLastHour = await db.DirectMessages
                 .AsNoTracking()
@@ -167,9 +167,10 @@ public static class AdminEndpoints
             string? q,
             AppDbContext db,
             MediaStorageService mediaStorage,
+            AdminOpsStateService adminOps,
             CancellationToken ct) =>
         {
-            var users = await BuildUserMonitorAsync(q, db, mediaStorage, 300, ct);
+            var users = await BuildUserMonitorAsync(q, db, mediaStorage, adminOps, 300, ct);
             return Results.Ok(users);
         });
 
@@ -345,6 +346,7 @@ public static class AdminEndpoints
         string? q,
         AppDbContext db,
         MediaStorageService mediaStorage,
+        AdminOpsStateService adminOps,
         int limit,
         CancellationToken ct)
     {
@@ -421,7 +423,16 @@ public static class AdminEndpoints
             .GroupBy(x => x.UserId)
             .ToDictionary(x => x.Key, x => x.OrderBy(i => i.ExpiresAtUtc).First());
 
-        return users.Select(appUser =>
+        var demoVenues = adminOps.DemoSignalsEnabled && adminOps.TestUsersEnabled
+            ? await db.Venues
+                .AsNoTracking()
+                .Where(x => x.VisibilityStatus == "public" && x.Location != null)
+                .OrderBy(x => x.Name)
+                .Take(24)
+                .ToListAsync(ct)
+            : [];
+
+        return users.Select((appUser, index) =>
         {
             if (appUser.IsGhostModeEnabled)
             {
@@ -484,6 +495,31 @@ public static class AdminEndpoints
                     intention.Longitude,
                     intention.SignalAtUtc,
                     "venue_level");
+            }
+
+            if (appUser.Status == "active" &&
+                demoVenues.Count > 0 &&
+                appUser.DiscoverableEmailNormalized?.EndsWith("@cloudy.dev", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                var venue = demoVenues[Math.Abs(HashCode.Combine(appUser.Id, now.UtcDateTime.Hour)) % demoVenues.Count];
+                var state = index % 2 == 0 ? "checked_in" : "intention";
+                return new AdminUserMonitorDto(
+                    appUser.Id,
+                    appUser.Nickname,
+                    appUser.DisplayName,
+                    mediaStorage.ResolveUrl(appUser.AvatarUrl),
+                    appUser.Status,
+                    friendCountMap.GetValueOrDefault(appUser.Id),
+                    appUser.IsGhostModeEnabled,
+                    appUser.SharePresenceWithFriends,
+                    appUser.ShareIntentionsWithFriends,
+                    state,
+                    venue.Name,
+                    venue.Category,
+                    venue.Location?.Y,
+                    venue.Location?.X,
+                    now.AddMinutes(-Math.Clamp(index + 1, 1, 30)),
+                    "venue_level_demo");
             }
 
             return new AdminUserMonitorDto(

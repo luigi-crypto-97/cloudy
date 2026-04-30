@@ -11,9 +11,19 @@ window.cloudyAdminMap = (() => {
 
   function render(elementId, markers) {
     const element = document.getElementById(elementId);
-    if (!element || typeof L === "undefined") return;
+    if (!element) return;
+    if (typeof L === "undefined") {
+      setTimeout(() => render(elementId, markers), 120);
+      return;
+    }
 
     let mapState = maps.get(elementId);
+    if (mapState && mapState.element !== element) {
+      try { mapState.map.remove(); } catch (_) {}
+      maps.delete(elementId);
+      mapState = null;
+    }
+
     if (!mapState) {
       const fallback = [45.4642, 9.19];
       const map = L.map(element, {
@@ -27,7 +37,7 @@ window.cloudyAdminMap = (() => {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      mapState = { map, layer: L.layerGroup().addTo(map) };
+      mapState = { element, map, layer: L.layerGroup().addTo(map) };
       maps.set(elementId, mapState);
     }
 
