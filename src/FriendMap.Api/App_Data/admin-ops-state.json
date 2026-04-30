@@ -1,0 +1,86 @@
+{
+  "demoSignalsEnabled": true,
+  "testUsersEnabled": true,
+  "adventures": [
+    {
+      "id": "664b9d5f-c198-4636-bf6d-a5c50d90c645",
+      "title": "Settimana Local Hero",
+      "description": "Fai vivere tre locali diversi e posta una storia taggata.",
+      "scope": "weekly",
+      "isActive": true,
+      "rewardPoints": 370,
+      "createdAtUtc": "2026-04-30T13:43:32.139626+00:00",
+      "updatedAtUtc": "2026-04-30T13:43:32.139626+00:00",
+      "objectives": [
+        {
+          "id": "8bee1ed2-249e-487f-a887-bcb20a27ab2c",
+          "title": "Visita 3 locali",
+          "metricKey": "check_in",
+          "target": 3,
+          "rewardPoints": 120,
+          "isActive": true
+        },
+        {
+          "id": "f482bc36-42e5-4b65-bfc1-4fd51bde30ef",
+          "title": "Posta 2 stories in venue",
+          "metricKey": "venue_story",
+          "target": 2,
+          "rewardPoints": 100,
+          "isActive": true
+        },
+        {
+          "id": "a25ea6c5-dfa8-4697-98c4-daa516af0af6",
+          "title": "Lascia 2 recensioni verificate",
+          "metricKey": "verified_rating",
+          "target": 2,
+          "rewardPoints": 90,
+          "isActive": true
+        },
+        {
+          "id": "3e2a0de0-a4e3-4803-9c23-f4a533ee1027",
+          "title": "Crea o joina un tavolo",
+          "metricKey": "table_join",
+          "target": 1,
+          "rewardPoints": 60,
+          "isActive": true
+        }
+      ]
+    },
+    {
+      "id": "2595beb6-e1d6-46b1-9d5e-ed31e75fdc3c",
+      "title": "Accendi il gruppo",
+      "description": "Spingi inviti, flare e tavoli sociali nella tua zona.",
+      "scope": "social",
+      "isActive": true,
+      "rewardPoints": 300,
+      "createdAtUtc": "2026-04-30T13:43:32.139626+00:00",
+      "updatedAtUtc": "2026-04-30T13:43:32.139626+00:00",
+      "objectives": [
+        {
+          "id": "b593e949-8a73-492d-9a1a-418c85b24f55",
+          "title": "Rilancia 1 flare",
+          "metricKey": "flare_relay",
+          "target": 1,
+          "rewardPoints": 80,
+          "isActive": true
+        },
+        {
+          "id": "ff1f4b6a-2da0-49f1-9a7e-6d0bcd609a53",
+          "title": "Invita 3 amici",
+          "metricKey": "invite_friend",
+          "target": 3,
+          "rewardPoints": 100,
+          "isActive": true
+        },
+        {
+          "id": "2c6420e5-4d76-44cf-a897-507ff9575132",
+          "title": "Partecipa a un tavolo",
+          "metricKey": "table_join",
+          "target": 1,
+          "rewardPoints": 120,
+          "isActive": true
+        }
+      ]
+    }
+  ]
+}
