@@ -13,6 +13,7 @@ public static class StoriesEndpoints
     {
         var group = app.MapGroup("/api/stories").WithTags("Stories").RequireAuthorization().RequireRateLimiting("social");
         group.MapGet("/", GetStoriesAsync);
+        group.MapGet("/archive", GetMyArchiveAsync);
         group.MapGet("/venues", GetVenueStoriesAsync);
         group.MapPost("/", CreateStoryAsync);
         group.MapPost("/media", UploadStoryMediaAsync);
@@ -81,6 +82,70 @@ public static class StoriesEndpoints
             story.Caption,
             story.VenueId,
             null,
+            likes.GetValueOrDefault(story.Id),
+            comments.GetValueOrDefault(story.Id),
+            myLikes.Contains(story.Id),
+            story.CreatedAtUtc,
+            story.ExpiresAtUtc)));
+    }
+
+    private static async Task<IResult> GetMyArchiveAsync(
+        ClaimsPrincipal user,
+        AppDbContext db,
+        MediaStorageService mediaStorage,
+        CancellationToken ct)
+    {
+        var currentUserId = CurrentUser.GetUserId(user);
+        if (currentUserId == Guid.Empty)
+        {
+            return Results.Forbid();
+        }
+
+        var rows = await db.UserStories
+            .AsNoTracking()
+            .Where(x => x.UserId == currentUserId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(200)
+            .GroupJoin(
+                db.Venues.AsNoTracking(),
+                story => story.VenueId,
+                venue => venue.Id,
+                (story, venues) => new { story, venue = venues.FirstOrDefault() })
+            .Join(
+                db.Users.AsNoTracking(),
+                x => x.story.UserId,
+                u => u.Id,
+                (x, u) => new
+                {
+                    x.story.Id,
+                    x.story.UserId,
+                    u.Nickname,
+                    u.DisplayName,
+                    u.AvatarUrl,
+                    x.story.MediaUrl,
+                    x.story.Caption,
+                    x.story.VenueId,
+                    VenueName = x.venue == null ? null : x.venue.Name,
+                    x.story.CreatedAtUtc,
+                    x.story.ExpiresAtUtc
+                })
+            .ToListAsync(ct);
+
+        var storyIds = rows.Select(x => x.Id).ToList();
+        var likes = await LoadLikeCountsAsync(db, storyIds, ct);
+        var comments = await LoadCommentCountsAsync(db, storyIds, ct);
+        var myLikes = await LoadMyLikesAsync(db, storyIds, currentUserId, ct);
+
+        return Results.Ok(rows.Select(story => new UserStoryDto(
+            story.Id,
+            story.UserId,
+            story.Nickname,
+            story.DisplayName,
+            mediaStorage.ResolveUrl(story.AvatarUrl),
+            mediaStorage.ResolveUrl(story.MediaUrl) ?? story.MediaUrl,
+            story.Caption,
+            story.VenueId,
+            story.VenueName,
             likes.GetValueOrDefault(story.Id),
             comments.GetValueOrDefault(story.Id),
             myLikes.Contains(story.Id),
@@ -487,8 +552,8 @@ public static class StoriesEndpoints
 
         var storyUrl = mediaStorage.ResolveUrl(story.MediaUrl) ?? story.MediaUrl;
         var text = string.IsNullOrWhiteSpace(request.Message)
-            ? $"Ti ho inviato una storia: {storyUrl}"
-            : $"{request.Message.Trim()}\n\nStoria: {storyUrl}";
+            ? $"[image] Storia Cloudy\n{storyUrl}"
+            : $"{request.Message.Trim()}\n\n[image] Storia Cloudy\n{storyUrl}";
         thread.LastMessageAtUtc = DateTimeOffset.UtcNow;
         thread.UpdatedAtUtc = DateTimeOffset.UtcNow;
         db.DirectMessages.Add(new DirectMessage

@@ -21,6 +21,7 @@ struct FeedContext {
     let myLocation: CLLocation?
     let privacyState: SocialMeState?
     let serverFeed: FeedServerResponse?
+    let gamification: GamificationSummary?
     let now: Date
     let isDebugDemo: Bool
 }
@@ -61,6 +62,7 @@ struct FeedContextService {
         async let flaresTask: [FlareSignal]? = optional { try await API.flares() }
         async let tablesTask: [SocialTableSummary]? = optional { try await API.myTables() }
         async let privacyTask: SocialMeState? = optional { try await API.mySocialState() }
+        async let gamificationTask: GamificationSummary? = optional { try await API.gamificationSummary() }
 
         let serverFeed = await serverFeedTask
         let stories = await storiesTask ?? previousContext?.stories ?? []
@@ -74,6 +76,7 @@ struct FeedContextService {
         let flares = serverFeed?.flares ?? fetchedFlares ?? previousContext?.flares ?? []
         let tables = serverFeed?.tables ?? fetchedTables ?? previousContext?.tables ?? []
         let privacy = await privacyTask ?? previousContext?.privacyState
+        let gamification = await gamificationTask ?? previousContext?.gamification
 
         let context = FeedContext(
             stories: stories,
@@ -86,6 +89,7 @@ struct FeedContextService {
             myLocation: location,
             privacyState: privacy,
             serverFeed: serverFeed ?? previousContext?.serverFeed,
+            gamification: gamification,
             now: now,
             isDebugDemo: false
         )

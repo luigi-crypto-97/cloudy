@@ -13,6 +13,7 @@ final class AppRouter {
         case map
         case feed
         case tables
+        case leaderboard
         case notifications
         case profile
     }
@@ -58,7 +59,7 @@ final class AppRouter {
         case "flare":
             selectedTab = .map
         default:
-            selectedTab = .notifications
+            selectedTab = .feed
         }
     }
 }

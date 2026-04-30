@@ -184,6 +184,64 @@ struct SignedDeepLink: Codable, Hashable {
     let expiresAtUtc: Date
 }
 
+// MARK: - Gamification
+
+struct GamificationSummary: Codable, Hashable {
+    let totalPoints: Int
+    let weeklyPoints: Int
+    let level: Int
+    let levelProgress: Double
+    let primaryCity: String?
+    let badges: [UserBadge]
+    let weeklyMissions: [WeeklyMission]
+    let antiCheatNote: String
+}
+
+struct UserBadge: Codable, Hashable, Identifiable {
+    let code: String
+    let title: String
+    let earnedAtUtc: Date
+    var id: String { code }
+}
+
+struct WeeklyMission: Codable, Hashable, Identifiable {
+    let code: String
+    let title: String
+    let subtitle: String
+    let icon: String
+    let progress: Int
+    let target: Int
+    let rewardPoints: Int
+    let isCompleted: Bool
+    var id: String { code }
+
+    var progressRatio: Double {
+        guard target > 0 else { return 0 }
+        return min(1, Double(progress) / Double(target))
+    }
+}
+
+struct Leaderboard: Codable, Hashable {
+    let scopeName: String
+    let zone: String?
+    let generatedAtUtc: Date
+    let entries: [LeaderboardEntry]
+}
+
+struct LeaderboardEntry: Codable, Hashable, Identifiable {
+    let rank: Int
+    let userId: UUID
+    let nickname: String
+    let displayName: String?
+    let avatarUrl: String?
+    let totalPoints: Int
+    let weeklyPoints: Int
+    let level: Int
+    let primaryCity: String?
+    let isMe: Bool
+    var id: UUID { userId }
+}
+
 // MARK: - User profile
 
 struct UserProfile: Codable, Hashable, Identifiable {

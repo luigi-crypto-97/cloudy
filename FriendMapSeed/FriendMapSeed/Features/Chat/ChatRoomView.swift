@@ -77,15 +77,7 @@ struct ChatRoomView: View {
         HStack {
             if m.isMine { Spacer(minLength: 60) }
             VStack(alignment: m.isMine ? .trailing : .leading, spacing: 2) {
-                Text(m.body)
-                    .font(Theme.Font.body(15))
-                    .foregroundStyle(m.isMine ? .white : Theme.Palette.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(m.isMine ? AnyShapeStyle(Theme.Gradients.honeyCTA) : AnyShapeStyle(Theme.Palette.surface))
-                    )
+                ChatMessageBubbleContent(messageBody: m.body, isMine: m.isMine)
                 Text(timeOnly(m.sentAtUtc))
                     .font(Theme.Font.caption(10))
                     .foregroundStyle(Theme.Palette.inkMuted)
@@ -217,7 +209,8 @@ struct ChatRoomView: View {
         defer { isSending = false }
         do {
             let url = try await API.uploadChatFile(data: data, fileName: fileName, mimeType: mimeType)
-            let body = "📎 \(fileName)\n\(url)"
+            let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
+            let body = "\(marker) \(fileName)\n\(url)"
             _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
             Haptics.success()
             await load()

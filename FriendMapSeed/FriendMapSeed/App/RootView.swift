@@ -67,7 +67,7 @@ struct MainTabs: View {
             .init(id: .map, title: "Mappa", icon: "map.fill"),
             .init(id: .feed, title: "In giro", icon: "sparkles", badge: unreadMessages),
             .init(id: .tables, title: "Tavoli", icon: "person.3.fill"),
-            .init(id: .notifications, title: "Attività", icon: "bell.fill", badge: unreadNotifications),
+            .init(id: .leaderboard, title: "Classifica", icon: "rosette"),
             .init(id: .profile, title: "Profilo", icon: "person.crop.circle.fill")
         ]
     }
@@ -83,6 +83,8 @@ struct MainTabs: View {
                     FeedView()
                 case .tables:
                     TablesView()
+                case .leaderboard:
+                    GamificationView()
                 case .notifications:
                     NotificationsView()
                 case .profile:

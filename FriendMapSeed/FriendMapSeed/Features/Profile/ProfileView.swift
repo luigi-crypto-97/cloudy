@@ -100,9 +100,9 @@ struct ProfileView: View {
             .buttonStyle(.plain)
             divider
             NavigationLink {
-                NotificationsView()
+                StoryArchiveView()
             } label: {
-                row(icon: "bell.fill", label: "Notifiche")
+                row(icon: "archivebox.fill", label: "Archivio storie")
             }
             .buttonStyle(.plain)
             divider

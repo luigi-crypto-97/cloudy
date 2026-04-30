@@ -457,6 +457,22 @@ enum FeedDemoFactory {
             myLocation: nil,
             privacyState: nil,
             serverFeed: nil,
+            gamification: GamificationSummary(
+                totalPoints: 680,
+                weeklyPoints: 210,
+                level: 3,
+                levelProgress: 0.72,
+                primaryCity: "Mentone",
+                badges: [
+                    UserBadge(code: "story_maker", title: "Story maker", earnedAtUtc: now.addingTimeInterval(-7200))
+                ],
+                weeklyMissions: [
+                    WeeklyMission(code: "weekly_explorer", title: "Giro nuovo", subtitle: "Visita 3 locali diversi questa settimana", icon: "mappin.and.ellipse", progress: 2, target: 3, rewardPoints: 120, isCompleted: false),
+                    WeeklyMission(code: "weekly_story", title: "Racconta la serata", subtitle: "Posta 2 stories taggate a un locale", icon: "camera.fill", progress: 1, target: 2, rewardPoints: 100, isCompleted: false),
+                    WeeklyMission(code: "weekly_table", title: "Accendi il tavolo", subtitle: "Crea o partecipa a un tavolo sociale", icon: "person.3.fill", progress: 1, target: 1, rewardPoints: 150, isCompleted: true)
+                ],
+                antiCheatNote: "Demo: cap anti-spam giornalieri attivi."
+            ),
             now: now,
             isDebugDemo: true
         )

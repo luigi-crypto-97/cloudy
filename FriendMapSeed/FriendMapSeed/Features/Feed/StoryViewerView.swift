@@ -157,25 +157,29 @@ struct StoryViewerView: View {
 
     @ViewBuilder
     private var mediaView: some View {
-        if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
-            AsyncImage(url: mediaUrl) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                case .empty:
-                    ProgressView()
-                        .tint(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .failure:
-                    placeholder
-                @unknown default:
-                    placeholder
+        GeometryReader { geometry in
+            if let mediaUrl = APIClient.shared.mediaURL(from: currentStory.mediaUrl) {
+                AsyncImage(url: mediaUrl) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped()
+                    case .empty:
+                        ProgressView()
+                            .tint(.white)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                    case .failure:
+                        placeholder
+                    @unknown default:
+                        placeholder
+                    }
                 }
+            } else {
+                placeholder
             }
-        } else {
-            placeholder
         }
     }
 

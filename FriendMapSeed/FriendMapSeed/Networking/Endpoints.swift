@@ -94,6 +94,31 @@ enum API {
         )
     }
 
+    // MARK: - Gamification
+
+    static func gamificationSummary() async throws -> GamificationSummary {
+        try await APIClient.shared.get("/api/gamification/me")
+    }
+
+    static func weeklyMissions() async throws -> [WeeklyMission] {
+        try await APIClient.shared.get("/api/gamification/missions")
+    }
+
+    static func leaderboard(city: String? = nil, zone: String? = nil, limit: Int = 30) async throws -> Leaderboard {
+        var q: [String: String] = ["limit": String(limit)]
+        if let city, !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            q["city"] = city
+        }
+        if let zone, !zone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            q["zone"] = zone
+        }
+        return try await APIClient.shared.get("/api/gamification/leaderboard", query: q.mapValues { Optional($0) })
+    }
+
+    static func checkGamificationAchievements() async throws {
+        let _: IgnoredResponse = try await APIClient.shared.post("/api/gamification/check")
+    }
+
     // MARK: - Social hub
 
     static func socialHub() async throws -> SocialHub {
@@ -108,6 +133,10 @@ enum API {
 
     static func stories() async throws -> [UserStory] {
         try await APIClient.shared.get("/api/stories")
+    }
+
+    static func storyArchive() async throws -> [UserStory] {
+        try await APIClient.shared.get("/api/stories/archive")
     }
 
     static func venueStories(

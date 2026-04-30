@@ -88,15 +88,7 @@ struct GroupChatRoomView: View {
                         .font(Theme.Font.caption(11, weight: .bold))
                         .foregroundStyle(Theme.Palette.inkMuted)
                 }
-                Text(message.body)
-                    .font(Theme.Font.body(15))
-                    .foregroundStyle(message.isMine ? .white : Theme.Palette.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(message.isMine ? AnyShapeStyle(Theme.Palette.blue500) : AnyShapeStyle(Theme.Palette.surface))
-                    )
+                ChatMessageBubbleContent(messageBody: message.body, isMine: message.isMine)
                 Text(timeOnly(message.sentAtUtc))
                     .font(Theme.Font.caption(10))
                     .foregroundStyle(Theme.Palette.inkMuted)
@@ -215,7 +207,8 @@ struct GroupChatRoomView: View {
         defer { isSending = false }
         do {
             let url = try await API.uploadChatFile(data: data, fileName: fileName, mimeType: mimeType)
-            await sendBody("[file] \(fileName)\n\(url)")
+            let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
+            await sendBody("\(marker) \(fileName)\n\(url)")
         } catch {
             Haptics.error()
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription

@@ -48,6 +48,23 @@ final class FeedStore {
             .values
             .sorted { ($0.first?.createdAtUtc ?? .distantPast) > ($1.first?.createdAtUtc ?? .distantPast) }
     }
+
+    var heroHotspot: FeedItem? {
+        items.first { $0.kind == .hotspotVenue }
+    }
+
+    var liveMomentItems: [FeedItem] {
+        items.filter {
+            $0.kind == .friendsActivity || $0.kind == .venueStoryStack || $0.kind == .arrivalForecast
+        }
+        .prefix(3)
+        .map { $0 }
+    }
+
+    var remainingItems: [FeedItem] {
+        let hiddenIds = Set(([heroHotspot].compactMap { $0 } + liveMomentItems).map(\.id))
+        return items.filter { !hiddenIds.contains($0.id) }
+    }
 }
 
 struct StoryViewerConfig: Identifiable {
@@ -65,10 +82,13 @@ struct FeedView: View {
     @State private var viewerConfig: StoryViewerConfig?
     @State private var selectedTable: TableRoute?
     @State private var showChats = false
+    @State private var showNotifications = false
     @State private var showPrivacy = false
+    @State private var showGamification = false
     @State private var statusMessage: String?
     @State private var privacyExplanation: FeedPrivacyEnvelope?
     @State private var impressed = Set<String>()
+    @State private var unreadNotifications = 0
 
     private let analytics = FeedAnalytics()
 
@@ -82,17 +102,35 @@ struct FeedView: View {
                         topChrome
                             .padding(.horizontal, 22)
 
-                        feedHeader
-                            .padding(.horizontal, 18)
+                        if let hero = store.heroHotspot, case .hotspotVenue(let payload) = hero.payload {
+                            LivePulseHeroCard(item: hero, payload: payload, onCTA: handleCTA)
+                                .padding(.horizontal, 18)
+                        } else {
+                            feedHeader
+                                .padding(.horizontal, 18)
+                        }
 
                         storiesRail
                             .padding(.horizontal, 18)
+
+                        if !store.liveMomentItems.isEmpty {
+                            liveMomentsSection
+                                .padding(.horizontal, 18)
+                        }
+
+                        if let gamification = store.context?.gamification {
+                            FeedGamificationCard(summary: gamification) {
+                                Haptics.tap()
+                                showGamification = true
+                            }
+                            .padding(.horizontal, 18)
+                        }
 
                         if store.isLoading && store.items.isEmpty {
                             feedSkeleton
                                 .padding(.horizontal, 18)
                         } else {
-                            ForEach(Array(store.items.enumerated()), id: \.element.id) { index, item in
+                            ForEach(Array(store.remainingItems.enumerated()), id: \.element.id) { index, item in
                                 FeedItemRenderer(
                                     item: item,
                                     rank: index,
@@ -130,8 +168,14 @@ struct FeedView: View {
             .navigationDestination(isPresented: $showChats) {
                 ChatThreadsView()
             }
+            .navigationDestination(isPresented: $showNotifications) {
+                NotificationsView()
+            }
             .navigationDestination(isPresented: $showPrivacy) {
                 PrivacyView()
+            }
+            .navigationDestination(isPresented: $showGamification) {
+                GamificationView()
             }
             .fullScreenCover(isPresented: $showCreateStory) {
                 CreateStoryView(onCreated: {
@@ -165,11 +209,16 @@ struct FeedView: View {
             }
             .task {
                 analytics.track(.feedOpened)
+                await refreshNotificationBadge()
                 await store.load(location: liveLocation.currentLocation)
                 while !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 30_000_000_000)
+                    await refreshNotificationBadge()
                     await store.load(location: liveLocation.currentLocation, showSpinner: false)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cloudyBadgesShouldRefresh)) { _ in
+                Task { await refreshNotificationBadge() }
             }
         }
     }
@@ -185,22 +234,34 @@ struct FeedView: View {
         HStack {
             Button {
                 Haptics.tap()
-                showCreateStory = true
+                showNotifications = true
             } label: {
-                Image(systemName: "plus")
-                    .font(Theme.Font.title(22, weight: .heavy))
-                    .foregroundStyle(Theme.Palette.blue500)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(Theme.Palette.surface))
-                    .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
-                    .cardShadow()
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "bell.fill")
+                        .font(Theme.Font.title(21, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.blue600)
+                        .frame(width: 52, height: 52)
+                        .background(Circle().fill(Theme.Palette.surface))
+                        .overlay(Circle().stroke(Theme.Palette.blue100.opacity(0.75), lineWidth: 1))
+                        .cardShadow()
+
+                    if unreadNotifications > 0 {
+                        Text(unreadNotifications > 9 ? "9+" : "\(unreadNotifications)")
+                            .font(Theme.Font.caption(10, weight: .black))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 5)
+                            .frame(minWidth: 19, minHeight: 19)
+                            .background(Theme.Palette.coral500, in: Capsule())
+                            .offset(x: 3, y: -2)
+                    }
+                }
             }
             .buttonStyle(.plain)
 
             Spacer()
 
             Text("In giro")
-                .font(Theme.Font.display(25))
+                .font(Theme.Font.title(22, weight: .heavy))
                 .foregroundStyle(Theme.Palette.ink)
 
             Spacer()
@@ -221,10 +282,18 @@ struct FeedView: View {
         }
     }
 
+    private func refreshNotificationBadge() async {
+        do {
+            unreadNotifications = try await API.notificationUnreadCount().count
+        } catch {
+            unreadNotifications = 0
+        }
+    }
+
     private var feedHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Cosa ti stai perdendo adesso")
-                .font(Theme.Font.display(30))
+                .font(Theme.Font.title(24, weight: .heavy))
                 .foregroundStyle(Theme.Palette.ink)
                 .lineLimit(2)
             Text(headerCopy)
@@ -277,6 +346,26 @@ struct FeedView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                }
+            }
+        }
+    }
+
+    private var liveMomentsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Cosa sta succedendo ora")
+                    .font(Theme.Font.title(22, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.ink)
+                Spacer()
+                Text("Vedi tutto")
+                    .font(Theme.Font.caption(13, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.blue500)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(store.liveMomentItems) { item in
+                    LiveMomentRow(item: item, onCTA: handleCTA)
                 }
             }
         }
@@ -555,5 +644,362 @@ private struct FeedStoryBubble: View {
             }
         }
         .frame(width: 82, height: 88)
+    }
+}
+
+private struct LivePulseHeroCard: View {
+    let item: FeedItem
+    let payload: HotspotVenuePayload
+    var onCTA: (FeedItem, FeedCTA) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            ZStack(alignment: .bottomLeading) {
+                FeedHeroMedia(urlString: payload.coverImageUrl ?? payload.storyPreviews.first?.mediaUrl)
+                    .frame(height: 180)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                LinearGradient(
+                    colors: [.black.opacity(0), .black.opacity(0.54)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+
+                Label(payload.pulseCopy, systemImage: "flame.fill")
+                    .font(Theme.Font.caption(12, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Theme.Palette.blue500.opacity(0.92), in: Capsule())
+                    .padding(14)
+            }
+
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(payload.name, systemImage: "mappin.circle.fill")
+                        .font(Theme.Font.title(24, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                        .lineLimit(2)
+
+                    Text(heroCopy)
+                        .font(Theme.Font.body(15, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineSpacing(3)
+                        .lineLimit(3)
+                }
+                Spacer()
+                HeroPulseRing(value: payload.energyScore)
+            }
+
+            HStack(alignment: .center, spacing: 12) {
+                FeedHeroAvatarStack(urls: payload.friendActivities.map(\.avatarUrl), count: payload.friendsHere + payload.friendsArriving)
+
+                Text(friendCopy)
+                    .font(Theme.Font.body(14, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.ink)
+                    .lineLimit(1)
+
+                Spacer()
+
+                if let firstCTA = item.ctas.first {
+                    Button {
+                        Haptics.tap()
+                        onCTA(item, firstCTA)
+                    } label: {
+                        Label(firstCTA.title, systemImage: "chevron.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(Theme.Font.caption(12, weight: .black))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Theme.Palette.blue500, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Theme.Palette.blue100.opacity(0.70), lineWidth: 1))
+        .cardShadow()
+    }
+
+    private var heroCopy: String {
+        if payload.growthScore >= 65 {
+            return "Il gruppo sta crescendo. Il momento migliore tra 20 min."
+        }
+        if payload.energyScore >= 78 {
+            return "Qui si sta accendendo. Entra prima del peak."
+        }
+        return "C'e movimento reale. Guarda chi e gia in zona."
+    }
+
+    private var friendCopy: String {
+        let total = payload.friendsHere + payload.friendsArriving
+        if total > 0 { return "\(total) amici qui" }
+        return "\(payload.estimatedCrowd) persone ora"
+    }
+}
+
+private struct LiveMomentRow: View {
+    let item: FeedItem
+    var onCTA: (FeedItem, FeedCTA) -> Void
+
+    var body: some View {
+        Button {
+            Haptics.tap()
+            if let cta = item.ctas.first {
+                onCTA(item, cta)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                thumbnail
+                    .frame(width: 112, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay {
+                        Image(systemName: "play.fill")
+                            .font(Theme.Font.body(15, weight: .black))
+                            .foregroundStyle(Theme.Palette.blue600)
+                            .frame(width: 34, height: 34)
+                            .background(Circle().fill(.white))
+                    }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(Theme.Font.body(16, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(Theme.Font.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineLimit(1)
+                    Text(timeCopy)
+                        .font(Theme.Font.caption(11, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+
+                Spacer()
+
+                activityPill
+            }
+            .padding(10)
+            .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.Palette.blue100.opacity(0.52), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var thumbnail: some View {
+        let urlString = previewMedia
+        if let url = APIClient.shared.mediaURL(from: urlString) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image): image.resizable().scaledToFill()
+                default: momentFallback
+                }
+            }
+        } else {
+            momentFallback
+        }
+    }
+
+    private var momentFallback: some View {
+        LinearGradient(colors: [Theme.Palette.blue100, Theme.Palette.blue500], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private var previewMedia: String? {
+        switch item.payload {
+        case .venueStoryStack(let payload): return payload.coverMediaUrl
+        case .hotspotVenue(let payload): return payload.coverImageUrl ?? payload.storyPreviews.first?.mediaUrl
+        default: return nil
+        }
+    }
+
+    private var title: String {
+        switch item.payload {
+        case .friendsActivity(let payload): return payload.title
+        case .venueStoryStack(let payload): return payload.friendNames.first ?? payload.venueName
+        case .arrivalForecast(let payload): return "\(payload.expectedPeople) persone"
+        default: return "Cloudy"
+        }
+    }
+
+    private var subtitle: String {
+        switch item.payload {
+        case .friendsActivity(let payload): return payload.subtitle
+        case .venueStoryStack(let payload): return "\(payload.storyCount) stories da \(payload.venueName)"
+        case .arrivalForecast(let payload): return "stanno arrivando da \(payload.venueName)"
+        default: return "sta succedendo ora"
+        }
+    }
+
+    private var timeCopy: String {
+        switch item.payload {
+        case .friendsActivity(let payload): return relative(payload.happenedAt)
+        case .venueStoryStack(let payload): return relative(payload.createdAt)
+        default: return "ora"
+        }
+    }
+
+    private var activityPill: some View {
+        HStack(spacing: 5) {
+            Image(systemName: item.kind == .arrivalForecast ? "person.3.fill" : "flame.fill")
+            Text(item.kind == .arrivalForecast ? "3" : "12")
+        }
+        .font(Theme.Font.caption(12, weight: .black))
+        .foregroundStyle(Theme.Palette.blue700)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Theme.Palette.blue50, in: Capsule())
+    }
+
+    private func relative(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "it_IT")
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+private struct FeedGamificationCard: View {
+    let summary: GamificationSummary
+    var onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Theme.Palette.blue700.opacity(0.20))
+                    Image(systemName: "bolt.fill")
+                        .font(Theme.Font.title(22, weight: .black))
+                        .foregroundStyle(Theme.Palette.blue500)
+                }
+                .frame(width: 58, height: 58)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Missioni attive")
+                        .font(Theme.Font.title(18, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                    Text(missionCopy)
+                        .font(Theme.Font.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(summary.weeklyPoints)")
+                        .font(Theme.Font.heroNumber(20).monospacedDigit())
+                        .foregroundStyle(Theme.Palette.ink)
+                    Text("pt week")
+                        .font(Theme.Font.caption(10, weight: .black))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(Theme.Font.body(14, weight: .black))
+                    .foregroundStyle(Theme.Palette.inkMuted)
+            }
+            .padding(16)
+            .background(
+                LinearGradient(colors: [Theme.Palette.blue50, Theme.Palette.surface], startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: RoundedRectangle(cornerRadius: 24, style: .continuous)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.Palette.blue100.opacity(0.72), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .cardShadow()
+    }
+
+    private var missionCopy: String {
+        if let next = summary.weeklyMissions.first(where: { !$0.isCompleted }) {
+            return "\(next.title): \(next.progress)/\(next.target) · +\(next.rewardPoints) pt"
+        }
+        return "Tutte completate. Sei livello \(summary.level)."
+    }
+}
+
+private struct FeedHeroMedia: View {
+    let urlString: String?
+
+    var body: some View {
+        ZStack {
+            if let url = APIClient.shared.mediaURL(from: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image): image.resizable().scaledToFill()
+                    default: fallback
+                    }
+                }
+            } else {
+                fallback
+            }
+        }
+    }
+
+    private var fallback: some View {
+        LinearGradient(
+            colors: [Theme.Palette.blue50, Theme.Palette.blue100, Theme.Palette.blue500],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .overlay {
+            Image(systemName: "sparkles")
+                .font(Theme.Font.display(54, weight: .black))
+                .foregroundStyle(.white.opacity(0.34))
+        }
+    }
+}
+
+private struct HeroPulseRing: View {
+    let value: Int
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Theme.Palette.blue50, lineWidth: 7)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(100, value)) / 100)
+                .stroke(Theme.Palette.blue500, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            VStack(spacing: 0) {
+                Text("\(value)")
+                    .font(Theme.Font.heroNumber(24).monospacedDigit())
+                    .foregroundStyle(Theme.Palette.ink)
+                Text("pulse")
+                    .font(Theme.Font.caption(10, weight: .heavy))
+                    .foregroundStyle(Theme.Palette.inkMuted)
+            }
+        }
+        .frame(width: 82, height: 82)
+    }
+}
+
+private struct FeedHeroAvatarStack: View {
+    let urls: [String?]
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: -9) {
+            ForEach(Array(urls.prefix(2).enumerated()), id: \.offset) { index, raw in
+                StoryAvatar(
+                    url: APIClient.shared.mediaURL(from: raw),
+                    size: 36,
+                    hasStory: false,
+                    initials: "\(index + 1)"
+                )
+                .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
+            }
+            if count > max(urls.prefix(2).count, 0) {
+                Text("+\(max(0, count - min(urls.count, 2)))")
+                    .font(Theme.Font.caption(11, weight: .black))
+                    .foregroundStyle(Theme.Palette.blue700)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Theme.Palette.blue50))
+                    .overlay(Circle().stroke(Theme.Palette.surface, lineWidth: 2))
+            }
+        }
     }
 }

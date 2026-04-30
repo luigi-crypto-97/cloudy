@@ -60,7 +60,7 @@ struct CreateStoryView: View {
         }
         .sheet(isPresented: $showsCamera) {
             CameraCaptureView { image in
-                selectedImageData = image.jpegData(compressionQuality: 0.82)
+                selectedImageData = image.cloudyStoryJPEGData()
                 mediaUrl = ""
             }
             .ignoresSafeArea()
@@ -193,18 +193,18 @@ struct CreateStoryView: View {
                 if let selectedImageData, let image = UIImage(data: selectedImageData) {
                     Image(uiImage: image)
                         .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
                 } else if let url = URL(string: mediaUrl.trimmingCharacters(in: .whitespaces)) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .success(let img):
                             img
                                 .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: geo.size.width, maxHeight: geo.size.height)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .scaledToFill()
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .clipped()
                         case .failure:
                             errorPlaceholder
                         default:
@@ -216,7 +216,7 @@ struct CreateStoryView: View {
                 }
             }
         }
-        .padding(.horizontal, 12)
+        .ignoresSafeArea()
     }
 
     private var errorPlaceholder: some View {
@@ -334,8 +334,9 @@ struct CreateStoryView: View {
     private func loadPhoto(_ item: PhotosPickerItem?) async {
         guard let item else { return }
         do {
-            selectedImageData = try await item.loadTransferable(type: Data.self)
-            if selectedImageData != nil {
+            if let data = try await item.loadTransferable(type: Data.self),
+               let image = UIImage(data: data) {
+                selectedImageData = image.cloudyStoryJPEGData()
                 mediaUrl = ""
             }
         } catch {
@@ -351,6 +352,55 @@ struct CreateStoryView: View {
         case (false, true): return cleanTitle
         case (true, false): return cleanCaption
         case (false, false): return "\(cleanTitle)\n\n\(cleanCaption)"
+        }
+    }
+}
+
+// MARK: - Story media normalization
+
+private extension UIImage {
+    /// Stories devono nascere gia' nel formato viewer: verticale 9:16,
+    /// 1080x1920, crop centrale. Cosi' camera e galleria hanno lo stesso
+    /// comportamento full-screen e non mandiamo immagini enormi al server.
+    func cloudyStoryJPEGData() -> Data? {
+        let targetSize = CGSize(width: 1080, height: 1920)
+        let targetRatio = targetSize.width / targetSize.height
+        let sourceRatio = size.width / size.height
+
+        let cropRect: CGRect
+        if sourceRatio > targetRatio {
+            let cropWidth = size.height * targetRatio
+            cropRect = CGRect(
+                x: (size.width - cropWidth) / 2,
+                y: 0,
+                width: cropWidth,
+                height: size.height
+            )
+        } else {
+            let cropHeight = size.width / targetRatio
+            cropRect = CGRect(
+                x: 0,
+                y: (size.height - cropHeight) / 2,
+                width: size.width,
+                height: cropHeight
+            )
+        }
+
+        let rendererFormat = UIGraphicsImageRendererFormat()
+        rendererFormat.scale = 1
+        rendererFormat.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: rendererFormat)
+        return renderer.jpegData(withCompressionQuality: 0.88) { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(origin: .zero, size: targetSize))
+            let scale = targetSize.width / cropRect.width
+            let drawRect = CGRect(
+                x: -cropRect.minX * scale,
+                y: -cropRect.minY * scale,
+                width: size.width * scale,
+                height: size.height * scale
+            )
+            draw(in: drawRect, blendMode: .normal, alpha: 1)
         }
     }
 }
