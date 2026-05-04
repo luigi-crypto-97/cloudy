@@ -1,0 +1,126 @@
+#
+# GitHub Actions Workflow per analisi sicurezza e dipendenze
+# Cloudy — FriendMapSeed iOS App
+#
+
+name: Security & Dependencies
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'FriendMapSeed/**'
+      - '.github/workflows/security.yml'
+  schedule:
+    # Esegui ogni Lunedi alle 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: List SPM Dependencies
+        working-directory: FriendMapSeed
+        run: |
+          echo "## Swift Package Dependencies" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat Packages/CloudyCore/Package.swift >> $GITHUB_STEP_SUMMARY || echo "No SPM packages" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for hardcoded secrets
+        working-directory: FriendMapSeed
+        run: |
+          echo "## Secrets Scan Results" >> $GITHUB_STEP_SUMMARY
+          
+          # Cerca pattern sospetti
+          PATTERNS=(
+            "api[_-]?key"
+            "secret[_-]?key"
+            "password\s*="
+            "token\s*="
+            "private[_-]?key"
+            "bearer"
+          )
+          
+          FOUND_ISSUES=0
+          for pattern in "${PATTERNS[@]}"; do
+            RESULT=$(grep -ri "$pattern" --include="*.swift" --exclude-dir=".build" . 2>/dev/null | grep -v "test" | grep -v "Test" | head -20 || true)
+            if [ -n "$RESULT" ]; then
+              echo "⚠️ Pattern '$pattern' trovato:" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "$RESULT" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              FOUND_ISSUES=1
+            fi
+          done
+          
+          if [ $FOUND_ISSUES -eq 0 ]; then
+            echo "✅ Nessun segreto hardcoded trovato" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  code-quality:
+    name: Code Quality Metrics
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Install SwiftLint
+        run: |
+          brew install swiftlint
+
+      - name: Count Lines of Code
+        working-directory: FriendMapSeed
+        run: |
+          echo "## Code Metrics" >> $GITHUB_STEP_SUMMARY
+          
+          SWIFT_FILES=$(find . -name "*.swift" -not -path "*/build/*" -not -path "*/Packages/*" | wc -l)
+          TOTAL_LINES=$(find . -name "*.swift" -not -path "*/build/*" -not -path "*/Packages/*" -exec wc -l {} + | tail -1 | awk '{print $1}')
+          
+          echo "- **Swift files**: $SWIFT_FILES" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total lines**: $TOTAL_LINES" >> $GITHUB_STEP_SUMMARY
+          
+          # Top 5 largest files
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Largest Files" >> $GITHUB_STEP_SUMMARY
+          find . -name "*.swift" -not -path "*/build/*" -not -path "*/Packages/*" -exec wc -l {} + | \
+            sort -rn | head -5 | awk '{print "- `" $2 "`: " $1 " lines"}' >> $GITHUB_STEP_SUMMARY
+
+      - name: SwiftLint Violations Summary
+        working-directory: FriendMapSeed
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### SwiftLint Violations" >> $GITHUB_STEP_SUMMARY
+          
+          VIOLATIONS=$(swiftlint lint --quiet 2>&1 | wc -l || echo "0")
+          echo "- **Total violations**: $VIOLATIONS" >> $GITHUB_STEP_SUMMARY
+          
+          # Count by type
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Violations by Type (Top 5)" >> $GITHUB_STEP_SUMMARY
+          swiftlint lint --quiet 2>&1 | \
+            grep -oE '\[[a-zA-Z_-]+\]' | \
+            sort | uniq -c | sort -rn | head -5 | \
+            awk '{print "- " $2 ": " $1}' >> $GITHUB_STEP_SUMMARY || true

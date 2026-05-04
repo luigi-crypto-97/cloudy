@@ -1,0 +1,43 @@
+//
+//  Release.xcconfig
+//  Cloudy — Configurazione per ambiente di produzione (Release)
+//
+
+#include "Shared.xcconfig"
+
+// API Configuration - punta al backend di produzione
+API_BASE_URL = $(API_BASE_URL_PROD)
+API_BASE_URL_LAN = $(API_BASE_URL_PROD)
+
+// Logging minimo in produzione per performance
+ENABLE_LOGGING = 1
+ENABLE_DEV_FEATURES = 0
+LOG_NETWORK_REQUESTS = 0
+LOG_VERBOSE = 0
+
+// Analytics abilitato in produzione
+ENABLE_ANALYTICS = 1
+
+// Build Settings Release
+SWIFT_OPTIMIZATION_LEVEL = -Owholemodule
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) RELEASE_MODE
+
+// Preprocessor Macros per Release
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) RELEASE=1
+
+// Debug Information per Crashlytics/Sentry
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+
+// Enable Bitcode per App Store
+ENABLE_BITCODE = YES
+
+// Disable Sanitizers per produzione
+SWIFT_ADDRESS_SANITIZER = NO
+SWIFT_THREAD_SANITIZER = NO
+
+// Strip Swift Symbols per ridurre dimensione
+DEAD_CODE_STRIPPING = YES
+STRIP_SWIFT_SYMBOLS = YES
+
+// App Store Connect configuration
+VALIDATE_PRODUCT = YES

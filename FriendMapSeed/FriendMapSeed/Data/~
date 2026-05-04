@@ -7,31 +7,33 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1127EF332FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */; };
-		1127EF342FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */; };
-		1127EF352FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */; };
-		1127EF362FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */; };
-		1127EF372FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */; };
-		1127EF382FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */; };
-		1127EF392FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */; };
-		1127EF3A2FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */; };
-		1127EF3B2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */; };
-		1127EF3C2FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */; };
+		11F5B8262FA8A31900C01596 /* CloudyModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B8242FA8A31900C01596 /* CloudyModel.xcdatamodeld */; };
+		11F5B8312FA8B39300C01596 /* VenueCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82F2FA8B39300C01596 /* VenueCache+CoreDataClass.swift */; };
+		11F5B8322FA8B39300C01596 /* MessageCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B8272FA8B39300C01596 /* MessageCache+CoreDataClass.swift */; };
+		11F5B8332FA8B39300C01596 /* UserProfileCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82D2FA8B39300C01596 /* UserProfileCache+CoreDataClass.swift */; };
+		11F5B8342FA8B39300C01596 /* UserProfileCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82E2FA8B39300C01596 /* UserProfileCache+CoreDataProperties.swift */; };
+		11F5B8352FA8B39300C01596 /* MessageCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B8282FA8B39300C01596 /* MessageCache+CoreDataProperties.swift */; };
+		11F5B8362FA8B39300C01596 /* QueuedMessage+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B8292FA8B39300C01596 /* QueuedMessage+CoreDataClass.swift */; };
+		11F5B8372FA8B39300C01596 /* QueuedMessage+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82A2FA8B39300C01596 /* QueuedMessage+CoreDataProperties.swift */; };
+		11F5B8382FA8B39300C01596 /* VenueCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B8302FA8B39300C01596 /* VenueCache+CoreDataProperties.swift */; };
+		11F5B8392FA8B39300C01596 /* StoryCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82C2FA8B39300C01596 /* StoryCache+CoreDataProperties.swift */; };
+		11F5B83A2FA8B39300C01596 /* StoryCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F5B82B2FA8B39300C01596 /* StoryCache+CoreDataClass.swift */; };
 		CC0000000000000000000003 /* CloudyCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000002 /* CloudyCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/MessageCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/MessageCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataClass.swift"; path = "FriendMapSeed/Data/QueuedMessage+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataProperties.swift"; path = "FriendMapSeed/Data/QueuedMessage+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/StoryCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/StoryCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/UserProfileCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/UserProfileCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/VenueCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/VenueCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		11440BB52F90E8D600A9E15B /* FriendMapSeed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FriendMapSeed.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		11F5B8252FA8A31900C01596 /* CloudyModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = CloudyModel.xcdatamodel; sourceTree = "<group>"; };
+		11F5B8272FA8B39300C01596 /* MessageCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataClass.swift"; path = "Data/MessageCache+CoreDataClass.swift"; sourceTree = "<group>"; };
+		11F5B8282FA8B39300C01596 /* MessageCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataProperties.swift"; path = "Data/MessageCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		11F5B8292FA8B39300C01596 /* QueuedMessage+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataClass.swift"; path = "Data/QueuedMessage+CoreDataClass.swift"; sourceTree = "<group>"; };
+		11F5B82A2FA8B39300C01596 /* QueuedMessage+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataProperties.swift"; path = "Data/QueuedMessage+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		11F5B82B2FA8B39300C01596 /* StoryCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataClass.swift"; path = "Data/StoryCache+CoreDataClass.swift"; sourceTree = "<group>"; };
+		11F5B82C2FA8B39300C01596 /* StoryCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataProperties.swift"; path = "Data/StoryCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		11F5B82D2FA8B39300C01596 /* UserProfileCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataClass.swift"; path = "Data/UserProfileCache+CoreDataClass.swift"; sourceTree = "<group>"; };
+		11F5B82E2FA8B39300C01596 /* UserProfileCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataProperties.swift"; path = "Data/UserProfileCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		11F5B82F2FA8B39300C01596 /* VenueCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataClass.swift"; path = "Data/VenueCache+CoreDataClass.swift"; sourceTree = "<group>"; };
+		11F5B8302FA8B39300C01596 /* VenueCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataProperties.swift"; path = "Data/VenueCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -57,16 +59,17 @@
 		11440BAC2F90E8D600A9E15B = {
 			isa = PBXGroup;
 			children = (
-				1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */,
-				1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */,
-				1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */,
-				1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */,
-				1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */,
-				1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */,
-				1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */,
-				1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */,
-				1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */,
-				1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */,
+				11F5B8272FA8B39300C01596 /* MessageCache+CoreDataClass.swift */,
+				11F5B8282FA8B39300C01596 /* MessageCache+CoreDataProperties.swift */,
+				11F5B8292FA8B39300C01596 /* QueuedMessage+CoreDataClass.swift */,
+				11F5B82A2FA8B39300C01596 /* QueuedMessage+CoreDataProperties.swift */,
+				11F5B82B2FA8B39300C01596 /* StoryCache+CoreDataClass.swift */,
+				11F5B82C2FA8B39300C01596 /* StoryCache+CoreDataProperties.swift */,
+				11F5B82D2FA8B39300C01596 /* UserProfileCache+CoreDataClass.swift */,
+				11F5B82E2FA8B39300C01596 /* UserProfileCache+CoreDataProperties.swift */,
+				11F5B82F2FA8B39300C01596 /* VenueCache+CoreDataClass.swift */,
+				11F5B8302FA8B39300C01596 /* VenueCache+CoreDataProperties.swift */,
+				11F5B8242FA8A31900C01596 /* CloudyModel.xcdatamodeld */,
 				11440BB72F90E8D600A9E15B /* FriendMapSeed */,
 				11440BB62F90E8D600A9E15B /* Products */,
 			);
@@ -132,7 +135,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				CC0000000000000000000001 /* XCLocalSwiftPackageReference "Packages/CloudyCore" */,
-				11F5B9E42FA8CF9B00C01596 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11440BB62F90E8D600A9E15B /* Products */;
@@ -159,16 +161,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1127EF332FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift in Sources */,
-				1127EF342FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift in Sources */,
-				1127EF352FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift in Sources */,
-				1127EF362FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift in Sources */,
-				1127EF372FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift in Sources */,
-				1127EF382FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift in Sources */,
-				1127EF392FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift in Sources */,
-				1127EF3A2FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift in Sources */,
-				1127EF3B2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift in Sources */,
-				1127EF3C2FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift in Sources */,
+				11F5B8312FA8B39300C01596 /* VenueCache+CoreDataClass.swift in Sources */,
+				11F5B8322FA8B39300C01596 /* MessageCache+CoreDataClass.swift in Sources */,
+				11F5B8332FA8B39300C01596 /* UserProfileCache+CoreDataClass.swift in Sources */,
+				11F5B8342FA8B39300C01596 /* UserProfileCache+CoreDataProperties.swift in Sources */,
+				11F5B8352FA8B39300C01596 /* MessageCache+CoreDataProperties.swift in Sources */,
+				11F5B8362FA8B39300C01596 /* QueuedMessage+CoreDataClass.swift in Sources */,
+				11F5B8372FA8B39300C01596 /* QueuedMessage+CoreDataProperties.swift in Sources */,
+				11F5B8382FA8B39300C01596 /* VenueCache+CoreDataProperties.swift in Sources */,
+				11F5B8392FA8B39300C01596 /* StoryCache+CoreDataProperties.swift in Sources */,
+				11F5B83A2FA8B39300C01596 /* StoryCache+CoreDataClass.swift in Sources */,
+				11F5B8262FA8A31900C01596 /* CloudyModel.xcdatamodeld in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,23 +413,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		11F5B9E42FA8CF9B00C01596 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 12.12.1;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
 		CC0000000000000000000002 /* CloudyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CloudyCore;
 		};
 /* End XCSwiftPackageProductDependency section */
+
+/* Begin XCVersionGroup section */
+		11F5B8242FA8A31900C01596 /* CloudyModel.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				11F5B8252FA8A31900C01596 /* CloudyModel.xcdatamodel */,
+			);
+			currentVersion = 11F5B8252FA8A31900C01596 /* CloudyModel.xcdatamodel */;
+			name = CloudyModel.xcdatamodeld;
+			path = Data/CloudyModel.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = 11440BAD2F90E8D600A9E15B /* Project object */;
 }

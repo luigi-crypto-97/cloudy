@@ -1,118 +1,332 @@
-# FriendMapSeed (Cloudy iOS — Native SwiftUI)
+# Cloudy iOS — FriendMapSeed
 
-Riscrittura nativa **iOS / SwiftUI** dell'app Cloudy, in sostituzione del client .NET MAUI. Il backend ASP.NET Core (`src/FriendMap.Api`) **non cambia**: l'app iOS lo consuma come API REST.
+Client iOS nativo SwiftUI per Cloudy/FriendMap.
 
-## Perché questa riscrittura
+## Requisiti
 
-Il client MAUI aveva problemi di performance e rendering documentati:
+- **macOS:** 14.0+
+- **Xcode:** 16.2+
+- **iOS:** 17.0+
+- **Swift:** 6.0
 
-- `StartCloudPulse` con timer da 16ms sul main thread per ogni nuvola
-- `RenderViewportOverlay` ricreava continuamente `Border` + `Shadow`
-- `BuildFogLinks` O(n²) sul main thread
-- Accelerometer a `SensorSpeed.Game`
-- `MainMapPage.xaml.cs` da 94KB
-- Glitch di rendering iOS con stack di `RadialGradientBrush`
-- Coordinate non density-aware
+## Setup Rapido
 
-La riscrittura nativa elimina queste classi di problemi alla radice.
+### 1. Clona e Risolvi Dipendenze
+
+```bash
+cd FriendMapSeed
+xcodebuild -resolvePackageDependencies
+```
+
+### 2. Configura Ambiente
+
+Copia e modifica le xcconfig se necessario:
+
+```bash
+# Debug.xcconfig - per sviluppo locale
+API_BASE_URL = http://localhost:8080
+ENABLE_LOGGING = 1
+ENABLE_ANALYTICS = 0
+
+# Release.xcconfig - per produzione
+API_BASE_URL = https://api.iron-quote.it
+ENABLE_LOGGING = 0
+ENABLE_ANALYTICS = 1
+```
+
+### 3. Avvia da Xcode
+
+1. Apri `FriendMapSeed.xcodeproj`
+2. Seleziona schema `FriendMapSeed`
+3. Scegli device (simulatore o iPhone fisico)
+4. Premi ▶️ Run
+
+### 4. Script da Terminale
+
+```bash
+# Build simulatore
+./scripts/run-ios-device.sh
+
+# Build device fisico
+./scripts/run-ios-device.sh <device-identifier>
+```
 
 ## Architettura
 
 ```
 FriendMapSeed/
-├── App/                    → AppRouter (@Observable), RootView (auth gate + 5 tab)
-├── DesignSystem/           → Theme (palette honey/Bumble + IG gradients), Components
-├── Models/                 → Codable mirrors dei DTO backend (PascalCase)
-├── Networking/             → APIClient async/await, Endpoints tipizzati, JWT bearer
-├── Stores/                 → AuthStore, MapStore (@Observable, debounce 350ms)
-├── Features/
-│   ├── Auth/               → Dev login (nickname + URL backend configurabile)
-│   ├── Map/                → CloudShape, CloudBubble, MapView, VenueDetailSheet
-│   ├── Feed/               → Stories ring + feed cards stile Instagram
-│   ├── Tables/             → Card stack swipe stile Bumble
+├── App/                        # App entry point, routing
+│   ├── FriendMapSeedApp.swift
+│   ├── AppRouter.swift
+│   └── RootView.swift
+├── Data/                       # Core Data stack e caching
+│   ├── DataController.swift
+│   └── CloudyModel+*.swift
+├── DesignSystem/               # Theme, componenti UI
+│   ├── Theme.swift
+│   ├── Components.swift
+│   └── Motion.swift
+├── Features/                   # Feature-based organization
+│   ├── Auth/
+│   ├── Chat/
+│   ├── Feed/
+│   ├── Friends/
+│   ├── Map/
 │   ├── Profile/
-│   └── Common/
-├── Utilities/              → Haptics
-└── Packages/CloudyCore/    → Swift Package locale, logica pura cross-platform
+│   └── Tables/
+├── Models/                     # Domain models (split per dominio)
+│   ├── Models+Auth.swift
+│   ├── Models+Venue.swift
+│   ├── Models+Social.swift
+│   └── Models+Feed.swift
+├── Networking/                 # API client, SignalR, Endpoints
+│   ├── APIClient.swift         # HTTP con certificate pinning
+│   ├── SignalRService.swift    # WebSocket per chat real-time
+│   ├── Endpoints+Auth.swift
+│   ├── Endpoints+Venue.swift
+│   ├── Endpoints+Social.swift
+│   ├── Endpoints+Feed.swift
+│   └── Endpoints+Chat.swift
+├── Stores/                     # State management (@Observable)
+│   ├── AuthStore.swift
+│   ├── MapStore.swift
+│   └── LiveLocationStore.swift
+├── Utilities/                  # Helpers
+│   ├── L10n.swift              # Localizzazioni type-safe
+│   ├── Analytics.swift         # Firebase Analytics wrapper
+│   ├── ImageCache.swift        # Nuke image caching
+│   └── Haptics.swift
+└── Resources/                  # Localizzazioni, asset
+    ├── Localizable.strings (it)
+    └── Localizable+en.strings (en)
 ```
 
-### Pattern chiave
+## Feature Implementate
 
-- **MVVM + `@Observable`** (iOS 17+) — niente boilerplate Combine.
-- **Una sola `TimelineView(.animation)`** a livello `MapView` produce un `phase 0..1` condiviso da tutte le `CloudBubble` → elimina N timer.
-- **CloudShape** è una singola `Path` con stroke/fill nativi (non più stack di `Border` + `RadialGradient`).
-- **Fog links** in `Task.detached`, cap a 100 cluster, algoritmo identico al MAUI ma in funzione pura testabile (`CloudyCore.FogLinkBuilder`).
-- **MapKit SwiftUI**: `Map(position:)` + `Annotation` + `MapPolyline`.
+### Sicurezza
+- ✅ **Certificate Pinning** per prevenire MITM attacks
+- ✅ **Token Refresh** automatico con retry delle richieste
+- ✅ **Biometric Authentication** (FaceID/TouchID)
+- ✅ **Keychain** per token sensibili
 
-### CloudyCore (Swift Package)
+### Offline Support
+- ✅ **Core Data** caching per venues, messaggi, storie
+- ✅ **Offline Queue** per messaggi inviati senza connessione
+- ✅ **Cache cleanup** automatico (7 giorni)
 
-`Packages/CloudyCore/` contiene la logica di dominio pura, **cross-platform e testabile su Linux**:
+### Networking
+- ✅ **APIClient** con logging opzionale, errori localizzati
+- ✅ **SignalR** per chat real-time (no polling)
+- ✅ **Endpoints** suddivisi per feature
 
-- `LatLon`, `Geo.distance` (haversine)
-- `VenueClusterInput` protocol → adattabile a `VenueMarker`
-- `FogLinkBuilder.build(from:maxDistanceMeters:minIntensity:minStrength:maxClusters:)`
-- `CloudyJSON.makeDecoder()` / `makeEncoder()` con keyDecodingStrategy PascalCase + ISO8601 con frazione opzionale
+### Internazionalizzazione
+- ✅ **Italiano** e **Inglese** (~200 chiavi)
+- ✅ **L10n helper** type-safe
 
-**13 unit test, tutti passano** su Swift 6.0.3 (Linux):
+### Performance
+- ✅ **Nuke** per image caching avanzato
+- ✅ **Prefetching** per immagini in liste
+- ✅ **Debounced fetch** per viewport mappa (350ms)
+- ✅ **Task.detached** per fog links calculation
+
+### Analytics & Monitoring
+- ✅ **Firebase Analytics** integration
+- ✅ **Crashlytics** per crash reporting
+- ✅ **Event tracking** per azioni utente
+
+### CI/CD
+- ✅ **GitHub Actions** per build e test automatici
+- ✅ **SwiftLint** per code quality
+- ✅ **Security workflow** per dependency audit
+
+## Configurazione Firebase
+
+1. Crea progetto su [Firebase Console](https://console.firebase.google.com)
+2. Scarica `GoogleService-Info.plist`
+3. Aggiungi a `FriendMapSeed/` in Xcode
+4. Abilita Analytics e Crashlytics
+5. Imposta in `Release.xcconfig`:
+   ```
+   ENABLE_FIREBASE = 1
+   ```
+
+## Configurazione Certificate Pinning
+
+Per produzione, genera l'hash del certificato:
+
+```bash
+openssl s_client -servername api.iron-quote.it -connect api.iron-quote.it:443 < /dev/null 2>/dev/null | \
+  openssl x509 -pubkey -noout | \
+  openssl pkey -pubin -outform der | \
+  openssl dgst -sha256 -binary | \
+  openssl enc -base64
+```
+
+Copia l'hash in `APIClient.swift`:
+
+```swift
+private static let pinnedPublicKeyHashes: Set<String> = [
+    "Base64HashQui="
+]
+```
+
+## Testing
+
+### Unit Test (CloudyCore)
 
 ```bash
 cd FriendMapSeed/Packages/CloudyCore
 swift test
-# Executed 13 tests, with 0 failures
 ```
 
-## Compatibilità con il backend
-
-| Aspetto | Backend (C#) | Client iOS |
-|--------|------|--------|
-| JSON keys | PascalCase | `keyDecodingStrategy = .custom` (lowercase first) |
-| Date | ISO8601, frazione opzionale | due `ISO8601DateFormatter` in cascata |
-| Auth | JWT bearer | salvato in Keychain, restore() al boot |
-| URL backend | configurabile | `UserDefaults.standard.string(forKey: "backendURL")` |
-
-## Setup
-
-Il backend produzione gira su **`https://api.iron-quote.it`** (HTTPS valido → nessuna eccezione ATS necessaria). Questa è la URL di default dell'app.
-
-### Flusso da terminale (analogo al vecchio MAUI)
+### Build Verification
 
 ```bash
-./scripts/run-ios-device.sh
+xcodebuild -project FriendMapSeed.xcodeproj \
+  -scheme FriendMapSeed \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  build
 ```
 
-Lo script (sostituisce il vecchio `run-mobile-device.sh`):
+### SwiftLint
 
-1. lista i device collegati (`xcrun devicectl list devices`)
-2. risolve il package SPM `CloudyCore`
-3. builda con `xcodebuild` per `iphoneos` (arm64)
-4. firma con automatic signing usando `DEVELOPMENT_TEAM=9YUM32FPQU` e `BUNDLE_ID=it.luiginegri.FriendMapSeed` (gli stessi del MAUI)
-5. installa l'`.app` sull'iPhone con `xcrun devicectl device install app`
-6. lancia l'app sull'iPhone con `xcrun devicectl device process launch`
+```bash
+cd FriendMapSeed
+swiftlint lint
+```
 
-Variabili sovrascrivibili: `DEVELOPMENT_TEAM`, `BUNDLE_ID`, `CONFIGURATION` (default `Debug`).
+## Dipendenze
 
-Prerequisiti una tantum:
+Il progetto usa Swift Package Manager:
 
-- Xcode 16+ in `/Applications/Xcode.app` (`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`)
-- Apple ID configurato in Xcode → Settings → Accounts (team `9YUM32FPQU`)
-- iPhone collegato via USB, "Modalità sviluppatore" attiva (Impostazioni → Privacy e sicurezza), "Autorizza questo computer" accettato
+- **SignalR-Client-Swift** (≥ 0.12.0) - Chat real-time
+- **Nuke** (≥ 12.8.0) - Image caching
+- **firebase-ios-sdk** (≥ 11.0.0) - Analytics, Crashlytics
+- **sentry-cocoa** (≥ 8.30.0) - Error monitoring (opzionale)
+- **SwiftLint** (≥ 0.57.0) - Linting
 
-### In alternativa, da Xcode
+Per risolvere dipendenze:
 
-1. Aprire `FriendMapSeed.xcodeproj` in Xcode 16+.
-2. Schema `FriendMapSeed`, target il device (iPhone) o simulator iPhone 15+.
-3. Run (⌘R).
+```bash
+xcodebuild -resolvePackageDependencies
+```
 
-La URL backend è modificabile dalla schermata di login (utile per puntare a un backend di sviluppo locale).
+## Ambiente di Sviluppo
 
-## Test
+### Variabili d'Ambiente (Debug)
 
-- **Unit (logica)**: 13 test su `CloudyCore` (`swift test`) — `FogLinkBuilder`, `Geo.distance`, JSON PascalCase round-trip, ISO8601 con/senza frazione, performance 60 cluster < 50ms.
-- **Build**: parse syntactic Swift su tutti i file iOS (passato).
-- **UI smoke test**: TODO — richiede target di test in Xcode (vedi follow-up).
+| Variabile | Descrizione | Default |
+|-----------|-------------|---------|
+| `API_BASE_URL` | Backend URL | `http://localhost:8080` |
+| `ENABLE_FIREBASE` | Abilita Firebase | `0` |
+| `ENABLE_ANALYTICS` | Abilita analytics | `0` |
+| `LOG_NETWORK_REQUESTS` | Log HTTP requests | `1` |
+| `LOG_VERBOSE` | Log verboso | `1` |
 
-## Trade-off
+### Backend Locale
 
-- ➕ Performance native (60 fps stabili, no jank), API SwiftUI moderne, tooling Xcode.
-- ➕ Codice ~5x più piccolo del MAUI (no XAML 94KB, no event handlers stratificati).
-- ➖ Si perde Android (consapevole — il backend resta REST, eventuale client Android in futuro).
+Per sviluppare con backend locale:
+
+```bash
+# Root repository
+./scripts/run-api-lan.sh
+
+# Ottieni URL LAN
+./scripts/dev-api-url.sh
+
+# Imposta in Debug.xcconfig
+API_BASE_URL = http://192.168.x.x:8080
+```
+
+## Struttura Database
+
+Il caching offline usa Core Data con queste entità:
+
+- **VenueCache** - Locali visitati
+- **MessageCache** - Messaggi chat
+- **QueuedMessage** - Messaggi in attesa (offline)
+- **StoryCache** - Stories visualizzate
+- **UserProfileCache** - Profili utente
+
+## Linee Guida di Sviluppo
+
+### Codice
+
+- Usa `@Observable` per state management (iOS 17+)
+- Preferisci `async/await` a callback
+- Usa `L10n` per stringhe localizzate
+- Usa `CachedImage` invece di `AsyncImage`
+- Mantieni views < 300 righe (splitta se necessario)
+
+### Git
+
+```bash
+# Branch naming
+feat/nome-feature
+fix/nome-fix
+refactor/nome-refactor
+
+# Commit message
+feat: aggiunto caching offline per venues
+fix: corretto crash in chat room
+refactor: split Models.swift in file per dominio
+```
+
+### Review Checklist
+
+- [ ] SwiftLint: nessun warning/error
+- [ ] Test CloudyCore: passano
+- [ ] Build: compila senza errori
+- [ ] Localizzazioni: stringhe in L10n/Localizable
+- [ ] Errori: messaggi localizzati (L10n.Error.*)
+
+## Risoluzione Problemi
+
+### Build Fallisce
+
+```bash
+# Pulisci derived data
+rm -rf ~/Library/Developer/Xcode/DerivedData/*
+
+# Risolvi pacchetti
+xcodebuild -resolvePackageDependencies
+
+# Restart Xcode
+```
+
+### Certificati/Signing
+
+```bash
+# Verifica team
+defaults read com.apple.dt.Xcode IDEProvisioningTeams
+
+# Reset signing
+xcodebuild -project FriendMapSeed.xcodeproj \
+  -scheme FriendMapSeed \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+```
+
+### Core Data Migration
+
+Se cambi il modello Core Data:
+
+1. Incrementa `CURRENT_PROJECT_VERSION`
+2. Crea nuova versione modello in Xcode
+3. Abilita migration automatica
+
+## Licenza
+
+Proprietario — Tutti i diritti riservati.
+
+## Contatti
+
+- **Sviluppatore:** Luigi Negri
+- **Email:** api@iron-quote.it
+- **Backend:** https://api.iron-quote.it
+
+---
+
+**Ultimo aggiornamento:** 4 Maggio 2026  
+**Versione:** 1.0.0  
+**Build:** 1

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24837" systemVersion="25E253" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+    <entity name="MessageCache" representedClassName="MessageCache" syncable="YES">
+        <attribute name="avatarUrl" optional="YES" attributeType="String"/>
+        <attribute name="body" optional="YES" attributeType="String"/>
+        <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="isMine" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="lastUpdated" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="messageId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="nickname" optional="YES" attributeType="String"/>
+        <attribute name="senderUserId" attributeType="String"/>
+        <attribute name="sentAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="userId" attributeType="String" spotlightIndexingEnabled="YES"/>
+    </entity>
+    <entity name="QueuedMessage" representedClassName="QueuedMessage" syncable="YES">
+        <attribute name="attempts" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="body" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="messageId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="threadId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="userId" attributeType="String" spotlightIndexingEnabled="YES"/>
+    </entity>
+    <entity name="StoryCache" representedClassName="StoryCache" syncable="YES">
+        <attribute name="avatarUrl" optional="YES" attributeType="String"/>
+        <attribute name="caption" optional="YES" attributeType="String"/>
+        <attribute name="commentCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="expiresAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="hasLiked" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="lastUpdated" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="likeCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="mediaUrl" optional="YES" attributeType="String"/>
+        <attribute name="nickname" optional="YES" attributeType="String"/>
+        <attribute name="storyId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="userId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="venueId" optional="YES" attributeType="String"/>
+        <attribute name="venueName" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="UserProfileCache" representedClassName="UserProfileCache" syncable="YES">
+        <attribute name="avatarUrl" optional="YES" attributeType="String"/>
+        <attribute name="bio" optional="YES" attributeType="String"/>
+        <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="lastUpdated" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="nickname" optional="YES" attributeType="String"/>
+        <attribute name="userId" attributeType="String" spotlightIndexingEnabled="YES"/>
+    </entity>
+    <entity name="VenueCache" representedClassName="VenueCache" syncable="YES">
+        <attribute name="addressLine" optional="YES" attributeType="String"/>
+        <attribute name="averageRating" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="bubbleIntensity" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="city" optional="YES" attributeType="String"/>
+        <attribute name="coverImageUrl" optional="YES" attributeType="String"/>
+        <attribute name="densityLevel" optional="YES" attributeType="String"/>
+        <attribute name="descriptionText" optional="YES" attributeType="String"/>
+        <attribute name="hoursSummary" optional="YES" attributeType="String"/>
+        <attribute name="isOpenNow" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="lastUpdated" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="latitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="longitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="peopleEstimate" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="phoneNumber" optional="YES" attributeType="String"/>
+        <attribute name="ratingCount" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="venueId" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="websiteUrl" optional="YES" attributeType="String"/>
+    </entity>
+</model>

@@ -1,0 +1,395 @@
+//
+//  Localizable.strings
+//  Cloudy — English localization
+//  Generated: 2026-05-04
+//
+
+// MARK: - App General
+"app.name" = "Cloudy";
+"app.loading" = "Loading…";
+"app.error" = "An error occurred";
+"app.retry" = "Retry";
+"app.cancel" = "Cancel";
+"app.confirm" = "Confirm";
+"app.save" = "Save";
+"app.delete" = "Delete";
+"app.close" = "Close";
+"app.done" = "Done";
+"app.search" = "Search";
+"app.search_placeholder" = "Search…";
+"app.no_results" = "No results found";
+"app.loading_error" = "Loading error";
+
+// MARK: - Authentication
+"auth.login" = "Sign In";
+"auth.logout" = "Sign Out";
+"auth.login_title" = "Welcome to Cloudy";
+"auth.login_subtitle" = "Enter your details to sign in";
+"auth.nickname" = "Nickname";
+"auth.nickname_placeholder" = "Your nickname";
+"auth.display_name" = "Display Name";
+"auth.display_name_placeholder" = "Optional";
+"auth.backend_url" = "Backend URL";
+"auth.backend_url_placeholder" = "https://api.iron-quote.it";
+"auth.login_button" = "Sign In";
+"auth.logging_in" = "Signing in…";
+"auth.logout_confirm" = "Are you sure you want to sign out?";
+"auth.session_expired" = "Session expired. Please sign in again.";
+"auth.login_failed" = "Sign in failed";
+
+// MARK: - Navigation Tabs
+"tab.map" = "Map";
+"tab.feed" = "Feed";
+"tab.tables" = "Tables";
+"tab.leaderboard" = "Leaderboard";
+"tab.notifications" = "Notifications";
+"tab.profile" = "Profile";
+"tab.chat" = "Chat";
+
+// MARK: - Map
+"map.loading" = "Updating map…";
+"map.loading_error" = "Error loading map";
+"map.center_location" = "Center location";
+"map.live_location" = "Live location";
+"map.live_location_active" = "Live location active";
+"map.live_location_inactive" = "Live location disabled";
+"map.live_location_denied" = "Location permission denied";
+"map.filters" = "Filters";
+"map.venues_count" = "%d venues";
+"map.people_count" = "%d people";
+"map.live_at" = "live at %@";
+"map.people_active" = "people active now";
+"map.venue_detail" = "Venue details";
+"map.check_in" = "Check-in";
+"map.plan_night" = "Plan night out";
+"map.launch_flare" = "Launch Flare";
+"map.flare_launched" = "Flare launched!";
+"map.area_density" = "Area density";
+"map.hot_venue_suggestion" = "Hot venue nearby";
+"map.hot_venue_going" = "Going";
+"map.hot_venue_maybe" = "Maybe";
+"map.hot_venue_not_interested" = "Not interested";
+"map.hot_venue_marked_going" = "Marked: going.";
+"map.hot_venue_marked_maybe" = "Marked: maybe.";
+
+// MARK: - Map Filters
+"map.filter.all" = "All";
+"map.filter.open_now" = "Open now";
+"map.filter.query_placeholder" = "Search venue…";
+"map.filter.category" = "Category";
+"map.filter.apply" = "Apply filters";
+"map.filter.clear" = "Clear filters";
+
+// MARK: - Feed
+"feed.title" = "Feed";
+"feed.loading" = "Loading feed…";
+"feed.empty" = "Nothing to see right now";
+"feed.empty_subtitle" = "Check back later for new activity";
+"feed.story_new" = "New story";
+"feed.story_create" = "Create story";
+"feed.story_view" = "View story";
+"feed.card_venue" = "Venue";
+"feed.card_flare" = "Flare";
+"feed.card_table" = "Table";
+"feed.card_friend" = "Friend";
+"feed.card_dismiss" = "Not interested";
+"feed.card_see_less" = "See less like this";
+"feed.fatigue_dismissed" = "Card hidden";
+"feed.rank_distance" = "%.1f km away";
+"feed.rank_people" = "%d people";
+"feed.rank_energy" = "Energy: %d";
+
+// MARK: - Stories
+"stories.create" = "Create story";
+"stories.camera" = "Take photo";
+"stories.library" = "Choose from library";
+"stories.caption" = "Add caption…";
+"stories.posting" = "Posting…";
+"stories.posted" = "Story posted!";
+"stories.delete_confirm" = "Delete this story?";
+"stories.no_stories" = "No stories available";
+"stories.viewing" = "%@'s story";
+"stories.liked" = "You liked this story";
+"stories.unliked" = "You unliked this story";
+"stories.comment_placeholder" = "Write a comment…";
+"stories.comment_posted" = "Comment posted";
+"stories.share" = "Share";
+"stories.shared" = "Story shared";
+
+// MARK: - Chat
+"chat.title" = "Chat";
+"chat.loading" = "Loading chats…";
+"chat.empty" = "No chats";
+"chat.empty_subtitle" = "Start a conversation with your friends";
+"chat.type_placeholder" = "Type a message…";
+"chat.send" = "Send";
+"chat.sent" = "Message sent";
+"chat.delivered" = "Delivered";
+"chat.read" = "Read";
+"chat.typing" = "%@ is typing…";
+"chat.attach_photo" = "Attach photo";
+"chat.attach_file" = "Attach file";
+"chat.attach_camera" = "Take photo";
+"chat.photo_sent" = "Photo sent";
+"chat.file_sent" = "File sent";
+"chat.delete_thread" = "Delete conversation";
+"chat.delete_confirm" = "Delete this conversation?";
+"chat.group_create" = "Create group";
+"chat.group_title" = "Group name";
+"chat.group_members" = "Members";
+"chat.group_created" = "Group created";
+"chat.venue_chat" = "Venue chat";
+
+// MARK: - Tables
+"tables.title" = "Social Tables";
+"tables.loading" = "Loading tables…";
+"tables.empty" = "No tables available";
+"tables.empty_subtitle" = "Create or join a social table";
+"tables.create" = "Create table";
+"tables.create_title" = "Event title";
+"tables.create_description" = "Description (optional)";
+"tables.create_venue" = "Choose venue";
+"tables.create_time" = "When";
+"tables.create_capacity" = "Capacity";
+"tables.create_policy" = "Who can join";
+"tables.create_policy_open" = "Everyone";
+"tables.create_policy_friends" = "Friends only";
+"tables.create_policy_invite" = "Invite only";
+"tables.created" = "Table created!";
+"tables.join" = "Join";
+"tables.join_request" = "Join request sent";
+"tables.join_confirmed" = "You're in the table!";
+"tables.leave" = "Leave table";
+"tables.invite" = "Invite friends";
+"tables.invite_sent" = "Invites sent";
+"tables.host" = "Host";
+"tables.guests" = "%d guests";
+"tables.requests" = "%d requests";
+"tables.accept" = "Accept";
+"tables.reject" = "Reject";
+"tables.message" = "Table message";
+"tables.thread" = "Discussion";
+
+// MARK: - Profile
+"profile.title" = "Profile";
+"profile.edit" = "Edit profile";
+"profile.editing" = "Editing…";
+"profile.saved" = "Profile updated";
+"profile.avatar_change" = "Change profile photo";
+"profile.avatar_take_photo" = "Take photo";
+"profile.avatar_choose" = "Choose from library";
+"profile.avatar_remove" = "Remove photo";
+"profile.nickname" = "Nickname";
+"profile.display_name" = "Display name";
+"profile.bio" = "Bio";
+"profile.bio_placeholder" = "Tell us about yourself…";
+"profile.birth_year" = "Birth year";
+"profile.gender" = "Gender";
+"profile.gender_male" = "Man";
+"profile.gender_female" = "Woman";
+"profile.gender_other" = "Other";
+"profile.gender_prefer_not" = "Prefer not to say";
+"profile.interests" = "Interests";
+"profile.interests_add" = "Add interest";
+"profile.interests_suggest" = "Suggested for you";
+"profile.interests_swipe_hint" = "Swipe to accept/reject";
+"profile.stats" = "Stats";
+"profile.friends" = "Friends";
+"profile.stories" = "Stories";
+"profile.check_ins" = "Check-ins";
+"profile.level" = "Level %d";
+"profile.points" = "%d points";
+"profile.privacy" = "Privacy";
+"profile.ghost_mode" = "Ghost mode";
+"profile.ghost_mode_desc" = "Hide your location from others";
+"profile.share_presence" = "Share presence with friends";
+"profile.share_intentions" = "Share intentions with friends";
+"profile.notifications" = "Notifications";
+"profile.logout" = "Sign out";
+"profile.archive" = "Story archive";
+"profile.badges" = "Badges";
+"profile.missions" = "Missions";
+
+// MARK: - Gamification
+"gamification.title" = "Leaderboard";
+"gamification.weekly" = "Weekly";
+"gamification.all_time" = "All time";
+"gamification.city" = "City";
+"gamification.zone" = "Zone";
+"gamification.rank" = "#%d";
+"gamification.points" = "%d pts";
+"gamification.level" = "Lvl %d";
+"gamification.my_rank" = "Your score";
+"gamification.missions" = "Missions";
+"gamification.mission_complete" = "Mission complete!";
+"gamification.badges" = "Badges";
+"gamification.badge_earned" = "Badge unlocked!";
+"gamification.anti_cheat" = "Points are verified to ensure fairness";
+
+// MARK: - Notifications
+"notifications.title" = "Notifications";
+"notifications.loading" = "Loading notifications…";
+"notifications.empty" = "No notifications";
+"notifications.empty_subtitle" = "When you get notifications, they'll appear here";
+"notifications.mark_read" = "Mark as read";
+"notifications.delete_all" = "Delete all";
+"notifications.delete_confirm" = "Delete all notifications?";
+"notifications.type_like" = "Someone liked your story";
+"notifications.type_comment" = "New comment on your story";
+"notifications.type_friend_request" = "New friend request";
+"notifications.type_friend_accepted" = "Friend request accepted";
+"notifications.type_table_invite" = "Table invitation";
+"notifications.type_table_message" = "New table message";
+"notifications.type_flare_response" = "Someone responded to your flare";
+"notifications.type_mention" = "You were mentioned";
+"notifications.type_system" = "System notification";
+"notifications.unread_count" = "%d unread";
+
+// MARK: - Friends
+"friends.title" = "Friends";
+"friends.loading" = "Loading friends…";
+"friends.empty" = "No friends";
+"friends.empty_subtitle" = "Search for people to add";
+"friends.search" = "Search friends";
+"friends.search_placeholder" = "Search by nickname…";
+"friends.requests_incoming" = "Incoming requests";
+"friends.requests_outgoing" = "Sent requests";
+"friends.add" = "Add";
+"friends.request_sent" = "Request sent";
+"friends.accept" = "Accept";
+"friends.reject" = "Reject";
+"friends.remove" = "Remove";
+"friends.remove_confirm" = "Remove %@ from friends?";
+"friends.block" = "Block";
+"friends.block_confirm" = "Block %@?";
+"friends.mutual" = "%d mutual friends";
+
+// MARK: - Flares
+"flares.launch" = "Launch Flare";
+"flares.message" = "Message";
+"flares.message_placeholder" = "What are you up to?";
+"flares.duration" = "Duration";
+"flares.duration_1h" = "1 hour";
+"flares.duration_2h" = "2 hours";
+"flares.duration_3h" = "3 hours";
+"flares.duration_4h" = "4 hours";
+"flares.launched" = "Flare launched!";
+"flares.delete_confirm" = "Delete this flare?";
+"flares.respond" = "Respond";
+"flares.respond_placeholder" = "Write a response…";
+"flares.responded" = "Response sent";
+"flares.relay" = "Share";
+"flares.relay_hint" = "Share with friends";
+"flares.relayed" = "Flare shared";
+"flares.expired" = "Flare expired";
+"flares.nearby" = "Flares nearby";
+
+// MARK: - Venues
+"venue.rating" = "Rating";
+"venue.rate" = "Rate venue";
+"venue.rate_stars" = "How many stars?";
+"venue.rate_comment" = "Comment (optional)";
+"venue.rated" = "Rating submitted";
+"venue.review" = "Review";
+"venue.reviews" = "%d reviews";
+"venue.report" = "Report";
+"venue.report_reason" = "Report reason";
+"venue.reported" = "Report submitted";
+"venue.hours" = "Hours";
+"venue.contact" = "Contact";
+"venue.website" = "Website";
+"venue.phone" = "Call";
+"venue.directions" = "Directions";
+"venue.share" = "Share";
+"venue.open_now" = "Open now";
+"venue.closed" = "Closed";
+"venue.density_low" = "Quiet";
+"venue.density_medium" = "Lively";
+"venue.density_high" = "Packed";
+"venue.density_very_high" = "Hotspot";
+"venue.party_energy" = "Energy: %d";
+"venue.arrivals" = "%d arrivals (15 min)";
+"venue.check_ins" = "%d check-ins now";
+"venue.intentions" = "%d intentions";
+
+// MARK: - Privacy & Settings
+"privacy.title" = "Privacy Settings";
+"privacy.ghost_mode" = "Ghost Mode";
+"privacy.ghost_mode_desc" = "When enabled, your location is hidden from everyone";
+"privacy.share_with_friends" = "Share with friends";
+"privacy.share_with_friends_desc" = "Show your presence to your friends";
+"privacy.share_intentions" = "Share intentions";
+"privacy.share_intentions_desc" = "Show where you plan to go";
+"privacy.location_services" = "Location services";
+"privacy.location_services_desc" = "Cloudy needs your location to work properly";
+"privacy.open_settings" = "Open settings";
+"privacy.data_export" = "Export my data";
+"privacy.data_delete" = "Delete my account";
+"privacy.data_delete_confirm" = "Are you sure? This action cannot be undone.";
+
+// MARK: - Errors
+"error.generic" = "Something went wrong. Please try again.";
+"error.network" = "Connection error. Check your internet connection.";
+"error.unauthorized" = "Session expired. Please sign in again.";
+"error.not_found" = "Content not found.";
+"error.server" = "Server error. Try again later.";
+"error.timeout" = "Request timed out. Please try again.";
+"error.no_location" = "Location unavailable. Enable location services.";
+"error.camera_denied" = "Camera access denied. Enable in settings.";
+"error.photo_library_denied" = "Photo library access denied. Enable in settings.";
+"error.upload_failed" = "Upload failed. Please try again.";
+"error.file_too_large" = "File too large. Maximum 10MB.";
+
+// MARK: - Accessibility
+"a11y.map" = "Map";
+"a11y.feed" = "Activity feed";
+"a11y.profile" = "Your profile";
+"a11y.notifications" = "Notifications";
+"a11y.settings" = "Settings";
+"a11y.close" = "Close";
+"a11y.back" = "Back";
+"a11y.next" = "Next";
+"a11y.previous" = "Previous";
+"a11y.refresh" = "Refresh";
+"a11y.loading" = "Loading";
+"a11y.image" = "Image";
+"a11y.avatar" = "%@'s avatar";
+"a11y.venue" = "Venue: %@";
+"a11y.story" = "%@'s story";
+"a11y.send_message" = "Send message";
+"a11y.center_location" = "Center on your location";
+
+// MARK: - Time & Dates
+"time.now" = "Now";
+"time.today" = "Today";
+"time.yesterday" = "Yesterday";
+"time.tomorrow" = "Tomorrow";
+"time.minutes_ago" = "%d min ago";
+"time.hours_ago" = "%d hours ago";
+"time.days_ago" = "%d days ago";
+"time.weeks_ago" = "%d weeks ago";
+"time.months_ago" = "%d months ago";
+"time.just_now" = "Just now";
+"time.expires_in" = "Expires in %@";
+
+// MARK: - Permissions
+"permission.location.title" = "Enable Location";
+"permission.location.message" = "Cloudy uses your location to show nearby venues and friends.";
+"permission.camera.title" = "Enable Camera";
+"permission.camera.message" = "Cloudy needs camera access to take photos for stories.";
+"permission.photos.title" = "Enable Photo Library";
+"permission.photos.message" = "Cloudy needs photo library access to choose avatars and stories.";
+"permission.notifications.title" = "Enable Notifications";
+"permission.notifications.message" = "Get notified about messages, likes, and friend activity.";
+"permission.open_settings" = "Open settings";
+
+// MARK: - Onboarding
+"onboarding.welcome" = "Welcome to Cloudy";
+"onboarding.subtitle" = "Discover what's happening around you";
+"onboarding.map_title" = "Explore the map";
+"onboarding.map_subtitle" = "Discover venues, events, and where your friends are";
+"onboarding.social_title" = "Connect";
+"onboarding.social_subtitle" = "Join social tables and participate in nightlife";
+"onboarding.privacy_title" = "Your privacy";
+"onboarding.privacy_subtitle" = "Control who can see your location and activity";
+"onboarding.get_started" = "Get started";

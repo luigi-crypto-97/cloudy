@@ -1,0 +1,339 @@
+//
+//  DataController.swift
+//  Cloudy — Core Data stack per caching offline
+//
+//  Gestisce:
+//   - Persistenza locale di venues, messaggi, storie
+//   - Cache per visualizzazione offline
+//   - Sync con backend quando online
+//
+
+import CoreData
+import Foundation
+
+@MainActor
+final class DataController {
+    
+    static let shared = DataController()
+    
+    // MARK: - Core Data Stack
+    
+    let container: NSPersistentContainer
+    
+    var viewContext: NSManagedObjectContext {
+        container.viewContext
+    }
+    
+    private let backgroundContext: NSManagedObjectContext
+    
+    // MARK: - Inizializzazione
+    
+    init() {
+        container = NSPersistentContainer(name: "CloudyModel")
+        
+        // Configura persistent store
+        guard let description = container.persistentStoreDescriptions.first else {
+            fatalError("No store description")
+        }
+        
+        // Config per performance
+        description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        
+        container.persistentStoreDescriptions = [description]
+        
+        container.loadPersistentStores { _, error in
+            if let error {
+                fatalError("Core Data load failed: \(error.localizedDescription)")
+            }
+        }
+        
+        // Config viewContext
+        viewContext.automaticallyMergesChangesFromParent = true
+        viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        
+        // Background context per operazioni pesanti
+        backgroundContext = container.newBackgroundContext()
+        backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        
+        setupObservers()
+    }
+    
+    // MARK: - Observers
+    
+    private func setupObservers() {
+        // Osserva cambiamenti per sync
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleContextSave),
+            name: NSManagedObjectContext.didSaveObjectsNotification,
+            object: viewContext
+        )
+    }
+    
+    @objc private func handleContextSave(_ notification: Notification) {
+        // Qui si può implementare logica di sync col backend
+        // quando i dati locali cambiano
+    }
+    
+    // MARK: - Venue Cache
+    
+    func cacheVenues(_ venues: [VenueMarker]) {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            
+            for venue in venues {
+                let fetchRequest: NSFetchRequest<VenueCache> = VenueCache.fetchRequest()
+                fetchRequest.predicate = NSPredicate(format: "venueId == %@", venue.venueId.uuidString)
+                
+                if let cached = try? self.backgroundContext.fetch(fetchRequest).first {
+                    // Update esistente
+                    self.updateVenueCache(cached, from: venue)
+                } else {
+                    // Crea nuova
+                    self.createVenueCache(from: venue)
+                }
+            }
+            
+            try? self.backgroundContext.save()
+        }
+    }
+    
+    func fetchCachedVenues(in region: MKCoordinateRegion) -> [VenueMarker] {
+        let request: NSFetchRequest<VenueCache> = VenueCache.fetchRequest()
+        
+        // Filtra per bounding box approssimativa
+        let minLat = region.center.latitude - region.span.latitudeDelta / 2
+        let maxLat = region.center.latitude + region.span.latitudeDelta / 2
+        let minLng = region.center.longitude - region.span.longitudeDelta / 2
+        let maxLng = region.center.longitude + region.span.longitudeDelta / 2
+        
+        request.predicate = NSPredicate(
+            format: "latitude >= %f AND latitude <= %f AND longitude >= %f AND longitude <= %f",
+            minLat, maxLat, minLng, maxLng
+        )
+        
+        request.fetchLimit = 100
+        
+        do {
+            let cached = try viewContext.fetch(request)
+            return cached.compactMap { venueFromCache($0) }
+        } catch {
+            print("[CoreData] Fetch venues error: \(error)")
+            return []
+        }
+    }
+    
+    func clearVenueCache() {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            
+            let request: NSFetchRequest<NSFetchRequestResult> = VenueCache.fetchRequest()
+            let delete = NSBatchDeleteRequest(fetchRequest: request)
+            
+            try? self.backgroundContext.execute(delete)
+            try? self.backgroundContext.save()
+        }
+    }
+    
+    // MARK: - Message Cache
+    
+    func cacheMessages(_ messages: [DirectMessage], forUserId userId: UUID) {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            
+            for message in messages {
+                let fetchRequest: NSFetchRequest<MessageCache> = MessageCache.fetchRequest()
+                fetchRequest.predicate = NSPredicate(
+                    format: "messageId == %@ AND userId == %@",
+                    message.messageId.uuidString,
+                    userId.uuidString
+                )
+                
+                if let cached = try? self.backgroundContext.fetch(fetchRequest).first {
+                    self.updateMessageCache(cached, from: message)
+                } else {
+                    self.createMessageCache(from: message, userId: userId)
+                }
+            }
+            
+            try? self.backgroundContext.save()
+        }
+    }
+    
+    func fetchCachedMessages(forUserId userId: UUID) -> [DirectMessage] {
+        let request: NSFetchRequest<MessageCache> = MessageCache.fetchRequest()
+        request.predicate = NSPredicate(format: "userId == %@", userId.uuidString)
+        request.sortDescriptors = [NSSortDescriptor(key: "sentAt", ascending: false)]
+        
+        do {
+            let cached = try viewContext.fetch(request)
+            return cached.compactMap { messageFromCache($0) }
+        } catch {
+            print("[CoreData] Fetch messages error: \(error)")
+            return []
+        }
+    }
+    
+    // MARK: - Offline Queue (per messaggi inviati offline)
+    
+    func queueMessageForLater(body: String, userId: UUID, threadId: UUID) {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            
+            let queued = QueuedMessage(context: self.backgroundContext)
+            queued.messageId = UUID().uuidString
+            queued.body = body
+            queued.userId = userId.uuidString
+            queued.threadId = threadId.uuidString
+            queued.createdAt = Date()
+            queued.attempts = 0
+            
+            try? self.backgroundContext.save()
+        }
+    }
+    
+    func fetchQueuedMessages() -> [QueuedMessage] {
+        let request: NSFetchRequest<QueuedMessage> = QueuedMessage.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: true)]
+        
+        do {
+            return try viewContext.fetch(request)
+        } catch {
+            print("[CoreData] Fetch queued messages error: \(error)")
+            return []
+        }
+    }
+    
+    func removeQueuedMessage(_ message: QueuedMessage) {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            self.backgroundContext.delete(message)
+            try? self.backgroundContext.save()
+        }
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func createVenueCache(from venue: VenueMarker) {
+        let cached = VenueCache(context: backgroundContext)
+        updateVenueCache(cached, from: venue)
+    }
+    
+    private func updateVenueCache(_ cached: VenueCache, from venue: VenueMarker) {
+        cached.venueId = venue.venueId.uuidString
+        cached.name = venue.name
+        cached.category = venue.category
+        cached.addressLine = venue.addressLine
+        cached.city = venue.city
+        cached.latitude = venue.latitude
+        cached.longitude = venue.longitude
+        cached.isOpenNow = venue.isOpenNow
+        cached.peopleEstimate = Int32(venue.peopleEstimate)
+        cached.densityLevel = venue.densityLevel
+        cached.bubbleIntensity = Int32(venue.bubbleIntensity)
+        cached.averageRating = venue.averageRating
+        cached.ratingCount = Int32(venue.ratingCount)
+        cached.coverImageUrl = venue.coverImageUrl
+        cached.descriptionText = venue.description
+        cached.phoneNumber = venue.phoneNumber
+        cached.websiteUrl = venue.websiteUrl
+        cached.hoursSummary = venue.hoursSummary
+        cached.lastUpdated = Date()
+    }
+    
+    private func venueFromCache(_ cached: VenueCache) -> VenueMarker? {
+        guard let venueId = UUID(uuidString: cached.venueId) else { return nil }
+        
+        return VenueMarker(
+            venueId: venueId,
+            name: cached.name ?? "",
+            category: cached.category ?? "",
+            addressLine: cached.addressLine ?? "",
+            city: cached.city ?? "",
+            phoneNumber: cached.phoneNumber,
+            websiteUrl: cached.websiteUrl,
+            hoursSummary: cached.hoursSummary,
+            coverImageUrl: cached.coverImageUrl,
+            description: cached.descriptionText,
+            tags: [],
+            latitude: cached.latitude,
+            longitude: cached.longitude,
+            isOpenNow: cached.isOpenNow,
+            peopleEstimate: Int(cached.peopleEstimate),
+            densityLevel: cached.densityLevel ?? "unknown",
+            bubbleIntensity: Int(cached.bubbleIntensity),
+            demographicDataAvailable: false,
+            activeCheckIns: 0,
+            activeIntentions: 0,
+            openTables: 0,
+            partyPulse: PartyPulse(energyScore: 0, mood: "", arrivalsLast15: 0, checkInsNow: 0, intentionsSoon: 0, sparkline: []),
+            intentRadar: IntentRadar(goingOut: 0, almostThere: 0, hereNow: 0, coolingDown: 0, updatedAtUtc: Date(), privacyLevel: "friends"),
+            presencePreview: [],
+            averageRating: cached.averageRating,
+            ratingCount: Int(cached.ratingCount),
+            myRating: nil
+        )
+    }
+    
+    private func createMessageCache(from message: DirectMessage, userId: UUID) {
+        let cached = MessageCache(context: backgroundContext)
+        updateMessageCache(cached, from: message)
+        cached.userId = userId.uuidString
+    }
+    
+    private func updateMessageCache(_ cached: MessageCache, from message: DirectMessage) {
+        cached.messageId = message.messageId.uuidString
+        cached.senderUserId = message.senderUserId.uuidString
+        cached.nickname = message.nickname
+        cached.displayName = message.displayName
+        cached.avatarUrl = message.avatarUrl
+        cached.body = message.body
+        cached.sentAt = message.sentAtUtc
+        cached.isMine = message.isMine
+        cached.lastUpdated = Date()
+    }
+    
+    private func messageFromCache(_ cached: MessageCache) -> DirectMessage? {
+        guard let messageId = UUID(uuidString: cached.messageId),
+              let senderUserId = UUID(uuidString: cached.senderUserId) else { return nil }
+        
+        return DirectMessage(
+            messageId: messageId,
+            senderUserId: senderUserId,
+            nickname: cached.nickname ?? "",
+            displayName: cached.displayName,
+            avatarUrl: cached.avatarUrl,
+            body: cached.body ?? "",
+            sentAtUtc: cached.sentAt ?? Date(),
+            isMine: cached.isMine
+        )
+    }
+}
+
+// MARK: - Cache Cleanup
+
+extension DataController {
+    /// Pulisce cache più vecchia di giorniSpecificati
+    func cleanupCache(olderThanDays days: Int = 7) {
+        backgroundContext.perform { [weak self] in
+            guard let self else { return }
+            
+            let cutoffDate = Date().addingTimeInterval(-Double(days) * 24 * 60 * 60)
+            
+            // Cleanup venues
+            let venueRequest: NSFetchRequest<NSFetchRequestResult> = VenueCache.fetchRequest()
+            venueRequest.predicate = NSPredicate(format: "lastUpdated < %@", cutoffDate as NSDate)
+            let venueDelete = NSBatchDeleteRequest(fetchRequest: venueRequest)
+            try? self.backgroundContext.execute(venueDelete)
+            
+            // Cleanup messages
+            let messageRequest: NSFetchRequest<NSFetchRequestResult> = MessageCache.fetchRequest()
+            messageRequest.predicate = NSPredicate(format: "lastUpdated < %@", cutoffDate as NSDate)
+            let messageDelete = NSBatchDeleteRequest(fetchRequest: messageRequest)
+            try? self.backgroundContext.execute(messageDelete)
+            
+            try? self.backgroundContext.save()
+        }
+    }
+}

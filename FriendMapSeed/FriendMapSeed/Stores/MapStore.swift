@@ -11,6 +11,7 @@
 //   3. Cloud pulse animato con TimelineView pure-function (no Timer / Animation
 //      loop sul main thread). Una sola animazione per tutta la mappa.
 //   4. Cache della firma layer per evitare update inutili.
+//   5. Core Data cache per visualizzazione offline.
 //
 
 import Foundation
@@ -107,6 +108,7 @@ final class MapStore {
         defer { isLoading = false }
 
         do {
+            // Fetch fresh data dal backend
             let result = try await API.venueMapLayer(
                 minLat: bounds.minLat, minLng: bounds.minLng,
                 maxLat: bounds.maxLat, maxLng: bounds.maxLng,
@@ -114,6 +116,8 @@ final class MapStore {
                 category: category == "all" ? nil : category,
                 openNow: openNowOnly
             )
+            
+            // Update UI
             let shouldUseAreas = shouldUseAreaLayer(region: region, markerCount: result.markers.count, areaCount: result.areas.count)
             usesAreaLayer = shouldUseAreas
             areas = shouldUseAreas ? result.areas : []

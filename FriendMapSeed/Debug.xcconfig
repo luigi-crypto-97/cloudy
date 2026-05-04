@@ -1,0 +1,37 @@
+//
+//  Debug.xcconfig
+//  Cloudy — Configurazione per ambiente di sviluppo (Debug)
+//
+
+#include "Shared.xcconfig"
+
+// API Configuration - punta al backend locale
+API_BASE_URL = http://localhost:8080
+API_BASE_URL_LAN = $(API_BASE_URL)
+
+// Logging abilitato per debug
+ENABLE_LOGGING = 1
+ENABLE_DEV_FEATURES = 1
+LOG_NETWORK_REQUESTS = 1
+LOG_VERBOSE = 1
+
+// Analytics disabilitato in debug per non sporcare i dati
+ENABLE_ANALYTICS = 0
+
+// Build Settings Debug
+SWIFT_OPTIMIZATION_LEVEL = -Onone
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEBUG DEBUG_MODE
+
+// Preprocessor Macros per Debug
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) DEBUG=1
+
+// Debug Information
+DEBUG_INFORMATION_FORMAT = dwarf
+MACH_O_TYPE = mh_execute
+
+// Disable Bitcode for faster builds
+ENABLE_BITCODE = NO
+
+// Sanitizers per development
+SWIFT_ADDRESS_SANITIZER = YES
+SWIFT_THREAD_SANITIZER = YES

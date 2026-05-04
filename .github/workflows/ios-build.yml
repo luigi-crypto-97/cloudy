@@ -1,0 +1,133 @@
+#
+# GitHub Actions Workflow per build e test iOS
+# Cloudy — FriendMapSeed iOS App
+#
+
+name: iOS Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+    paths:
+      - 'FriendMapSeed/**'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches:
+      - main
+      - 'feat/**'
+    paths:
+      - 'FriendMapSeed/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test iOS
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          xcodebuild -version
+
+      - name: List available simulators
+        run: |
+          xcrun simctl list devices available | grep -E "iPhone (15|16)" | head -10
+
+      - name: Install SwiftLint
+        run: |
+          if ! command -v swiftlint &> /dev/null; then
+            brew install swiftlint
+          fi
+          swiftlint version
+
+      - name: Run SwiftLint (Main App)
+        working-directory: FriendMapSeed
+        run: |
+          swiftlint lint --quiet --reporter github-actions-logging
+
+      - name: Run SwiftLint (CloudyCore)
+        working-directory: FriendMapSeed/Packages/CloudyCore
+        run: |
+          swiftlint lint --quiet --reporter github-actions-logging
+
+      - name: Resolve SPM Dependencies
+        working-directory: FriendMapSeed
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project FriendMapSeed.xcodeproj \
+            -scheme FriendMapSeed
+
+      - name: Build iOS App (Simulator)
+        working-directory: FriendMapSeed
+        run: |
+          xcodebuild build \
+            -project FriendMapSeed.xcodeproj \
+            -scheme FriendMapSeed \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) DEBUG CI_BUILD' \
+            2>&1 | tee build.log
+
+      - name: Build CloudyCore Package
+        working-directory: FriendMapSeed/Packages/CloudyCore
+        run: |
+          swift build
+
+      - name: Run CloudyCore Tests
+        working-directory: FriendMapSeed/Packages/CloudyCore
+        run: |
+          swift test
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: FriendMapSeed/build.log
+          retention-days: 7
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: macos-14
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Install SwiftLint
+        run: |
+          brew install swiftlint
+
+      - name: Run SwiftLint with Reporter
+        working-directory: FriendMapSeed
+        run: |
+          swiftlint lint --reporter json > swiftlint-report.json || true
+
+      - name: Upload SwiftLint Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftlint-report
+          path: FriendMapSeed/swiftlint-report.json
+          retention-days: 7

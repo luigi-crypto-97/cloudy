@@ -1,0 +1,48 @@
+//
+//  .swiftlint.yml
+//  Cloudy — SwiftLint configuration for CloudyCore package
+//
+
+disabled_rules:
+  - line_length
+  - function_body_length
+  - type_body_length
+  - file_length
+  - identifier_name
+
+opt_in_rules:
+  - explicit_acl
+  - explicit_top_level_acl
+  - unused_import
+  - duplicate_imports
+  - sorted_imports
+  - empty_count
+  - empty_string
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - legacy_constant
+  - trailing_comma
+  - trailing_newline
+
+closure_body_length:
+  warning: 40
+  error: 60
+
+cyclomatic_complexity:
+  warning: 12
+  error: 20
+
+file_header:
+  required_pattern: |
+    \/\/
+    \/\/  .*\.swift
+    \/\/  Cloudy — .*\n
+
+trailing_comma:
+  mandatory_comma: true
+
+excluded:
+  - "**/Tests/**"
+
+reporter: "xcode"

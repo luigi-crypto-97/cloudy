@@ -1,230 +1,172 @@
 //
 //  ChatRoomView.swift
-//  Cloudy — Conversazione 1:1
-//
-//  Endpoint:
-//   - GET  /api/messages/threads/{otherUserId}
-//   - POST /api/messages/threads/{otherUserId}
+//  Cloudy — Chat room (polling temporaneo, SignalR da abilitare)
 //
 
 import SwiftUI
-import PhotosUI
-import UniformTypeIdentifiers
 
 struct ChatRoomView: View {
     let otherUserId: UUID
     let peerName: String
-
-    @Environment(AppRouter.self) private var router
-
-    @State private var thread: DirectMessageThread?
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var messages: [DirectMessage] = []
     @State private var draft: String = ""
-    @State private var isSending = false
+    @State private var isLoading = false
     @State private var errorMessage: String?
-    @State private var photoItem: PhotosPickerItem?
-    @State private var showsFileImporter = false
-    @FocusState private var fieldFocused: Bool
-
+    
     var body: some View {
         VStack(spacing: 0) {
-            if thread == nil {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(thread?.messages ?? []) { m in
-                                bubble(for: m).id(m.messageId)
-                            }
-                        }
-                        .padding(.horizontal, Theme.Spacing.lg)
-                        .padding(.vertical, Theme.Spacing.md)
-                    }
-                    .onChange(of: thread?.messages.count ?? 0) { _, _ in
-                        if let last = thread?.messages.last?.messageId {
-                            withAnimation { proxy.scrollTo(last, anchor: .bottom) }
+            // Messages
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.top, 100)
+                    } else if messages.isEmpty {
+                        CloudyEmptyState(
+                            icon: "bubble.left.and.bubble.right.fill",
+                            title: "Nessun messaggio",
+                            message: "Inizia la conversazione!"
+                        )
+                        .padding(.top, 100)
+                    } else {
+                        ForEach(messages) { message in
+                            MessageBubble(message: message)
+                                .id(message.messageId)
                         }
                     }
                 }
+                .padding(.horizontal)
             }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(Theme.Font.caption(12))
-                    .foregroundStyle(Theme.Palette.densityHigh)
-                    .padding(.horizontal)
-            }
-
+            
+            // Composer
             composer
+                .padding(.bottom, 16)
         }
         .background(Theme.Palette.surfaceAlt.ignoresSafeArea())
         .navigationTitle(peerName)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { router.isTabBarHidden = true }
-        .onDisappear { router.isTabBarHidden = false }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    Task { await deleteThread() }
+                } label: {
+                    Image(systemName: "trash")
+                }
+            }
+        }
         .task { await pollThread() }
-        .onChange(of: photoItem) { _, item in
-            Task { await sendPhoto(item) }
-        }
-        .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.item], allowsMultipleSelection: false) { result in
-            Task { await sendImportedFile(result) }
-        }
     }
-
-    // MARK: - UI
-
-    private func bubble(for m: DirectMessage) -> some View {
-        HStack {
-            if m.isMine { Spacer(minLength: 60) }
-            VStack(alignment: m.isMine ? .trailing : .leading, spacing: 2) {
-                ChatMessageBubbleContent(messageBody: m.body, isMine: m.isMine)
-                Text(timeOnly(m.sentAtUtc))
-                    .font(Theme.Font.caption(10))
-                    .foregroundStyle(Theme.Palette.inkMuted)
-            }
-            if !m.isMine { Spacer(minLength: 60) }
-        }
-    }
-
+    
     private var composer: some View {
-        HStack(spacing: 10) {
-            PhotosPicker(selection: $photoItem, matching: .images) {
-                Image(systemName: isSending ? "hourglass" : "photo.fill")
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(Theme.Palette.blue500)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Theme.Palette.blue50))
-            }
-            .disabled(isSending)
-
-            Button {
-                showsFileImporter = true
-            } label: {
-                Image(systemName: "paperclip")
-                    .font(.system(size: 16, weight: .heavy))
-                    .foregroundStyle(Theme.Palette.blue500)
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(Theme.Palette.blue50))
-            }
-            .disabled(isSending)
-
-            TextField("Scrivi un messaggio…", text: $draft, axis: .vertical)
-                .focused($fieldFocused)
+        HStack(spacing: 12) {
+            TextField("Scrivi...", text: $draft, axis: .vertical)
                 .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.pill, style: .continuous)
-                        .fill(Theme.Palette.surfaceAlt)
-                )
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 24))
+            
             Button {
-                Task { await send() }
+                Task { await sendMessage() }
             } label: {
-                Image(systemName: isSending ? "hourglass" : "paperplane.fill")
-                    .font(.system(size: 18, weight: .heavy))
+                Image(systemName: draft.isEmpty ? "hourglass" : "paperplane.fill")
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(Theme.Gradients.honeyCTA))
+                    .background(Circle().fill(Theme.Palette.blue500))
             }
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty || isSending)
+            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
         }
-        .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.vertical, Theme.Spacing.md)
-        .background(Theme.Palette.surface.ignoresSafeArea(edges: .bottom))
-        .safeAreaPadding(.bottom, 2)
+        .padding(.horizontal)
     }
-
-    private func timeOnly(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f.string(from: d)
-    }
-
-    // MARK: - Actions
-
+    
     private func load() async {
+        isLoading = true
         do {
-            thread = try await API.messageThread(otherUserId: otherUserId)
-            NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
+            let thread = try await API.messageThread(otherUserId: otherUserId)
+            messages = thread.messages
             errorMessage = nil
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+        isLoading = false
     }
-
+    
     private func pollThread() async {
         await load()
         while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 secondi
             if Task.isCancelled { return }
             await load()
         }
     }
-
-    private func send() async {
-        let body = draft.trimmingCharacters(in: .whitespaces)
-        guard !body.isEmpty else { return }
-        isSending = true
-        defer { isSending = false }
+    
+    private func sendMessage() async {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        draft = ""
+        
         do {
-            let _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
-            draft = ""
+            _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: text)
             Haptics.tap()
             await load()
         } catch {
             Haptics.error()
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            }
-    }
-
-    private func sendPhoto(_ item: PhotosPickerItem?) async {
-        guard let item else { return }
-        do {
-            guard let data = try await item.loadTransferable(type: Data.self) else { return }
-            await uploadAndSend(data: data, fileName: "foto-\(UUID().uuidString).jpg", mimeType: "image/jpeg")
-            photoItem = nil
-        } catch {
-            Haptics.error()
-            errorMessage = "Impossibile leggere la foto."
         }
     }
-
-    private func sendImportedFile(_ result: Result<[URL], Error>) async {
+    
+    private func deleteThread() async {
         do {
-            guard let url = try result.get().first else { return }
-            let didAccess = url.startAccessingSecurityScopedResource()
-            defer {
-                if didAccess { url.stopAccessingSecurityScopedResource() }
-            }
-            let data = try Data(contentsOf: url)
-            await uploadAndSend(data: data, fileName: url.lastPathComponent, mimeType: mimeType(for: url))
-        } catch {
-            Haptics.error()
-            errorMessage = "Impossibile allegare il file."
-        }
-    }
-
-    private func uploadAndSend(data: Data, fileName: String, mimeType: String) async {
-        isSending = true
-        defer { isSending = false }
-        do {
-            let url = try await API.uploadChatFile(data: data, fileName: fileName, mimeType: mimeType)
-            let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
-            let body = "\(marker) \(fileName)\n\(url)"
-            _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
+            try await API.deleteDirectMessageThread(otherUserId: otherUserId)
             Haptics.success()
-            await load()
+            dismiss()
         } catch {
             Haptics.error()
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+}
 
-    private func mimeType(for url: URL) -> String {
-        if let type = UTType(filenameExtension: url.pathExtension),
-           let mime = type.preferredMIMEType {
-            return mime
+// MARK: - Message Bubble
+
+struct MessageBubble: View {
+    let message: DirectMessage
+    
+    var body: some View {
+        HStack {
+            if message.isMine { Spacer(minLength: 60) }
+            
+            VStack(alignment: message.isMine ? .trailing : .leading, spacing: 4) {
+                if !message.isMine {
+                    Text(message.displayName ?? message.nickname)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                }
+                
+                Text(message.body)
+                    .font(.body)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18)
+                            .fill(message.isMine ? Theme.Palette.blue500 : Theme.Palette.surface)
+                    )
+                    .foregroundStyle(message.isMine ? .white : Theme.Palette.ink)
+                
+                Text(formatTime(message.sentAtUtc))
+                    .font(.caption2)
+                    .foregroundStyle(Theme.Palette.inkMuted)
+            }
+            
+            if !message.isMine { Spacer(minLength: 60) }
         }
-        return "application/octet-stream"
+        .padding(.vertical, 4)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }

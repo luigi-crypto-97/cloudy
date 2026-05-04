@@ -1,14 +1,20 @@
 //
 //  FriendMapSeedApp.swift
-//  Cloudy — App entry point.
-//
-//  Inietta gli store globali con i nuovi macro `@Environment` di SwiftUI
-//  (Observable, iOS 17+).
+//  Cloudy — App entry point con Firebase, Analytics, Crashlytics
 //
 
 import SwiftUI
 import UIKit
 import UserNotifications
+import CoreData
+
+#if canImport(FirebaseCore)
+import FirebaseCore
+#endif
+
+#if canImport(FirebaseCrashlytics)
+import FirebaseCrashlytics
+#endif
 
 @main
 struct FriendMapSeedApp: App {
@@ -25,7 +31,7 @@ struct FriendMapSeedApp: App {
                 .environment(router)
                 .environment(mapStore)
                 .environment(liveLocation)
-                .preferredColorScheme(.light) // identità visiva chiara
+                .preferredColorScheme(.light)
                 .tint(Theme.Palette.honeyDeep)
                 .onOpenURL { url in
                     router.open(deepLink: url.absoluteString)
@@ -34,20 +40,49 @@ struct FriendMapSeedApp: App {
                     if case .loggedIn(let user) = newState {
                         NotificationBridge.shared.activate(for: user.userId)
                         liveLocation.configure(userId: user.userId)
+                        
+                        // Analytics user ID
+                        Task { @MainActor in
+                            AnalyticsService.shared.userDidLogin(nickname: user.nickname)
+                            CrashReportingService.shared.setUserId(user.userId.uuidString)
+                        }
                     } else {
                         liveLocation.configure(userId: nil)
+                        Task { @MainActor in
+                            AnalyticsService.shared.userDidLogout()
+                        }
                     }
                 }
         }
     }
 }
 
+// MARK: - AppDelegate
+
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Inizializza Firebase se configurato
+        #if canImport(FirebaseCore)
+        let isFirebaseEnabled = ProcessInfo.processInfo.environment["ENABLE_FIREBASE"] == "1"
+        if isFirebaseEnabled {
+            FirebaseApp.configure()
+            print("[Firebase] Initialized ✅")
+        } else {
+            print("[Firebase] Disabled (development)")
+        }
+        #endif
+        
         UNUserNotificationCenter.current().delegate = self
+        
+        // Analytics: app launch
+        Task { @MainActor in
+            AnalyticsService.shared.appDidLaunch()
+        }
+        
         return true
     }
 
@@ -57,7 +92,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("APNs registration failed: \(error.localizedDescription)")
+        print("[APNs] Registration failed: \(error.localizedDescription)")
+        CrashReportingService.shared.recordError(error, context: "APNs registration")
+    }
+    
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Salva dati prima di terminare
+        // CoreData temporaneamente disabilitato - vedi DataController.swift.COREDATA_FIX_LATER
     }
 
     func userNotificationCenter(
@@ -66,7 +107,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound, .badge]
     }
+    
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        // Handle notification tap
+        let userInfo = response.notification.request.content.userInfo
+        
+        if let deepLink = userInfo["deepLink"] as? String {
+            NotificationCenter.default.post(name: .cloudyNotificationTapped, object: deepLink)
+        }
+        
+        completionHandler()
+    }
 }
+
+// MARK: - Notification Bridge
 
 @MainActor
 final class NotificationBridge {
@@ -102,8 +160,17 @@ final class NotificationBridge {
         guard let currentUserId, let deviceToken, !deviceToken.isEmpty else { return }
         do {
             try await API.registerDeviceToken(userId: currentUserId, token: deviceToken)
+            print("[Notifications] Device token registered ✅")
         } catch {
-            print("Device token registration failed: \(error.localizedDescription)")
+            print("[Notifications] Registration failed: \(error.localizedDescription)")
+            CrashReportingService.shared.recordError(error, context: "Device token registration")
         }
     }
+}
+
+// MARK: - Notification Name Extension
+
+extension Notification.Name {
+    static let cloudyNotificationTapped = Notification.Name("cloudyNotificationTapped")
+    static let cloudyNewChatMessage = Notification.Name("cloudyNewChatMessage")
 }

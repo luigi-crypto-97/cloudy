@@ -1,0 +1,549 @@
+//
+//  SignalRService.swift
+//  Cloudy — SignalR client per chat real-time
+//
+//  Sostituisce il polling a 5 secondi con WebSocket true real-time.
+//  Usa la libreria SwiftSignalRClient per connettersi agli hub .NET.
+//
+
+import Foundation
+
+// MARK: - SignalR Connection State
+
+enum SignalRConnectionState: Equatable {
+    case disconnected
+    case connecting
+    case connected
+    case failed(Error)
+    
+    var isConnected: Bool {
+        if case .connected = self { return true }
+        return false
+    }
+}
+
+// MARK: - Chat Message Event
+
+struct ChatMessageEvent: Codable, Equatable {
+    let threadId: String
+    let senderId: String
+    let senderNickname: String
+    let senderDisplayName: String?
+    let senderAvatarUrl: String?
+    let body: String
+    let sentAt: Date
+    let isMine: Bool
+}
+
+// MARK: - Table Message Event
+
+struct TableMessageEvent: Codable, Equatable {
+    let tableId: String
+    let senderId: String
+    let senderNickname: String
+    let body: String
+    let sentAt: Date
+}
+
+// MARK: - Notification Event
+
+struct NotificationEvent: Codable, Equatable {
+    let notificationId: String
+    let type: String
+    let title: String
+    let body: String
+    let deepLink: String?
+    let createdAt: Date
+}
+
+// MARK: - SignalR Service Protocol
+
+protocol SignalRServiceProtocol {
+    var connectionState: SignalRConnectionState { get }
+    var onChatMessage: ((ChatMessageEvent) -> Void)? { get set }
+    var onTableMessage: ((TableMessageEvent) -> Void)? { get set }
+    var onNotification: ((NotificationEvent) -> Void)? { get set }
+    var onUserTyping: ((String, String) -> Void)? { get set }  // threadId, userId
+    
+    func connect(userId: UUID) async throws
+    func disconnect()
+    func joinChatThread(threadId: UUID) async throws
+    func leaveChatThread(threadId: UUID) async throws
+    func joinTableThread(tableId: UUID) async throws
+    func leaveTableThread(tableId: UUID) async throws
+    func sendTypingIndicator(threadId: UUID) async throws
+}
+
+// MARK: - SignalR Service Implementation
+
+@MainActor
+final class SignalRService: SignalRServiceProtocol {
+    
+    static let shared = SignalRService()
+    
+    var connectionState: SignalRConnectionState = .disconnected {
+        didSet {
+            stateChangeHandler?(connectionState)
+        }
+    }
+    
+    var stateChangeHandler: ((SignalRConnectionState) -> Void)?
+    
+    // Callbacks per eventi
+    var onChatMessage: ((ChatMessageEvent) -> Void)?
+    var onTableMessage: ((TableMessageEvent) -> Void)?
+    var onNotification: ((NotificationEvent) -> Void)?
+    var onUserTyping: ((String, String) -> Void)?
+    
+    // Connection state
+    private var hubConnection: HubConnection?
+    private var baseURL: String {
+        APIClient.shared.baseURL.absoluteString
+    }
+    private var accessToken: String? {
+        APIClient.shared.bearerToken
+    }
+    
+    // Reconnection
+    private var reconnectTask: Task<Void, Never>?
+    private var reconnectAttempts = 0
+    private let maxReconnectAttempts = 5
+    private let reconnectDelays: [Double] = [1, 2, 5, 10, 30]  // seconds
+    
+    // Active subscriptions
+    private var subscribedChatThreads: Set<UUID> = []
+    private var subscribedTableThreads: Set<UUID> = []
+    
+    private init() {}
+    
+    // MARK: - Connection
+    
+    func connect(userId: UUID) async throws {
+        guard connectionState != .connected else {
+            print("[SignalR] Already connected")
+            return
+        }
+        
+        connectionState = .connecting
+        
+        do {
+            // Build SignalR hub URL
+            let hubURL = "\(baseURL)/chathub"
+            guard let url = URL(string: hubURL) else {
+                throw SignalRError.invalidURL
+            }
+            
+            // Create connection
+            hubConnection = HubConnectionBuilder(url: url)
+                .withAutoReconnect()
+                .withTransport(.webSockets)
+                .build()
+            
+            // Setup handlers
+            setupMessageHandlers()
+            setupSystemHandlers()
+            
+            // Add auth header
+            if let token = accessToken {
+                hubConnection?.headers = ["Authorization": "Bearer \(token)"]
+            }
+            
+            // Start connection
+            try await hubConnection?.start()
+            
+            connectionState = .connected
+            reconnectAttempts = 0
+            print("[SignalR] Connected successfully")
+            
+            // Re-join active threads
+            await rejoinActiveThreads()
+            
+        } catch {
+            connectionState = .failed(error)
+            print("[SignalR] Connection failed: \(error.localizedDescription)")
+            throw error
+        }
+    }
+    
+    func disconnect() {
+        reconnectTask?.cancel()
+        hubConnection?.stop()
+        hubConnection = nil
+        connectionState = .disconnected
+        subscribedChatThreads.removeAll()
+        subscribedTableThreads.removeAll()
+        print("[SignalR] Disconnected")
+    }
+    
+    // MARK: - Thread Management
+    
+    func joinChatThread(threadId: UUID) async throws {
+        guard connectionState.isConnected else {
+            throw SignalRError.notConnected
+        }
+        
+        try await hubConnection?.invoke(
+            method: "JoinThread",
+            argument: threadId.uuidString.lowercased()
+        )
+        
+        subscribedChatThreads.insert(threadId)
+        print("[SignalR] Joined chat thread: \(threadId)")
+    }
+    
+    func leaveChatThread(threadId: UUID) async throws {
+        guard connectionState.isConnected else { return }
+        
+        try await hubConnection?.invoke(
+            method: "LeaveThread",
+            argument: threadId.uuidString.lowercased()
+        )
+        
+        subscribedChatThreads.remove(threadId)
+        print("[SignalR] Left chat thread: \(threadId)")
+    }
+    
+    func joinTableThread(tableId: UUID) async throws {
+        guard connectionState.isConnected else {
+            throw SignalRError.notConnected
+        }
+        
+        try await hubConnection?.invoke(
+            method: "JoinTableThread",
+            argument: tableId.uuidString.lowercased()
+        )
+        
+        subscribedTableThreads.insert(tableId)
+        print("[SignalR] Joined table thread: \(tableId)")
+    }
+    
+    func leaveTableThread(tableId: UUID) async throws {
+        guard connectionState.isConnected else { return }
+        
+        try await hubConnection?.invoke(
+            method: "LeaveTableThread",
+            argument: tableId.uuidString.lowercased()
+        )
+        
+        subscribedTableThreads.remove(tableId)
+        print("[SignalR] Left table thread: \(tableId)")
+    }
+    
+    // MARK: - Messaging
+    
+    func sendMessage(threadId: UUID, body: String) async throws {
+        guard connectionState.isConnected else {
+            throw SignalRError.notConnected
+        }
+        
+        try await hubConnection?.invoke(
+            method: "SendMessage",
+            argument: threadId.uuidString.lowercased(),
+            argument: body
+        )
+        
+        print("[SignalR] Message sent to thread: \(threadId)")
+    }
+    
+    func sendTableMessage(tableId: UUID, body: String) async throws {
+        guard connectionState.isConnected else {
+            throw SignalRError.notConnected
+        }
+        
+        try await hubConnection?.invoke(
+            method: "SendTableMessage",
+            argument: tableId.uuidString.lowercased(),
+            argument: body
+        )
+        
+        print("[SignalR] Message sent to table: \(tableId)")
+    }
+    
+    func sendTypingIndicator(threadId: UUID) async throws {
+        guard connectionState.isConnected else { return }
+        
+        try await hubConnection?.invoke(
+            method: "SendTyping",
+            argument: threadId.uuidString.lowercased()
+        )
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func setupMessageHandlers() {
+        // Chat message handler
+        hubConnection?.on(method: "ReceiveMessage") { [weak self] args in
+            guard let self else { return }
+            
+            do {
+                guard let data = args[0] as? Data else { return }
+                let message = try JSONDecoder().decode(ChatMessageEvent.self, from: data)
+                
+                Task { @MainActor in
+                    self.onChatMessage?(message)
+                }
+            } catch {
+                print("[SignalR] Decode chat message error: \(error)")
+            }
+        }
+        
+        // Table message handler
+        hubConnection?.on(method: "ReceiveTableMessage") { [weak self] args in
+            guard let self else { return }
+            
+            do {
+                guard let data = args[0] as? Data else { return }
+                let message = try JSONDecoder().decode(TableMessageEvent.self, from: data)
+                
+                Task { @MainActor in
+                    self.onTableMessage?(message)
+                }
+            } catch {
+                print("[SignalR] Decode table message error: \(error)")
+            }
+        }
+        
+        // Notification handler
+        hubConnection?.on(method: "ReceiveNotification") { [weak self] args in
+            guard let self else { return }
+            
+            do {
+                guard let data = args[0] as? Data else { return }
+                let notification = try JSONDecoder().decode(NotificationEvent.self, from: data)
+                
+                Task { @MainActor in
+                    self.onNotification?(notification)
+                }
+            } catch {
+                print("[SignalR] Decode notification error: \(error)")
+            }
+        }
+        
+        // Typing indicator handler
+        hubConnection?.on(method: "ReceiveTyping") { [weak self] args in
+            guard let self else { return }
+            
+            guard let threadId = args[0] as? String,
+                  let userId = args[1] as? String else { return }
+            
+            Task { @MainActor in
+                self.onUserTyping?(threadId, userId)
+            }
+        }
+    }
+    
+    private func setupSystemHandlers() {
+        // Connection closed handler
+        hubConnection?.onClose = { [weak self] error in
+            guard let self else { return }
+            
+            connectionState = .disconnected
+            
+            if let error {
+                print("[SignalR] Connection closed with error: \(error.localizedDescription)")
+                attemptReconnect()
+            }
+        }
+        
+        // Reconnection handler
+        hubConnection?.onReconnecting = { [weak self] error in
+            print("[SignalR] Reconnecting... \(error?.localizedDescription ?? "")")
+            connectionState = .connecting
+        }
+        
+        hubConnection?.onReconnected = { [weak self] connectionId in
+            print("[SignalR] Reconnected: \(connectionId ?? "unknown")")
+            connectionState = .connected
+            
+            Task { @MainActor in
+                await self?.rejoinActiveThreads()
+            }
+        }
+    }
+    
+    private func attemptReconnect() {
+        guard reconnectAttempts < maxReconnectAttempts else {
+            print("[SignalR] Max reconnect attempts reached")
+            return
+        }
+        
+        let delay = reconnectDelays[min(reconnectAttempts, reconnectDelays.count - 1)]
+        reconnectAttempts += 1
+        
+        reconnectTask = Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            
+            guard !Task.isCancelled else { return }
+            
+            if let userId = getCurrentUserId() {
+                try? await connect(userId: userId)
+            }
+        }
+    }
+    
+    private func rejoinActiveThreads() async {
+        for threadId in subscribedChatThreads {
+            try? await joinChatThread(threadId: threadId)
+        }
+        
+        for tableId in subscribedTableThreads {
+            try? await joinTableThread(tableId: tableId)
+        }
+    }
+    
+    private func getCurrentUserId() -> UUID? {
+        APIClient.currentUserId
+    }
+}
+
+// MARK: - SignalR Errors
+
+enum SignalRError: LocalizedError {
+    case invalidURL
+    case notConnected
+    case connectionFailed
+    case messageFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "URL SignalR non valido."
+        case .notConnected: return "Connessione SignalR non attiva."
+        case .connectionFailed: return "Connessione fallita."
+        case .messageFailed: return "Invio messaggio fallito."
+        }
+    }
+}
+
+// MARK: - Chat Room ViewModel con SignalR
+
+@MainActor
+final class ChatRoomViewModel: ObservableObject {
+    @Published var messages: [DirectMessage] = []
+    @Published var isTyping: Bool = false
+    @Published var typingUserName: String?
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
+    
+    private let otherUserId: UUID
+    private var threadId: UUID { otherUserId }  // Per chat 1:1, threadId = otherUserId
+    private var typingTimer: Timer?
+    
+    init(otherUserId: UUID) {
+        self.otherUserId = otherUserId
+        setupSignalRHandlers()
+    }
+    
+    deinit {
+        disconnect()
+    }
+    
+    func load() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            let thread = try await API.messageThread(otherUserId: otherUserId)
+            messages = thread.messages
+            try await SignalRService.shared.joinChatThread(threadId: threadId)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+    
+    func sendMessage(_ text: String) async {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        
+        do {
+            // Invia via SignalR
+            try await SignalRService.shared.sendMessage(threadId: threadId, body: text)
+            
+            // Optimistic update
+            let tempMessage = DirectMessage(
+                messageId: UUID(),
+                senderUserId: APIClient.currentUserId ?? UUID(),
+                nickname: "Tu",
+                displayName: nil,
+                avatarUrl: nil,
+                body: text,
+                sentAtUtc: Date(),
+                isMine: true
+            )
+            messages.append(tempMessage)
+            
+        } catch {
+            errorMessage = L10n.Chat.sent
+        }
+    }
+    
+    func sendTyping() {
+        guard !isTyping else { return }
+        
+        isTyping = true
+        
+        Task {
+            try? await SignalRService.shared.sendTypingIndicator(threadId: threadId)
+        }
+        
+        // Reset typing state after 2 seconds
+        typingTimer?.invalidate()
+        typingTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.isTyping = false
+            }
+        }
+    }
+    
+    func disconnect() {
+        Task {
+            try? await SignalRService.shared.leaveChatThread(threadId: threadId)
+        }
+        typingTimer?.invalidate()
+    }
+    
+    private func setupSignalRHandlers() {
+        SignalRService.shared.onChatMessage = { [weak self] event in
+            guard let self else { return }
+            
+            // Ignora messaggi già presenti
+            if messages.contains(where: { $0.messageId.uuidString == event.threadId }) {
+                return
+            }
+            
+            let newMessage = DirectMessage(
+                messageId: UUID(),
+                senderUserId: UUID(uuidString: event.senderId) ?? UUID(),
+                nickname: event.senderNickname,
+                displayName: event.senderDisplayName,
+                avatarUrl: event.senderAvatarUrl,
+                body: event.body,
+                sentAtUtc: event.sentAt,
+                isMine: event.isMine
+            )
+            
+            messages.append(newMessage)
+            
+            // Notifica nuovo messaggio
+            NotificationCenter.default.post(name: .cloudyNewChatMessage, object: nil)
+        }
+        
+        SignalRService.shared.onUserTyping = { [weak self] threadId, userId in
+            guard let self, threadId == self.threadId.uuidString else { return }
+            
+            typingUserName = "Qualcuno"
+            
+            // Reset dopo 3 secondi
+            typingTimer?.invalidate()
+            typingTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.typingUserName = nil
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Notification Name
+
+extension Notification.Name {
+    static let cloudyNewChatMessage = Notification.Name("cloudyNewChatMessage")
+}

@@ -1,0 +1,193 @@
+# SwiftLint Configuration for Cloudy iOS
+# Document: https://github.com/realm/SwiftLint
+
+# Rules enabled by default can be disabled here
+disabled_rules:
+  - line_length              # Too restrictive for SwiftUI view builders
+  - function_body_length     # SwiftUI views can be long by nature
+  - type_body_length         # Stores can be large
+  - file_length              # Legacy models file is large (being split)
+  - identifier_name          # Italian codebase has non-standard names
+  - todo                     # We use TODO comments intentionally
+  - comment_spacing          # Italian comments may have different spacing
+
+opt_in_rules:
+  - explicit_acl             # Require explicit ACL for all types
+  - explicit_top_level_acl   # Require explicit ACL for top-level declarations
+  - missing_docs             # Warn on public declarations without docs
+  - legacy_objc_type         # Use modern Objective-C types
+  - nslocalizedstring_key    # Ensure localization keys are valid
+  - unused_import            # Detect unused imports
+  - duplicate_imports        # Detect duplicate imports
+  - sorted_imports           # Keep imports sorted
+  - attributes               # Enforce attribute ordering
+  - closure_end_indentation  # Consistent closure indentation
+  - closure_spacing          # Consistent closure spacing
+  - collection_alignment     # Consistent collection alignment
+  - comma_inheritance        # Consistent comma usage
+  - conditional_returns_on_newline  # Consistent return style
+  - direct_return            # Simplify returns
+  - empty_count              # Use .isEmpty instead of .count == 0
+  - empty_string             # Use .isEmpty instead of == ""
+  - fallthrough              # Require comment for fallthrough
+  - fatal_error_message      # Require message in fatalError
+  - file_header              # Require file headers
+  - first_where              # Use .first(where:) instead of .filter().first
+  - flatmap_over_map_reduce  # Use .flatMap instead of .map().reduce
+  - force_cast               # Warn on force cast (as! Type)
+  - force_try                # Warn on force try
+  - force_unwrapping         # Warn on force unwrap (!)
+  - function_default_parameter_at_end  # Default params at end
+  - generic_type_name        # Naming convention for generics
+  - implicit_getter          # Warn on implicit getters
+  - implicitly_unwrapped_optional  # Warn on IUO
+  - joined_default_parameter # Use .joined() instead of .joined(separator: "")
+  - last_where               # Use .last(where:) instead of .filter().last
+  - legacy_cggeometry_functions  # Use modern CGGeometry
+  - legacy_constant          # Use modern constants
+  - legacy_constructor       # Use modern constructors
+  - legacy_hashing           # Use Hasher instead of legacy hashing
+  - legacy_multiple          # Use .isMultiple(of:) instead of %
+  - legacy_nsgeometry_functions  # Use modern NSGeometry
+  - legacy_random            # Use .random(in:) instead of arc4random
+  - literal_expression_end_indentation  # Consistent literal indentation
+  - lower_acl_than_parent    # Ensure lower ACL than parent
+  - mark                     # Require MARK comments
+  - modifier_order           # Consistent modifier order
+  - multiline_arguments      # Multiline arguments formatting
+  - multiline_function_chains  # Multiline method chains
+  - multiline_literal_brackets  # Multiline literal brackets
+  - multiline_parameters     # Multiline parameters formatting
+  - nimble_operator          # Nimble operator usage
+  - number_separator         # Use separators in large numbers
+  - object_literal           # Use object literals
+  - operator_usage_whitespace  # Operator whitespace
+  - optional_enum_case_matching  # Optional enum case matching
+  - overridden_super_call    # Require super call override
+  - override_in_extension    # Warn on overrides in extensions
+  - pattern_matching_keywords  # Pattern matching keywords
+  - prefer_self_type_over_type_of_self  # Use Self over type(of: self)
+  - prefixed_toplevel_constant  # Prefix top-level constants
+  - private_action           # IBActions should be private
+  - private_outlet           # IBOutlets should be private
+  - private_subject          # Private Combine subjects
+  - private_unit_test        # Private unit test methods
+  - prohibited_super_call    # Prohibited super calls
+  - protocol_property_accessors_order  # Protocol property accessors
+  - reduce_boolean           # Use .allSatisfy instead of .reduce(true)
+  - reduce_into              # Use .into instead of .reduce
+  - redundant_nil_coalescing # Redundant nil coalescing
+  - redundant_type_annotation  # Redundant type annotations
+  - required_enum_case       # Required enum cases
+  - return_arrow_whitespace  # Return arrow whitespace
+  - shorthand_operator       # Use shorthand operators
+  - single_test_class        # Single test class per file
+  - sorted_first_last        # Use .sorted().first/.last
+  - sorted_imports           # Sort imports
+  - statement_position       # Statement position
+  - superfluous_else         # Remove superfluous else
+  - switch_case_on_newline   # Switch case on newline
+  - syntactic_sugar          # Use syntactic sugar
+  - trailing_closure         # Trailing closure syntax
+  - trailing_comma           # Trailing comma in collections
+  - trailing_newline         # File should end with newline
+  - trailing_semicolon       # No trailing semicolons
+  - unavailable_condition    # Unavailable condition
+  - unavailable_function     # Unavailable function
+  - unneeded_parentheses_in_closure_argument  # Unneeded parentheses
+  - unowned_variable_capture  # Use unowned for variable capture
+  - untyped_error_in_catch   # Untyped error in catch
+  - vertical_parameter_alignment  # Vertical parameter alignment
+  - vertical_parameter_alignment_on_call  # Vertical parameter alignment on call
+  - vertical_whitespace_closing_braces  # Vertical whitespace
+  - vertical_whitespace_opening_braces  # Vertical whitespace
+  - void_return              # Use Void instead of ()
+  - xct_specific_matcher     # Use specific XCTest matchers
+  - yoda_condition           # No Yoda conditions
+
+# Rules configuration
+attributes:
+  always_on_same_line: ["@IBAction", "@IBSegueAction", "@NSManaged", "@objc"]
+
+closure_body_length:
+  warning: 30
+  error: 50
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+  ignores_case_statements: true
+
+enum_case_associated_values_count:
+  warning: 5
+  error: 7
+
+file_header:
+  required_pattern: |
+    \/\/
+    \/\/  .*\.swift
+    \/\/  Cloudy — .*\n
+
+large_tuple:
+  warning: 3
+  error: 4
+
+nesting:
+  type_level:
+    warning: 2
+    error: 3
+  function_level:
+    warning: 3
+    error: 4
+
+number_separator:
+  minimum_length: 5
+
+private_unit_test:
+  test_parent_classes: ["XCTestCase", "QuickSpec"]
+
+trailing_comma:
+  mandatory_comma: true
+
+type_name:
+  min_length: 2
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - ID
+    - URL
+    - JSON
+    - IO
+
+variable_name:
+  min_length: 2
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - URL
+    - to
+    - from
+    - x
+    - y
+    - z
+    - r
+    - g
+    - b
+    - a
+
+# Exclude paths
+excluded:
+  - "**/build/**"
+  - "**/.build/**"
+  - "**/DerivedData/**"
+  - "**/Pods/**"
+  - "**/Carthage/**"
+  - "**/Packages/**"        # CloudyCore has its own config
+  - "**/Generated/**"
+  - "**/Preview Content/**"
+
+# Reporter type
+reporter: "xcode"
