@@ -180,15 +180,7 @@ struct TableThreadView: View {
                         .font(Theme.Font.caption(11, weight: .heavy))
                         .foregroundStyle(Theme.Palette.inkSoft)
                 }
-                Text(m.body)
-                    .font(Theme.Font.body(15))
-                    .foregroundStyle(m.isMine ? .white : Theme.Palette.ink)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(m.isMine ? AnyShapeStyle(Theme.Gradients.honeyCTA) : AnyShapeStyle(Theme.Palette.surface))
-                    )
+                ChatMessageBubbleContent(messageBody: m.body, isMine: m.isMine)
             }
             if !m.isMine { Spacer(minLength: 60) }
         }

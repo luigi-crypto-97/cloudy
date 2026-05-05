@@ -227,6 +227,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapHub<ChatHub>("/hubs/chat");
+app.MapHub<ChatHub>("/chathub");
 
 if (app.Environment.IsDevelopment())
 {

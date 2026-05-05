@@ -11,6 +11,38 @@ public protocol SignalRServiceProtocol {
 }
 
 #if canImport(SignalRClient)
+private struct SignalRIncomingMessage: Decodable {
+    let threadId: String
+    let senderId: String?
+    let body: String
+    let sentAt: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case threadId
+        case senderId
+        case body
+        case sentAt
+        case pascalThreadId = "ThreadId"
+        case pascalSenderId = "SenderId"
+        case pascalBody = "Body"
+        case pascalSentAt = "SentAt"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        threadId = try container.decodeIfPresent(String.self, forKey: .threadId)
+            ?? container.decodeIfPresent(String.self, forKey: .pascalThreadId)
+            ?? ""
+        senderId = try container.decodeIfPresent(String.self, forKey: .senderId)
+            ?? container.decodeIfPresent(String.self, forKey: .pascalSenderId)
+        body = try container.decodeIfPresent(String.self, forKey: .body)
+            ?? container.decodeIfPresent(String.self, forKey: .pascalBody)
+            ?? ""
+        sentAt = try container.decodeIfPresent(String.self, forKey: .sentAt)
+            ?? container.decodeIfPresent(String.self, forKey: .pascalSentAt)
+    }
+}
+
 @Observable
 public final class SignalRService: SignalRServiceProtocol {
     private var hubConnection: HubConnection?
@@ -24,17 +56,26 @@ public final class SignalRService: SignalRServiceProtocol {
     
     public func connect(threadId: UUID) async throws {
         let hubURL = baseURL.appendingPathComponent("chathub")
+        var options = HttpConnectionOptions()
+        options.accessTokenFactory = {
+            await MainActor.run { APIClient.shared.bearerToken }
+        }
 
         let connection = HubConnectionBuilder()
-            .withUrl(url: hubURL.absoluteString)
+            .withUrl(url: hubURL.absoluteString, options: options)
             .withAutomaticReconnect()
             .build()
 
-        await connection.on("ReceiveMessage") { (threadId: String, body: String) in
+        await connection.on("ReceiveMessage") { (message: SignalRIncomingMessage) in
             NotificationCenter.default.post(
                 name: .init("NewChatMessage"),
                 object: nil,
-                userInfo: ["threadId": threadId, "body": body]
+                userInfo: [
+                    "threadId": message.threadId,
+                    "senderId": message.senderId ?? "",
+                    "body": message.body,
+                    "sentAt": message.sentAt ?? ""
+                ]
             )
         }
 

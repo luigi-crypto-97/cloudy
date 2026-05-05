@@ -520,15 +520,30 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        let availableMediaTypes = UIImagePickerController.availableMediaTypes(for: .camera) ?? []
+        let sourceType: UIImagePickerController.SourceType = UIImagePickerController.isSourceTypeAvailable(.camera)
+            ? .camera
+            : .photoLibrary
+        picker.sourceType = sourceType
+
+        let availableMediaTypes = UIImagePickerController.availableMediaTypes(for: sourceType) ?? []
         let requestedType = mode == .video ? UTType.movie.identifier : UTType.image.identifier
         let resolvedType = availableMediaTypes.contains(requestedType)
             ? requestedType
             : (availableMediaTypes.first ?? UTType.image.identifier)
         picker.mediaTypes = [resolvedType]
-        picker.cameraCaptureMode = resolvedType == UTType.movie.identifier ? .video : .photo
-        picker.cameraDevice = .rear
+
+        if sourceType == .camera {
+            let device = Self.preferredCameraDevice()
+            if let device {
+                picker.cameraDevice = device
+            }
+
+            let requestedCaptureMode: UIImagePickerController.CameraCaptureMode = resolvedType == UTType.movie.identifier ? .video : .photo
+            let supportedModes = device.flatMap { UIImagePickerController.availableCaptureModes(for: $0) } ?? []
+            let supportsRequestedMode = supportedModes.contains { $0.intValue == requestedCaptureMode.rawValue }
+            picker.cameraCaptureMode = supportsRequestedMode ? requestedCaptureMode : .photo
+        }
+
         picker.videoQuality = .typeMedium
         picker.videoMaximumDuration = 15
         picker.delegate = context.coordinator
@@ -539,6 +554,16 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(onCapture: onCapture, dismiss: dismiss)
+    }
+
+    private static func preferredCameraDevice() -> UIImagePickerController.CameraDevice? {
+        if UIImagePickerController.isCameraDeviceAvailable(.rear) {
+            return .rear
+        }
+        if UIImagePickerController.isCameraDeviceAvailable(.front) {
+            return .front
+        }
+        return nil
     }
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
@@ -554,13 +579,34 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
             if let image = info[.originalImage] as? UIImage {
                 onCapture(.photo(image))
             } else if let mediaURL = info[.mediaURL] as? URL {
-                onCapture(.video(mediaURL))
+                onCapture(.video(Self.copyVideoToStableTemporaryFile(mediaURL) ?? mediaURL))
             }
             dismiss()
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             dismiss()
+        }
+
+        private static func copyVideoToStableTemporaryFile(_ sourceURL: URL) -> URL? {
+            let extensionPart = sourceURL.pathExtension.isEmpty ? "mov" : sourceURL.pathExtension
+            let destinationURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("cloudy-story-\(UUID().uuidString)")
+                .appendingPathExtension(extensionPart)
+
+            let scoped = sourceURL.startAccessingSecurityScopedResource()
+            defer {
+                if scoped {
+                    sourceURL.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            do {
+                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+                return destinationURL
+            } catch {
+                return nil
+            }
         }
     }
 }

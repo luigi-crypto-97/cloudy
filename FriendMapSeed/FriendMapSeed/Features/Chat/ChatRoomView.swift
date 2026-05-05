@@ -169,15 +169,7 @@ struct MessageBubble: View {
                         .foregroundStyle(Theme.Palette.inkSoft)
                 }
                 
-                Text(message.body)
-                    .font(.body)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(message.isMine ? Theme.Palette.blue500 : Theme.Palette.surface)
-                    )
-                    .foregroundStyle(message.isMine ? .white : Theme.Palette.ink)
+                ChatMessageBubbleContent(messageBody: message.body, isMine: message.isMine)
                 
                 Text(formatTime(message.sentAtUtc))
                     .font(.caption2)
