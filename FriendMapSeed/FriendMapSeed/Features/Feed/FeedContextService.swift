@@ -65,11 +65,29 @@ struct FeedContextService {
         async let gamificationTask: GamificationSummary? = optional { try await API.gamificationSummary() }
 
         let serverFeed = await serverFeedTask
-        let stories = await storiesTask ?? previousContext?.stories ?? []
+        let fetchedStories = await storiesTask
+        if let fetchedStories {
+            DeviceCacheService.shared.cacheStories(fetchedStories)
+        }
+        let stories = fetchedStories ?? previousContext?.stories ?? DeviceCacheService.shared.cachedStories()
         let hub = await hubTask ?? previousContext?.socialHub
-        let profile = await profileTask ?? previousContext?.profile
+        let fetchedProfile = await profileTask
+        if let fetchedProfile {
+            DeviceCacheService.shared.cacheProfile(fetchedProfile)
+        }
+        let profile = fetchedProfile ?? previousContext?.profile ?? DeviceCacheService.shared.cachedEditableProfile()
         let venueLayer = await venueLayerTask
-        let venues = serverFeed?.venues ?? venueLayer?.markers ?? previousContext?.venues ?? []
+        let fetchedVenues = serverFeed?.venues ?? venueLayer?.markers
+        if let fetchedVenues {
+            DeviceCacheService.shared.cacheVenues(fetchedVenues)
+        }
+        let cachedVenues = DeviceCacheService.shared.cachedVenues(
+            minLat: bounds.minLat,
+            minLng: bounds.minLng,
+            maxLat: bounds.maxLat,
+            maxLng: bounds.maxLng
+        )
+        let venues = fetchedVenues ?? previousContext?.venues ?? cachedVenues
         let venueStories = await venueStoriesTask ?? previousContext?.venueStories ?? []
         let fetchedFlares = await flaresTask
         let fetchedTables = await tablesTask

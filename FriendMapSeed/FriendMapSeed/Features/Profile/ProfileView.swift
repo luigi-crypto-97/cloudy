@@ -153,9 +153,15 @@ struct ProfileView: View {
         guard case .loggedIn(let user) = auth.state else { return }
         isLoadingProfile = true
         defer { isLoadingProfile = false }
+        if let cached = DeviceCacheService.shared.cachedEditableProfile(userId: user.userId), profile == nil {
+            profile = cached
+        }
         async let editable = API.myEditableProfile()
         async let publicUser = API.userProfile(userId: user.userId)
-        profile = try? await editable
+        if let loadedProfile = try? await editable {
+            profile = loadedProfile
+            DeviceCacheService.shared.cacheProfile(loadedProfile)
+        }
         publicProfile = try? await publicUser
     }
 }

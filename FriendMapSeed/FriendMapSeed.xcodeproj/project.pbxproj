@@ -7,37 +7,46 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1127EF332FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */; };
-		1127EF342FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */; };
-		1127EF352FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */; };
-		1127EF362FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */; };
-		1127EF372FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */; };
-		1127EF382FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */; };
-		1127EF392FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */; };
-		1127EF3A2FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */; };
-		1127EF3B2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */; };
-		1127EF3C2FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */; };
 		CC0000000000000000000003 /* CloudyCore in Frameworks */ = {isa = PBXBuildFile; productRef = CC0000000000000000000002 /* CloudyCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		11DC5CAC2FA90E9D00414499 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 11440BAD2F90E8D600A9E15B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 11440BB42F90E8D600A9E15B;
+			remoteInfo = FriendMapSeed;
+		};
+		11DC5CBB2FA90EC500414499 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 11440BAD2F90E8D600A9E15B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 11440BB42F90E8D600A9E15B;
+			remoteInfo = FriendMapSeed;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
-		1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/MessageCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "MessageCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/MessageCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataClass.swift"; path = "FriendMapSeed/Data/QueuedMessage+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "QueuedMessage+CoreDataProperties.swift"; path = "FriendMapSeed/Data/QueuedMessage+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/StoryCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "StoryCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/StoryCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/UserProfileCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "UserProfileCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/UserProfileCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataClass.swift"; path = "FriendMapSeed/Data/VenueCache+CoreDataClass.swift"; sourceTree = "<group>"; };
-		1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "VenueCache+CoreDataProperties.swift"; path = "FriendMapSeed/Data/VenueCache+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		11440BB52F90E8D600A9E15B /* FriendMapSeed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FriendMapSeed.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		11DC5CA82FA90E9D00414499 /* FriendMapSeedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FriendMapSeedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		11DC5CB52FA90EC500414499 /* FriendMapSeedUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FriendMapSeedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		11440BB72F90E8D600A9E15B /* FriendMapSeed */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = FriendMapSeed;
+			sourceTree = "<group>";
+		};
+		11DC5CA92FA90E9D00414499 /* FriendMapSeedTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FriendMapSeedTests;
+			sourceTree = "<group>";
+		};
+		11DC5CB62FA90EC500414499 /* FriendMapSeedUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FriendMapSeedUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -51,23 +60,29 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		11DC5CA52FA90E9D00414499 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DC5CB22FA90EC500414499 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		11440BAC2F90E8D600A9E15B = {
 			isa = PBXGroup;
 			children = (
-				1127EF292FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift */,
-				1127EF2A2FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift */,
-				1127EF2B2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift */,
-				1127EF2C2FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift */,
-				1127EF2D2FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift */,
-				1127EF2E2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift */,
-				1127EF2F2FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift */,
-				1127EF302FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift */,
-				1127EF312FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift */,
-				1127EF322FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift */,
 				11440BB72F90E8D600A9E15B /* FriendMapSeed */,
+				11DC5CA92FA90E9D00414499 /* FriendMapSeedTests */,
+				11DC5CB62FA90EC500414499 /* FriendMapSeedUITests */,
 				11440BB62F90E8D600A9E15B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -76,6 +91,8 @@
 			isa = PBXGroup;
 			children = (
 				11440BB52F90E8D600A9E15B /* FriendMapSeed.app */,
+				11DC5CA82FA90E9D00414499 /* FriendMapSeedTests.xctest */,
+				11DC5CB52FA90EC500414499 /* FriendMapSeedUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -106,6 +123,52 @@
 			productReference = 11440BB52F90E8D600A9E15B /* FriendMapSeed.app */;
 			productType = "com.apple.product-type.application";
 		};
+		11DC5CA72FA90E9D00414499 /* FriendMapSeedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11DC5CAE2FA90E9D00414499 /* Build configuration list for PBXNativeTarget "FriendMapSeedTests" */;
+			buildPhases = (
+				11DC5CA42FA90E9D00414499 /* Sources */,
+				11DC5CA52FA90E9D00414499 /* Frameworks */,
+				11DC5CA62FA90E9D00414499 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				11DC5CAD2FA90E9D00414499 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				11DC5CA92FA90E9D00414499 /* FriendMapSeedTests */,
+			);
+			name = FriendMapSeedTests;
+			packageProductDependencies = (
+			);
+			productName = FriendMapSeedTests;
+			productReference = 11DC5CA82FA90E9D00414499 /* FriendMapSeedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		11DC5CB42FA90EC500414499 /* FriendMapSeedUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11DC5CBD2FA90EC500414499 /* Build configuration list for PBXNativeTarget "FriendMapSeedUITests" */;
+			buildPhases = (
+				11DC5CB12FA90EC500414499 /* Sources */,
+				11DC5CB22FA90EC500414499 /* Frameworks */,
+				11DC5CB32FA90EC500414499 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				11DC5CBC2FA90EC500414499 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				11DC5CB62FA90EC500414499 /* FriendMapSeedUITests */,
+			);
+			name = FriendMapSeedUITests;
+			packageProductDependencies = (
+			);
+			productName = FriendMapSeedUITests;
+			productReference = 11DC5CB52FA90EC500414499 /* FriendMapSeedUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -118,6 +181,14 @@
 				TargetAttributes = {
 					11440BB42F90E8D600A9E15B = {
 						CreatedOnToolsVersion = 26.4;
+					};
+					11DC5CA72FA90E9D00414499 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = 11440BB42F90E8D600A9E15B;
+					};
+					11DC5CB42FA90EC500414499 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = 11440BB42F90E8D600A9E15B;
 					};
 				};
 			};
@@ -140,12 +211,28 @@
 			projectRoot = "";
 			targets = (
 				11440BB42F90E8D600A9E15B /* FriendMapSeed */,
+				11DC5CA72FA90E9D00414499 /* FriendMapSeedTests */,
+				11DC5CB42FA90EC500414499 /* FriendMapSeedUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		11440BB32F90E8D600A9E15B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DC5CA62FA90E9D00414499 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DC5CB32FA90EC500414499 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -159,20 +246,37 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1127EF332FA8DC5C008B2AD1 /* QueuedMessage+CoreDataClass.swift in Sources */,
-				1127EF342FA8DC5C008B2AD1 /* VenueCache+CoreDataProperties.swift in Sources */,
-				1127EF352FA8DC5C008B2AD1 /* UserProfileCache+CoreDataClass.swift in Sources */,
-				1127EF362FA8DC5C008B2AD1 /* MessageCache+CoreDataProperties.swift in Sources */,
-				1127EF372FA8DC5C008B2AD1 /* UserProfileCache+CoreDataProperties.swift in Sources */,
-				1127EF382FA8DC5C008B2AD1 /* StoryCache+CoreDataClass.swift in Sources */,
-				1127EF392FA8DC5C008B2AD1 /* QueuedMessage+CoreDataProperties.swift in Sources */,
-				1127EF3A2FA8DC5C008B2AD1 /* VenueCache+CoreDataClass.swift in Sources */,
-				1127EF3B2FA8DC5C008B2AD1 /* StoryCache+CoreDataProperties.swift in Sources */,
-				1127EF3C2FA8DC5C008B2AD1 /* MessageCache+CoreDataClass.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DC5CA42FA90E9D00414499 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11DC5CB12FA90EC500414499 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		11DC5CAD2FA90E9D00414499 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 11440BB42F90E8D600A9E15B /* FriendMapSeed */;
+			targetProxy = 11DC5CAC2FA90E9D00414499 /* PBXContainerItemProxy */;
+		};
+		11DC5CBC2FA90EC500414499 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 11440BB42F90E8D600A9E15B /* FriendMapSeed */;
+			targetProxy = 11DC5CBB2FA90EC500414499 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		11440BBE2F90E8DB00A9E15B /* Debug */ = {
@@ -380,6 +484,88 @@
 			};
 			name = Release;
 		};
+		11DC5CAF2FA90E9D00414499 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9YUM32FPQU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.luiginegri.FriendMapSeedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FriendMapSeed.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FriendMapSeed";
+			};
+			name = Debug;
+		};
+		11DC5CB02FA90E9D00414499 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9YUM32FPQU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.luiginegri.FriendMapSeedTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FriendMapSeed.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FriendMapSeed";
+			};
+			name = Release;
+		};
+		11DC5CBE2FA90EC500414499 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9YUM32FPQU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.luiginegri.FriendMapSeedUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FriendMapSeed;
+			};
+			name = Debug;
+		};
+		11DC5CBF2FA90EC500414499 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9YUM32FPQU;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = it.luiginegri.FriendMapSeedUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FriendMapSeed;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -397,6 +583,24 @@
 			buildConfigurations = (
 				11440BC12F90E8DB00A9E15B /* Debug */,
 				11440BC22F90E8DB00A9E15B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		11DC5CAE2FA90E9D00414499 /* Build configuration list for PBXNativeTarget "FriendMapSeedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11DC5CAF2FA90E9D00414499 /* Debug */,
+				11DC5CB02FA90E9D00414499 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		11DC5CBD2FA90EC500414499 /* Build configuration list for PBXNativeTarget "FriendMapSeedUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11DC5CBE2FA90EC500414499 /* Debug */,
+				11DC5CBF2FA90EC500414499 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -23,7 +23,7 @@ extension StoryCache {
     @NSManaged public var commentCount: Int32
     @NSManaged public var createdAt: Date?
     @NSManaged public var displayName: String?
-    @NSManaged public var expiresAt: Double
+    @NSManaged public var expiresAt: Date?
     @NSManaged public var hasLiked: Bool
     @NSManaged public var lastUpdated: Date?
     @NSManaged public var likeCount: Int32

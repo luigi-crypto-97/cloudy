@@ -36,15 +36,14 @@ final class AnalyticsService {
         logEvent("app_launch", parameters: [:])
     }
     
-    func userDidLogin(nickname: String) {
+    func userDidLogin(userId: UUID) {
         #if canImport(FirebaseAnalytics)
         if isAnalyticsEnabled {
-            Analytics.setUserID(nickname)
-            Analytics.setUserProperty(nickname, forName: "nickname")
+            Analytics.setUserID(userId.uuidString)
         }
         #endif
         
-        logEvent("user_login", parameters: ["nickname": nickname])
+        logEvent("user_login", parameters: [:])
     }
     
     func userDidLogout() {
@@ -92,10 +91,9 @@ final class AnalyticsService {
         ])
     }
     
-    func logCheckIn(venueId: UUID, venueName: String) {
+    func logCheckIn(venueId: UUID, venueName _: String) {
         logEvent("check_in", parameters: [
-            "venue_id": venueId.uuidString,
-            "venue_name": venueName
+            "venue_id": venueId.uuidString
         ])
     }
     
@@ -107,10 +105,9 @@ final class AnalyticsService {
     
     // MARK: - Social
     
-    func logJoinTable(tableId: UUID, tableTitle: String) {
+    func logJoinTable(tableId: UUID, tableTitle _: String) {
         logEvent("join_table", parameters: [
-            "table_id": tableId.uuidString,
-            "table_title": tableTitle
+            "table_id": tableId.uuidString
         ])
     }
     
@@ -187,10 +184,9 @@ final class AnalyticsService {
     
     // MARK: - Errors & Performance
     
-    func logError(errorCode: String, message: String, screen: String? = nil) {
+    func logError(errorCode: String, message _: String, screen: String? = nil) {
         logEvent("error", parameters: [
             "error_code": errorCode,
-            "message": message,
             "screen": screen ?? "Unknown"
         ])
     }

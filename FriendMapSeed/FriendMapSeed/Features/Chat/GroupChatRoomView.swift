@@ -146,17 +146,65 @@ struct GroupChatRoomView: View {
     }
 
     private func load() async {
+        if thread == nil, let cachedThread = cachedThread() {
+            thread = cachedThread
+        }
         do {
             if let venueId {
-                thread = try await API.venueChatThread(venueId: venueId)
+                let loaded = try await API.venueChatThread(venueId: venueId)
+                DeviceCacheService.shared.cacheVenueChatThread(loaded, venueId: venueId)
+                thread = loaded
             } else if let chatId {
-                thread = try await API.groupChatThread(chatId: chatId)
+                let loaded = try await API.groupChatThread(chatId: chatId)
+                DeviceCacheService.shared.cacheGroupThread(loaded)
+                thread = loaded
             }
             errorMessage = nil
             NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if let cachedThread = cachedThread() {
+                thread = cachedThread
+                errorMessage = "Mostro messaggi salvati sul dispositivo."
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
+    }
+
+    private func cachedThread() -> GroupChatThread? {
+        let cachedMessages: [GroupChatMessage]
+        let summary: GroupChatSummary
+        if let venueId {
+            cachedMessages = DeviceCacheService.shared.cachedVenueChatMessages(venueId: venueId)
+            summary = GroupChatSummary(
+                chatId: venueId,
+                title: title,
+                kind: "venue",
+                venueId: venueId,
+                venueName: title,
+                memberCount: 0,
+                lastMessagePreview: cachedMessages.last?.body ?? "",
+                lastMessageAtUtc: cachedMessages.last?.sentAtUtc ?? Date(),
+                unreadCount: 0
+            )
+        } else if let chatId {
+            cachedMessages = DeviceCacheService.shared.cachedGroupMessages(chatId: chatId)
+            summary = GroupChatSummary(
+                chatId: chatId,
+                title: title,
+                kind: "group",
+                venueId: nil,
+                venueName: nil,
+                memberCount: 0,
+                lastMessagePreview: cachedMessages.last?.body ?? "",
+                lastMessageAtUtc: cachedMessages.last?.sentAtUtc ?? Date(),
+                unreadCount: 0
+            )
+        } else {
+            return nil
+        }
+        guard !cachedMessages.isEmpty else { return nil }
+        return GroupChatThread(chat: summary, messages: cachedMessages)
     }
 
     private func pollThread() async {

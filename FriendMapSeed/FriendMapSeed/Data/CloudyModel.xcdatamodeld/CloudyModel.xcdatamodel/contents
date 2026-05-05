@@ -41,6 +41,11 @@
         <attribute name="avatarUrl" optional="YES" attributeType="String"/>
         <attribute name="bio" optional="YES" attributeType="String"/>
         <attribute name="displayName" optional="YES" attributeType="String"/>
+        <attribute name="birthYear" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="discoverableEmail" optional="YES" attributeType="String"/>
+        <attribute name="discoverablePhone" optional="YES" attributeType="String"/>
+        <attribute name="gender" optional="YES" attributeType="String"/>
+        <attribute name="interestsCsv" optional="YES" attributeType="String"/>
         <attribute name="lastUpdated" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="nickname" optional="YES" attributeType="String"/>
         <attribute name="userId" attributeType="String" spotlightIndexingEnabled="YES"/>

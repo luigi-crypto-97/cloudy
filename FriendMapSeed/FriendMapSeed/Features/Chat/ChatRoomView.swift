@@ -83,13 +83,29 @@ struct ChatRoomView: View {
     }
     
     private func load() async {
-        isLoading = true
+        if messages.isEmpty {
+            let cached = DeviceCacheService.shared.cachedDirectMessages(otherUserId: otherUserId)
+            let queued = DeviceCacheService.shared.queuedDirectMessages(otherUserId: otherUserId)
+            if !cached.isEmpty || !queued.isEmpty {
+                messages = mergeMessages(cached + queued)
+            }
+        }
+        isLoading = messages.isEmpty
         do {
+            await DeviceCacheService.shared.retryQueuedDirectMessages(otherUserId: otherUserId)
             let thread = try await API.messageThread(otherUserId: otherUserId)
-            messages = thread.messages
+            DeviceCacheService.shared.cacheDirectThread(thread, otherUserId: otherUserId)
+            messages = mergeMessages(thread.messages + DeviceCacheService.shared.queuedDirectMessages(otherUserId: otherUserId))
             errorMessage = nil
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            let cached = DeviceCacheService.shared.cachedDirectMessages(otherUserId: otherUserId)
+            let queued = DeviceCacheService.shared.queuedDirectMessages(otherUserId: otherUserId)
+            if !cached.isEmpty || !queued.isEmpty {
+                messages = mergeMessages(cached + queued)
+                errorMessage = "Mostro messaggi salvati sul dispositivo."
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
         isLoading = false
     }
@@ -113,7 +129,10 @@ struct ChatRoomView: View {
             Haptics.tap()
             await load()
         } catch {
+            let queued = DeviceCacheService.shared.queueDirectMessage(otherUserId: otherUserId, body: text)
+            messages = mergeMessages(messages + [queued])
             Haptics.error()
+            errorMessage = "Messaggio salvato: lo invio appena torna la connessione."
         }
     }
     
@@ -125,6 +144,12 @@ struct ChatRoomView: View {
         } catch {
             Haptics.error()
         }
+    }
+
+    private func mergeMessages(_ values: [DirectMessage]) -> [DirectMessage] {
+        Dictionary(grouping: values, by: \.messageId)
+            .compactMap { $0.value.first }
+            .sorted { $0.sentAtUtc < $1.sentAtUtc }
     }
 }
 

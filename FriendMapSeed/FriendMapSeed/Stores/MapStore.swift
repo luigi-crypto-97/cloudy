@@ -107,6 +107,19 @@ final class MapStore {
         errorMessage = nil
         defer { isLoading = false }
 
+        let cachedMarkers = DeviceCacheService.shared.cachedVenues(
+            minLat: bounds.minLat,
+            minLng: bounds.minLng,
+            maxLat: bounds.maxLat,
+            maxLng: bounds.maxLng
+        )
+        if !cachedMarkers.isEmpty && markers.isEmpty {
+            markers = Array(cachedMarkers.prefix(90))
+            areas = []
+            usesAreaLayer = false
+            recomputeFogLinks(from: markers, in: region)
+        }
+
         do {
             // Fetch fresh data dal backend
             let result = try await API.venueMapLayer(
@@ -122,11 +135,20 @@ final class MapStore {
             usesAreaLayer = shouldUseAreas
             areas = shouldUseAreas ? result.areas : []
             markers = shouldUseAreas ? [] : Array(result.markers.prefix(90))
+            DeviceCacheService.shared.cacheVenues(result.markers)
             recomputeFogLinks(from: markers, in: region)
         } catch is CancellationError {
             return
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if !cachedMarkers.isEmpty {
+                markers = Array(cachedMarkers.prefix(90))
+                areas = []
+                usesAreaLayer = false
+                errorMessage = "Mostro locali salvati sul dispositivo."
+                recomputeFogLinks(from: markers, in: region)
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
     }
 

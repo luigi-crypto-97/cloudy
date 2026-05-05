@@ -162,11 +162,19 @@ struct StoryArchiveView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
+        let cached = DeviceCacheService.shared.cachedStories(includeExpired: true, maxAge: 120 * 24 * 60 * 60)
+        if !cached.isEmpty && stories.isEmpty {
+            stories = cached
+        }
         do {
-            stories = try await API.storyArchive()
+            let loaded = try await API.storyArchive()
+            stories = loaded
+            DeviceCacheService.shared.cacheStories(loaded)
             errorMessage = nil
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            errorMessage = cached.isEmpty
+                ? ((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+                : "Mostro l'archivio salvato sul dispositivo."
         }
     }
 

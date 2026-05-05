@@ -16,14 +16,34 @@ Il client iOS nativo SwiftUI rappresenta un **miglioramento significativo** risp
 |-----------|------|------|
 | Architettura | ⭐⭐⭐⭐☆ | Observable + @MainActor, ma no DI framework |
 | Performance | ⭐⭐⭐⭐⭐ | TimelineView singolo, Task.detached, debounce |
-| Sicurezza | ⭐⭐☆☆☆ | Manca certificate pinning, token refresh |
+| Sicurezza | ⭐⭐⭐☆☆ | HTTPS enforced, pinning scaffold presente ma senza pin |
 | Testing | ⭐⭐☆☆☆ | Solo 13 test su CloudyCore, no UI test |
 | UX/UI | ⭐⭐⭐⭐☆ | Design system coerente, animazioni curate |
-| Offline | ⭐☆☆☆☆ | Nessun caching, no database locale |
+| Offline | ⭐⭐☆☆☆ | CoreData attivo per cache venue/mappa; chat/stories/profili ancora da collegare |
 | Accessibilità | ⭐⭐☆☆☆ | Label base, no Dynamic Type audit |
 | Internazionalizzazione | ⭐☆☆☆☆ | Tutto hardcoded in italiano |
 
 ---
+
+## Aggiornamento Implementativo 2026-05-04
+
+Questo audit era stato scritto prima dell'introduzione di CoreData, Analytics e secure connection. Dopo la verifica sul progetto, lo stato reale è:
+
+| Area | Stato reale | Intervento fatto |
+|------|-------------|------------------|
+| Cache dispositivo / CoreData | Lo schema CoreData esisteva, ma l'app non inizializzava lo stack e la mappa non lo usava. | Aggiunti `DataController` e `DeviceCacheService`, collegato `managedObjectContext` all'app, cache venue attiva in `MapStore` come fallback offline. |
+| CoreData model | Le entity esistono per venue, messaggi, storie, profili e messaggi in coda. Due property Swift non combaciavano con il modello. | Corretti `MessageCache.sentAt` e `StoryCache.expiresAt`; rimossi riferimenti duplicati dal progetto Xcode che generavano warning di compilazione. |
+| Analytics | Firebase wrapper presente, ma login e alcuni eventi usavano payload troppo descrittivi. | Login analytics ora usa `userId` tecnico; rimossi nickname, venue name, table title e messaggi errore liberi dagli eventi principali. |
+| Secure connection | Delegate di pinning presente, ma senza hash configurati; quindi usa solo trust TLS standard. | Bloccato HTTP in Release e consentito HTTP solo per localhost/LAN in Debug. Certificate pinning vero resta pending finché non vengono configurati i public key hash. |
+| Token refresh | Client scaffold presente; backend e login non emettono refresh token reale. | Nessun cambio backend: va considerato incompleto end-to-end. |
+
+Build verificata con:
+
+```bash
+xcodebuild -project FriendMapSeed/FriendMapSeed.xcodeproj -scheme FriendMapSeed -destination 'generic/platform=iOS Simulator' build
+```
+
+Esito: `BUILD SUCCEEDED`.
 
 ## 1. Architettura e Struttura del Codice
 
@@ -220,34 +240,24 @@ private enum Keychain {
 
 ### ❌ Criticità CRITICHE
 
-**3.1 No Token Refresh Mechanism**
-- JWT scade dopo 7 giorni (10080 minuti da `appsettings.json`)
-- Quando scade, l'utente deve fare login di nuovo
+**3.1 Token Refresh non completo end-to-end**
+- Il client ha proprietà `refreshToken`, salvataggio Keychain e tentativo di refresh su 401.
+- `AuthStore.login` e `devLogin` però impostano ancora `refreshToken = nil`.
+- Il backend deve esporre davvero `POST /api/auth/refresh` e restituire refresh token rotation.
+- Finché il backend non emette refresh token, alla scadenza del JWT l'utente deve rifare login.
 
 **Raccomandazione:**
 - Implementare refresh token rotation
 - Intercept 401 errors e tentare refresh automatico
 
-**3.2 No Certificate Pinning**
+**3.2 Certificate Pinning scaffold presente ma non attivo**
 ```swift
-// URLSessionConfiguration.default senza pinning
-let cfg = URLSessionConfiguration.default
+private static let pinnedPublicKeyHashes: Set<String> = [
+    // TODO: hash public key produzione
+]
 ```
 
-**Raccomandazione:**
-```swift
-class PinnedURLSessionDelegate: NSObject, URLSessionDelegate {
-    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge) async -> URLSession.AuthChallengeDisposition {
-        guard let serverTrust = challenge.protectionSpace.serverTrust else {
-            return .cancelAuthenticationChallenge
-        }
-        
-        // Verifica certificato pinato
-        let pinned = verifyCertificate(serverTrust)
-        return pinned ? .useCredential : .cancelAuthenticationChallenge
-    }
-}
-```
+Il delegate esiste e valida la chain TLS standard se non ci sono pin. Dopo il fix, il client rifiuta URL `http://` in Release e accetta HTTP solo per localhost/LAN in Debug. Manca ancora il passo fondamentale: configurare almeno due pin di produzione, primario e backup.
 
 **3.3 No Jailbreak Detection**
 - L'app può essere eseguita su device jailbroken
@@ -345,53 +355,33 @@ jobs:
 
 ## 5. Offline Support e Caching
 
-### ❌ Criticità GRAVE
+### ✅ Stato attuale dopo fix
 
-**5.1 No Local Database**
-- CoreData / Realm / SQLite assenti
-- Nessuna cache persistente
-- Se offline, l'app è inutile
+**5.1 CoreData stack attivo**
+- `DataController` inizializza `NSPersistentContainer(name: "CloudyModel")`.
+- Migrazione leggera automatica abilitata.
+- L'app inietta `managedObjectContext` nella root SwiftUI.
+- Al background viene chiamato `saveIfNeeded()`.
 
-**5.2 No Request Queueing**
+**5.2 Cache venue collegata alla mappa**
+- `DeviceCacheService` salva i `VenueMarker` ricevuti dal layer mappa.
+- `MapStore` mostra subito locali cached se la rete è lenta o fallisce.
+- In caso di errore rete con cache disponibile, la UI resta utilizzabile e mostra "Mostro locali salvati sul dispositivo."
+
+### ❌ Criticità residue
+
+**5.3 Request queueing ancora non collegato**
 - I messaggi inviati offline vanno persi
 - No retry queue per failed requests
 
-**5.3 No Cached Content Display**
-- Feed, Map, Profile non mostrano dati cached
+**5.4 Cache contenuti ancora parziale**
+- Map: cache venue attiva.
+- Feed/Profile/Stories/Chat: entity CoreData presenti, ma integrazione applicativa non ancora completata.
+- `QueuedMessage` esiste nel modello ma manca il worker di retry.
 
-**Raccomandazione PRIORITARIA:**
+**Raccomandazione PRIORITARIA prossima:**
 ```swift
-import CoreData
-
-// 1. Aggiungere Core Data stack
-final class DataController {
-    static let shared = DataController()
-    let container: NSPersistentContainer
-    
-    init() {
-        container = NSPersistentContainer(name: "Cloudy")
-        container.loadPersistentStores { _, error in
-            if let error { fatalError("Core Data load failed: \(error)") }
-        }
-    }
-}
-
-// 2. Cache venues in MapStore
-func fetchMarkers(in region: MKCoordinateRegion) async {
-    // 1. Show cached data immediately
-    markers = try? fetchCachedVenues(in: region)
-    
-    // 2. Fetch fresh data
-    do {
-        let fresh = try await API.venueMapLayer(...)
-        markers = fresh.markers
-        cacheVenues(fresh.markers)
-    } catch {
-        // Show cached with error banner
-    }
-}
-
-// 3. Queue messages for offline send
+// Prossimo step: queue messaggi offline
 func sendMessage(_ message: String) {
     if isOffline {
         queueMessageForLater(message)
@@ -610,25 +600,19 @@ func open(deepLink: String?) {
 
 ### 11.1 Analytics
 
-**Stato:** `FeedAnalytics.swift` esiste ma è stubbed
+**Stato:** analytics presente ma da completare
 
-**Raccomandazione:** Integrare Firebase Analytics o Mixpanel
-```swift
-import FirebaseAnalytics
+- `Utilities/Analytics.swift` integra Firebase Analytics se il package è disponibile.
+- In Debug è disabilitato salvo `ENABLE_ANALYTICS=1`; in Release è abilitato.
+- `FeedAnalytics.swift` contiene già un tracker privacy-safe per il feed con implementazione debug/no-op.
+- Il login non usa più nickname come user id/property: usa `UUID`.
 
-enum AnalyticsEvent {
-    static func login(nickname: String) {
-        Analytics.logEvent("user_login", parameters: ["nickname": nickname])
-    }
-    
-    static func viewVenue(venueId: UUID, category: String) {
-        Analytics.logEvent("view_venue", parameters: [
-            "venue_id": venueId.uuidString,
-            "category": category
-        ])
-    }
-}
-```
+**Criticità residue:**
+- Alcuni eventi globali sono ancora troppo descrittivi per analytics di produzione (`venue_name`, `table_title`, messaggi errore liberi).
+- Manca una policy unica per quali parametri siano ammessi.
+- Manca test automatico per garantire che non vengano loggati contenuti sensibili.
+
+**Raccomandazione:** introdurre allowlist parametri analytics e bloccare stringhe libere non tecniche.
 
 ### 11.2 Crash Reporting
 
@@ -987,6 +971,30 @@ swift test
 # URL per device fisico
 ./scripts/dev-api-url.sh
 ```
+
+---
+
+## Appendice C: Stato Cache Dispositivo - 5 Maggio 2026
+
+La cache locale CoreData è stata estesa oltre la sola mappa.
+
+Copertura attuale:
+- Venue/map layer e contesto feed: fallback locale se la rete non risponde.
+- Stories recenti e archivio stories: archivio conservato più a lungo per uso profilo.
+- Profilo utente modificabile: lettura immediata da cache e aggiornamento dopo fetch/salvataggio.
+- Chat dirette: cache messaggi, fallback offline e coda locale dei messaggi testuali non inviati.
+- Chat di gruppo e chat locale: cache messaggi e fallback quando il thread live non è disponibile.
+- Chat tavolo: cache messaggi e fallback thread minimale quando la rete fallisce.
+
+Limiti ancora aperti:
+- Gli allegati media continuano a dipendere dagli URL remoti e dalla cache di sistema: per un offline reale serve una cache file dedicata per immagini/video.
+- La coda invio offline è implementata solo per messaggi diretti testuali; group/venue/table richiedono una coda simile.
+- La cache ricostruisce bene i messaggi, ma non sempre tutti i metadati ricchi dei thread quando l'endpoint non risponde.
+- Il realtime SignalR ha un fallback no-op se il package `SignalRClient` non è installato; per notifiche live/chat live va aggiunta la dipendenza.
+
+Verifica tecnica:
+- Build app iOS: `xcodebuild -project FriendMapSeed/FriendMapSeed.xcodeproj -scheme FriendMapSeed -destination 'generic/platform=iOS Simulator' build`
+- Test core package: `cd FriendMapSeed/Packages/CloudyCore && swift test`
 
 ---
 

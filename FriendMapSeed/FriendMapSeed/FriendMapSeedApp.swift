@@ -23,10 +23,12 @@ struct FriendMapSeedApp: App {
     @State private var router = AppRouter()
     @State private var mapStore = MapStore()
     @State private var liveLocation = LiveLocationStore()
+    private let dataController = DataController.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(\.managedObjectContext, dataController.viewContext)
                 .environment(auth)
                 .environment(router)
                 .environment(mapStore)
@@ -43,8 +45,9 @@ struct FriendMapSeedApp: App {
                         
                         // Analytics user ID
                         Task { @MainActor in
-                            AnalyticsService.shared.userDidLogin(nickname: user.nickname)
+                            AnalyticsService.shared.userDidLogin(userId: user.userId)
                             CrashReportingService.shared.setUserId(user.userId.uuidString)
+                            DeviceCacheService.shared.cleanup()
                         }
                     } else {
                         liveLocation.configure(userId: nil)
@@ -97,8 +100,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // Salva dati prima di terminare
-        // CoreData temporaneamente disabilitato - vedi DataController.swift.COREDATA_FIX_LATER
+        Task { @MainActor in
+            DataController.shared.saveIfNeeded()
+        }
     }
 
     func userNotificationCenter(

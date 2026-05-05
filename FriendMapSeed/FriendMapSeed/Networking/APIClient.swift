@@ -218,6 +218,10 @@ final class APIClient {
     // MARK: - Public Configure
     
     func configure(baseURL: URL, token: String?, refreshToken: String? = nil) {
+        guard Self.isTransportAllowed(for: baseURL) else {
+            print("[Security] Rejected insecure API base URL: \(baseURL.absoluteString)")
+            return
+        }
         self.baseURL = baseURL
         self.bearerToken = token
         self.refreshToken = refreshToken
@@ -291,6 +295,9 @@ final class APIClient {
         guard let url = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)?.url else {
             throw APIError.invalidURL
         }
+        guard Self.isTransportAllowed(for: url) else {
+            throw APIError.certificatePinningFailed
+        }
         
         let boundary = "Boundary-\(UUID().uuidString)"
         var req = URLRequest(url: url)
@@ -352,6 +359,9 @@ final class APIClient {
             components?.queryItems = items
         }
         guard let url = components?.url else { throw APIError.invalidURL }
+        guard Self.isTransportAllowed(for: url) else {
+            throw APIError.certificatePinningFailed
+        }
         
         var req = URLRequest(url: url)
         req.httpMethod = method
@@ -497,6 +507,22 @@ final class APIClient {
             throw APIError.decodingFailed(NSError(domain: "Cloudy", code: 0, userInfo: [NSLocalizedDescriptionKey: "Empty body"]))
         }
         return try decoder.decode(R.self, from: data)
+    }
+
+    private static func isTransportAllowed(for url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        if scheme == "https" { return true }
+
+        #if DEBUG
+        guard scheme == "http", let host = url.host?.lowercased() else { return false }
+        return host == "localhost" ||
+            host == "127.0.0.1" ||
+            host.starts(with: "192.168.") ||
+            host.starts(with: "10.") ||
+            host.range(of: #"^172\.(1[6-9]|2[0-9]|3[0-1])\."#, options: .regularExpression) != nil
+        #else
+        return false
+        #endif
     }
 }
 

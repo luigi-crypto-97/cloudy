@@ -20,7 +20,12 @@ extension UserProfileCache {
 
     @NSManaged public var avatarUrl: String?
     @NSManaged public var bio: String?
+    @NSManaged public var birthYear: Int32
     @NSManaged public var displayName: String?
+    @NSManaged public var discoverableEmail: String?
+    @NSManaged public var discoverablePhone: String?
+    @NSManaged public var gender: String?
+    @NSManaged public var interestsCsv: String?
     @NSManaged public var lastUpdated: Date?
     @NSManaged public var nickname: String?
     @NSManaged public var userId: String?

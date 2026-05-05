@@ -233,12 +233,43 @@ struct TableThreadView: View {
     // MARK: - Actions
 
     private func load() async {
+        if thread == nil, let cached = cachedThread() {
+            thread = cached
+        }
         do {
-            thread = try await API.tableThread(tableId: tableId)
+            let loaded = try await API.tableThread(tableId: tableId)
+            DeviceCacheService.shared.cacheTableThread(loaded, tableId: tableId)
+            thread = loaded
             errorMessage = nil
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if let cached = cachedThread() {
+                thread = cached
+                errorMessage = "Mostro messaggi salvati sul dispositivo."
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
         }
+    }
+
+    private func cachedThread() -> SocialTableThread? {
+        let cachedMessages = DeviceCacheService.shared.cachedTableMessages(tableId: tableId)
+        guard !cachedMessages.isEmpty else { return nil }
+        let summary = thread?.table ?? SocialTableSummary(
+            tableId: tableId,
+            title: "Tavolo",
+            description: nil,
+            startsAtUtc: Date(),
+            venueName: "Locale",
+            venueCategory: "locale",
+            joinPolicy: "open",
+            isHost: false,
+            membershipStatus: "accepted",
+            capacity: 0,
+            requestedCount: 0,
+            acceptedCount: 0,
+            invitedCount: 0
+        )
+        return SocialTableThread(table: summary, requests: thread?.requests ?? [], messages: cachedMessages)
     }
 
     private func pollThread() async {

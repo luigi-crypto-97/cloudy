@@ -315,18 +315,30 @@ struct EditProfileView: View {
     private func load() async {
         isLoading = true
         defer { isLoading = false }
+        if let cached = DeviceCacheService.shared.cachedEditableProfile(), profile == nil {
+            applyProfile(cached)
+        }
         do {
             let p = try await API.myEditableProfile()
-            profile = p
-            displayName = p.displayName ?? ""
-            bio = p.bio ?? ""
-            birthYearText = p.birthYear.map(String.init) ?? ""
-            gender = p.gender
-            avatarUrl = p.avatarUrl ?? ""
-            interests = p.interests
+            DeviceCacheService.shared.cacheProfile(p)
+            applyProfile(p)
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if profile == nil {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            } else {
+                errorMessage = "Mostro il profilo salvato sul dispositivo."
+            }
         }
+    }
+
+    private func applyProfile(_ p: EditableUserProfile) {
+        profile = p
+        displayName = p.displayName ?? ""
+        bio = p.bio ?? ""
+        birthYearText = p.birthYear.map(String.init) ?? ""
+        gender = p.gender
+        avatarUrl = p.avatarUrl ?? ""
+        interests = p.interests
     }
 
     private func save() async {
@@ -349,7 +361,8 @@ struct EditProfileView: View {
                 gender: gender,
                 interests: interests
             )
-            _ = try await API.updateMyProfile(req)
+            let updated = try await API.updateMyProfile(req)
+            DeviceCacheService.shared.cacheProfile(updated)
             Haptics.success()
             onSaved?()
             dismiss()

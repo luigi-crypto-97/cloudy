@@ -26,7 +26,7 @@ extension MessageCache {
     @NSManaged public var messageId: String?
     @NSManaged public var nickname: String?
     @NSManaged public var senderUserId: String?
-    @NSManaged public var sentAt: String?
+    @NSManaged public var sentAt: Date?
     @NSManaged public var userId: String?
 
 }
