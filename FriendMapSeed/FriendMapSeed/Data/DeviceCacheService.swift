@@ -210,76 +210,149 @@ final class DeviceCacheService {
     }
 
     func queueDirectMessage(otherUserId: UUID, body: String) -> DirectMessage {
-        let id = UUID()
-        let now = Date()
-        let row = QueuedMessage(context: context)
-        row.messageId = id.uuidString
-        row.threadId = threadKey(.direct, otherUserId.uuidString)
-        row.userId = API.currentUserId?.uuidString ?? "unknown"
-        row.body = body
-        row.createdAt = now
-        row.attempts = 0
-        dataController.saveIfNeeded()
-        return DirectMessage(
-            messageId: id,
-            senderUserId: API.currentUserId ?? id,
-            nickname: "Tu",
-            displayName: "Tu",
-            avatarUrl: nil,
-            body: body,
-            sentAtUtc: now,
-            isMine: true
-        )
+        makeDirectMessage(queueMessage(threadKey: threadKey(.direct, otherUserId.uuidString), body: body))
     }
 
     func queuedDirectMessages(otherUserId: UUID) -> [DirectMessage] {
+        queuedMessages(threadKey: threadKey(.direct, otherUserId.uuidString)).map(makeDirectMessage)
+    }
+
+    func queueGroupMessage(chatId: UUID, body: String) -> GroupChatMessage {
+        makeGroupMessage(queueMessage(threadKey: threadKey(.group, chatId.uuidString), body: body))
+    }
+
+    func queueGroupAttachment(chatId: UUID, data: Data, fileName: String, mimeType: String) async throws -> GroupChatMessage {
+        let queued = try await queueAttachment(
+            threadKey: threadKey(.group, chatId.uuidString),
+            data: data,
+            fileName: fileName,
+            mimeType: mimeType
+        )
+        return makeGroupMessage(queued)
+    }
+
+    func queuedGroupMessages(chatId: UUID) -> [GroupChatMessage] {
+        queuedMessages(threadKey: threadKey(.group, chatId.uuidString)).map(makeGroupMessage)
+    }
+
+    func queueVenueChatMessage(venueId: UUID, body: String) -> GroupChatMessage {
+        makeGroupMessage(queueMessage(threadKey: threadKey(.venue, venueId.uuidString), body: body))
+    }
+
+    func queueVenueChatAttachment(venueId: UUID, data: Data, fileName: String, mimeType: String) async throws -> GroupChatMessage {
+        let queued = try await queueAttachment(
+            threadKey: threadKey(.venue, venueId.uuidString),
+            data: data,
+            fileName: fileName,
+            mimeType: mimeType
+        )
+        return makeGroupMessage(queued)
+    }
+
+    func queuedVenueChatMessages(venueId: UUID) -> [GroupChatMessage] {
+        queuedMessages(threadKey: threadKey(.venue, venueId.uuidString)).map(makeGroupMessage)
+    }
+
+    func queueTableMessage(tableId: UUID, body: String) -> SocialTableMessage {
+        makeTableMessage(queueMessage(threadKey: threadKey(.table, tableId.uuidString), body: body))
+    }
+
+    func queuedTableMessages(tableId: UUID) -> [SocialTableMessage] {
+        queuedMessages(threadKey: threadKey(.table, tableId.uuidString)).map(makeTableMessage)
+    }
+
+    private func queuedMessages(threadKey: String) -> [QueuedMessage] {
         let request = QueuedMessage.fetchRequest()
         request.sortDescriptors = [NSSortDescriptor(keyPath: \QueuedMessage.createdAt, ascending: true)]
-        request.predicate = NSPredicate(format: "threadId == %@", threadKey(.direct, otherUserId.uuidString))
+        request.predicate = NSPredicate(format: "threadId == %@", threadKey)
         do {
-            return try context.fetch(request).compactMap { row in
-                guard
-                    let rawId = row.messageId,
-                    let id = UUID(uuidString: rawId),
-                    let body = row.body,
-                    let createdAt = row.createdAt
-                else { return nil }
-                return DirectMessage(
-                    messageId: id,
-                    senderUserId: API.currentUserId ?? id,
-                    nickname: "Tu",
-                    displayName: "Tu",
-                    avatarUrl: nil,
-                    body: body,
-                    sentAtUtc: createdAt,
-                    isMine: true
-                )
-            }
+            return try context.fetch(request)
         } catch {
             return []
         }
     }
 
     func retryQueuedDirectMessages(otherUserId: UUID) async {
-        let request = QueuedMessage.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \QueuedMessage.createdAt, ascending: true)]
-        request.predicate = NSPredicate(format: "threadId == %@", threadKey(.direct, otherUserId.uuidString))
-        do {
-            let rows = try context.fetch(request)
-            for row in rows {
-                guard let body = row.body else { continue }
-                do {
-                    _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
-                    context.delete(row)
-                } catch {
-                    row.attempts += 1
-                    break
-                }
-            }
-            dataController.saveIfNeeded()
-        } catch {
-            print("[DeviceCache] Queue retry failed: \(error.localizedDescription)")
+        await retryQueuedMessages(threadKey: threadKey(.direct, otherUserId.uuidString)) { body in
+            _ = try await API.sendDirectMessage(otherUserId: otherUserId, body: body)
         }
+    }
+
+    func retryQueuedGroupMessages(chatId: UUID) async {
+        await retryQueuedMessages(threadKey: threadKey(.group, chatId.uuidString)) { body in
+            _ = try await API.sendGroupChatMessage(chatId: chatId, body: body)
+        }
+    }
+
+    func retryQueuedVenueChatMessages(venueId: UUID) async {
+        await retryQueuedMessages(threadKey: threadKey(.venue, venueId.uuidString)) { body in
+            _ = try await API.sendVenueChatMessage(venueId: venueId, body: body)
+        }
+    }
+
+    func retryQueuedTableMessages(tableId: UUID) async {
+        await retryQueuedMessages(threadKey: threadKey(.table, tableId.uuidString)) { body in
+            _ = try await API.sendTableMessage(tableId: tableId, body: body)
+        }
+    }
+
+    private func queueMessage(threadKey: String, body: String) -> QueuedMessage {
+        let row = QueuedMessage(context: context)
+        row.messageId = UUID().uuidString
+        row.threadId = threadKey
+        row.userId = API.currentUserId?.uuidString ?? "unknown"
+        row.body = body
+        row.createdAt = Date()
+        row.attempts = 0
+        dataController.saveIfNeeded()
+        return row
+    }
+
+    private func queueAttachment(threadKey: String, data: Data, fileName: String, mimeType: String) async throws -> QueuedMessage {
+        let localURL = try await MediaFileCache.shared.storePendingUpload(data: data, fileName: fileName)
+        let row = queueMessage(
+            threadKey: threadKey,
+            body: pendingAttachmentBody(fileName: fileName, mimeType: mimeType, localURL: localURL)
+        )
+        row.fileName = fileName
+        row.mimeType = mimeType
+        row.localFilePath = localURL.path
+        dataController.saveIfNeeded()
+        return row
+    }
+
+    private func retryQueuedMessages(threadKey: String, sender: (String) async throws -> Void) async {
+        let rows = queuedMessages(threadKey: threadKey)
+        for row in rows {
+            do {
+                let body = try await sendableBody(for: row)
+                try await sender(body)
+                await MediaFileCache.shared.removePendingUpload(path: row.localFilePath)
+                context.delete(row)
+            } catch {
+                row.attempts += 1
+                break
+            }
+        }
+        dataController.saveIfNeeded()
+    }
+
+    private func sendableBody(for row: QueuedMessage) async throws -> String {
+        guard let localFilePath = row.localFilePath,
+              let fileName = row.fileName,
+              let mimeType = row.mimeType
+        else {
+            return row.body ?? ""
+        }
+        let data = try await MediaFileCache.shared.dataForPendingUpload(path: localFilePath)
+        let remoteUrl = try await API.uploadChatFile(data: data, fileName: fileName, mimeType: mimeType)
+        let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
+        return "\(marker) \(fileName)\n\(remoteUrl)"
+    }
+
+    private func pendingAttachmentBody(fileName: String, mimeType: String, localURL: URL) -> String {
+        let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
+        return "\(marker) \(fileName)\n\(localURL.absoluteString)"
     }
 
     func cleanup(maxAge: TimeInterval = 7 * 24 * 60 * 60) {
@@ -551,6 +624,20 @@ final class DeviceCacheService {
         )
     }
 
+    private func makeDirectMessage(_ row: QueuedMessage) -> DirectMessage {
+        let id = row.messageId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        return DirectMessage(
+            messageId: id,
+            senderUserId: API.currentUserId ?? id,
+            nickname: "Tu",
+            displayName: "Tu",
+            avatarUrl: nil,
+            body: row.body ?? "",
+            sentAtUtc: row.createdAt ?? Date(),
+            isMine: true
+        )
+    }
+
     private func makeGroupMessage(_ row: MessageCache) -> GroupChatMessage? {
         guard
             let rawId = row.messageId,
@@ -573,6 +660,20 @@ final class DeviceCacheService {
         )
     }
 
+    private func makeGroupMessage(_ row: QueuedMessage) -> GroupChatMessage {
+        let id = row.messageId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        return GroupChatMessage(
+            messageId: id,
+            userId: API.currentUserId ?? id,
+            nickname: "Tu",
+            displayName: "Tu",
+            avatarUrl: nil,
+            body: row.body ?? "",
+            sentAtUtc: row.createdAt ?? Date(),
+            isMine: true
+        )
+    }
+
     private func makeTableMessage(_ row: MessageCache) -> SocialTableMessage? {
         guard
             let rawId = row.messageId,
@@ -592,6 +693,20 @@ final class DeviceCacheService {
             body: body,
             sentAtUtc: sentAt,
             isMine: row.isMine
+        )
+    }
+
+    private func makeTableMessage(_ row: QueuedMessage) -> SocialTableMessage {
+        let id = row.messageId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        return SocialTableMessage(
+            messageId: id,
+            userId: API.currentUserId ?? id,
+            nickname: "Tu",
+            displayName: "Tu",
+            avatarUrl: nil,
+            body: row.body ?? "",
+            sentAtUtc: row.createdAt ?? Date(),
+            isMine: true
         )
     }
 }

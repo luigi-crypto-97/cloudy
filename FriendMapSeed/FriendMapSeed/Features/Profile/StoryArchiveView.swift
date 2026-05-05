@@ -91,7 +91,7 @@ struct StoryArchiveView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Theme.Palette.surface)
 
-            AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
+            Group {
                 if APIClient.shared.mediaURL(from: story.mediaUrl)?.isCloudyVideoURL == true {
                     Rectangle()
                         .fill(Theme.Palette.blue900)
@@ -103,20 +103,7 @@ struct StoryArchiveView: View {
                                 .background(.black.opacity(0.32), in: Circle())
                         )
                 } else {
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        Rectangle()
-                            .fill(Theme.Palette.surface)
-                            .overlay(Image(systemName: "photo").foregroundStyle(Theme.Palette.inkMuted))
-                    default:
-                        Rectangle()
-                            .fill(Theme.Palette.blue50)
-                            .overlay(ProgressView().tint(Theme.Palette.blue500))
-                    }
+                    CachedImage(url: APIClient.shared.mediaURL(from: story.mediaUrl), options: .story)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -206,25 +193,9 @@ private struct ArchivedStoryViewer: View {
                     VideoPlayer(player: AVPlayer(url: url))
                         .frame(width: geometry.size.width, height: geometry.size.height)
                 } else {
-                    AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .clipped()
-                    case .failure:
-                        Image(systemName: "photo")
-                            .font(.system(size: 44, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                    default:
-                        ProgressView()
-                            .tint(.white)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                    }
-                }
+                    CachedImage(url: APIClient.shared.mediaURL(from: story.mediaUrl), options: .story)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
                 }
             }
             .ignoresSafeArea()

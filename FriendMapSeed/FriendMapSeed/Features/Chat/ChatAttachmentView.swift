@@ -26,23 +26,7 @@ struct ChatMessageBubbleContent: View {
         switch attachment.kind {
         case .image:
             VStack(alignment: .leading, spacing: 7) {
-                AsyncImage(url: attachment.url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        fileFallback(icon: "photo", title: "Foto non disponibile")
-                    default:
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .fill(Theme.Palette.surfaceAlt)
-                            ProgressView()
-                                .tint(Theme.Palette.blue500)
-                        }
-                    }
-                }
+                CachedImage(url: attachment.url, options: .chatAttachment)
                 .frame(width: 230, height: 290)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -146,11 +130,11 @@ private struct ChatAttachment {
         for rawToken in line.split(separator: " ") {
             let token = String(rawToken)
                 .trimmingCharacters(in: CharacterSet(charactersIn: " \n\t.,;:)("))
-            if let url = URL(string: token), url.scheme?.hasPrefix("http") == true {
+            if let url = URL(string: token), url.scheme?.hasPrefix("http") == true || url.isFileURL {
                 return token
             }
         }
-        if let url = URL(string: line), url.scheme?.hasPrefix("http") == true {
+        if let url = URL(string: line), url.scheme?.hasPrefix("http") == true || url.isFileURL {
             return line
         }
         return nil

@@ -184,16 +184,7 @@ struct HeroCard<Content: View>: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(url: imageURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .empty:
-                    SkeletonShimmer(cornerRadius: Theme.Radius.lg)
-                default:
-                    Theme.Palette.blue100
-                }
-            }
+            CachedImage(url: imageURL, options: .venueCover)
             .overlay(
                 LinearGradient(
                     colors: [.black.opacity(0.02), .black.opacity(0.66)],
@@ -323,16 +314,7 @@ struct StoryAvatar: View {
     @ViewBuilder
     private var avatarContent: some View {
         if let url {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                case .empty:
-                    SkeletonShimmer(cornerRadius: Theme.Radius.pill)
-                default:
-                    initialsFallback
-                }
-            }
+            CachedImage(url: url, options: .avatar)
         } else {
             initialsFallback
         }

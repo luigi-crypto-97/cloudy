@@ -21,7 +21,10 @@ extension QueuedMessage {
     @NSManaged public var attempts: Int32
     @NSManaged public var body: String?
     @NSManaged public var createdAt: Date?
+    @NSManaged public var fileName: String?
+    @NSManaged public var localFilePath: String?
     @NSManaged public var messageId: String?
+    @NSManaged public var mimeType: String?
     @NSManaged public var threadId: String?
     @NSManaged public var userId: String?
 

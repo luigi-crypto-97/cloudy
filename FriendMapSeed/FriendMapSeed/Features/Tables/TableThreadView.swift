@@ -237,9 +237,15 @@ struct TableThreadView: View {
             thread = cached
         }
         do {
+            await DeviceCacheService.shared.retryQueuedTableMessages(tableId: tableId)
             let loaded = try await API.tableThread(tableId: tableId)
             DeviceCacheService.shared.cacheTableThread(loaded, tableId: tableId)
-            thread = loaded
+            let queued = DeviceCacheService.shared.queuedTableMessages(tableId: tableId)
+            thread = SocialTableThread(
+                table: loaded.table,
+                requests: loaded.requests,
+                messages: mergeMessages(loaded.messages + queued)
+            )
             errorMessage = nil
         } catch {
             if let cached = cachedThread() {
@@ -253,7 +259,9 @@ struct TableThreadView: View {
 
     private func cachedThread() -> SocialTableThread? {
         let cachedMessages = DeviceCacheService.shared.cachedTableMessages(tableId: tableId)
-        guard !cachedMessages.isEmpty else { return nil }
+        let queuedMessages = DeviceCacheService.shared.queuedTableMessages(tableId: tableId)
+        let messages = mergeMessages(cachedMessages + queuedMessages)
+        guard !messages.isEmpty else { return nil }
         let summary = thread?.table ?? SocialTableSummary(
             tableId: tableId,
             title: "Tavolo",
@@ -269,7 +277,7 @@ struct TableThreadView: View {
             acceptedCount: 0,
             invitedCount: 0
         )
-        return SocialTableThread(table: summary, requests: thread?.requests ?? [], messages: cachedMessages)
+        return SocialTableThread(table: summary, requests: thread?.requests ?? [], messages: messages)
     }
 
     private func pollThread() async {
@@ -292,9 +300,27 @@ struct TableThreadView: View {
             Haptics.tap()
             await load()
         } catch {
+            let queued = DeviceCacheService.shared.queueTableMessage(tableId: tableId, body: body)
+            appendLocalMessage(queued)
+            draft = ""
             Haptics.error()
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            errorMessage = "Messaggio salvato: lo invio appena torna la connessione."
         }
+    }
+
+    private func appendLocalMessage(_ message: SocialTableMessage) {
+        guard let current = thread else { return }
+        thread = SocialTableThread(
+            table: current.table,
+            requests: current.requests,
+            messages: mergeMessages(current.messages + [message])
+        )
+    }
+
+    private func mergeMessages(_ values: [SocialTableMessage]) -> [SocialTableMessage] {
+        Dictionary(grouping: values, by: \.messageId)
+            .compactMap { $0.value.first }
+            .sorted { $0.sentAtUtc < $1.sentAtUtc }
     }
 
     private func approve(_ userId: UUID) async {

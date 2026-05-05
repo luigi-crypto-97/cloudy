@@ -13,6 +13,14 @@ import Foundation
 import FirebaseAnalytics
 #endif
 
+#if canImport(FirebaseCore)
+import FirebaseCore
+#endif
+
+#if canImport(FirebaseCrashlytics)
+import FirebaseCrashlytics
+#endif
+
 // MARK: - Analytics Service
 
 @MainActor
@@ -21,6 +29,9 @@ final class AnalyticsService {
     static let shared = AnalyticsService()
     
     private var isAnalyticsEnabled: Bool {
+        #if canImport(FirebaseCore)
+        guard FirebaseApp.app() != nil else { return false }
+        #endif
         #if DEBUG
         return ProcessInfo.processInfo.environment["ENABLE_ANALYTICS"] == "1"
         #else
@@ -242,6 +253,9 @@ final class CrashReportingService {
     static let shared = CrashReportingService()
     
     private var isCrashlyticsEnabled: Bool {
+        #if canImport(FirebaseCore)
+        guard FirebaseApp.app() != nil else { return false }
+        #endif
         #if DEBUG
         return ProcessInfo.processInfo.environment["ENABLE_CRASHLYTICS"] == "1"
         #else

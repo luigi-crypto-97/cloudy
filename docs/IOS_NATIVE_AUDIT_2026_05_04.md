@@ -974,27 +974,33 @@ swift test
 
 ---
 
-## Appendice C: Stato Cache Dispositivo - 5 Maggio 2026
+## Appendice C: Stato Cache, Media, Realtime - 5 Maggio 2026
 
-La cache locale CoreData è stata estesa oltre la sola mappa.
+La cache locale CoreData è stata estesa oltre la sola mappa e ora lavora insieme a una cache file esplicita per i media.
 
 Copertura attuale:
 - Venue/map layer e contesto feed: fallback locale se la rete non risponde.
 - Stories recenti e archivio stories: archivio conservato più a lungo per uso profilo.
 - Profilo utente modificabile: lettura immediata da cache e aggiornamento dopo fetch/salvataggio.
 - Chat dirette: cache messaggi, fallback offline e coda locale dei messaggi testuali non inviati.
-- Chat di gruppo e chat locale: cache messaggi e fallback quando il thread live non è disponibile.
-- Chat tavolo: cache messaggi e fallback thread minimale quando la rete fallisce.
+- Chat di gruppo e chat locale: cache messaggi, fallback quando il thread live non è disponibile e retry dei messaggi testuali/allegati salvati offline.
+- Chat tavolo: cache messaggi, fallback thread minimale e retry dei messaggi testuali salvati offline.
+- Media remoti: `MediaFileCache` salva su disco immagini e file gia aperti; `CachedImage` usa la cache file prima della rete.
+- Media stories/video: le stories video usano un file locale cached quando disponibile, poi scaricano e salvano.
+- Allegati chat: se upload fallisce in chat gruppo/locale, l'allegato viene salvato come pending upload e ritentato al successivo refresh del thread.
+- Realtime SignalR: il target iOS linka `SignalRClient` dal package ufficiale `https://github.com/dotnet/signalr-client-swift`.
+- Firebase: il target iOS linka `FirebaseCore`, `FirebaseAnalytics` e `FirebaseCrashlytics`; in Debug si abilita con env var, in Release parte se `GoogleService-Info.plist` e configurazione sono validi.
 
 Limiti ancora aperti:
-- Gli allegati media continuano a dipendere dagli URL remoti e dalla cache di sistema: per un offline reale serve una cache file dedicata per immagini/video.
-- La coda invio offline è implementata solo per messaggi diretti testuali; group/venue/table richiedono una coda simile.
+- La cache media non sostituisce uno storage CDN: serve ancora backend/S3/Supabase correttamente configurato per pubblicare nuovi media.
+- La coda direct resta testuale perche la UI direct non espone ancora picker allegati; il backend endpoint supporta upload file condiviso.
 - La cache ricostruisce bene i messaggi, ma non sempre tutti i metadati ricchi dei thread quando l'endpoint non risponde.
-- Il realtime SignalR ha un fallback no-op se il package `SignalRClient` non è installato; per notifiche live/chat live va aggiunta la dipendenza.
+- SignalR e Firebase sono linkati, ma l'effettivo funzionamento live dipende da hub backend compatibile, configurazione `GoogleService-Info.plist` e capability push/provisioning del target Apple.
 
 Verifica tecnica:
 - Build app iOS: `xcodebuild -project FriendMapSeed/FriendMapSeed.xcodeproj -scheme FriendMapSeed -destination 'generic/platform=iOS Simulator' build`
 - Test core package: `cd FriendMapSeed/Packages/CloudyCore && swift test`
+- Test unit iOS: `xcodebuild test -project FriendMapSeed/FriendMapSeed.xcodeproj -scheme FriendMapSeed -destination 'platform=iOS Simulator,id=1F211417-163F-4F3A-B273-145039C48EC9' -only-testing:FriendMapSeedTests CODE_SIGNING_ALLOWED=NO`
 
 ---
 

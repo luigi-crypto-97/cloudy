@@ -165,24 +165,9 @@ struct StoryViewerView: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
                 } else {
-                    AsyncImage(url: mediaUrl) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .clipped()
-                    case .empty:
-                        ProgressView()
-                            .tint(.white)
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                    case .failure:
-                        placeholder
-                    @unknown default:
-                        placeholder
-                    }
-                }
+                    CachedImage(url: mediaUrl, options: .story)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
                 }
             } else {
                 placeholder
@@ -744,6 +729,7 @@ struct StoryViewerView: View {
 private struct StoryVideoPlayer: View {
     let url: URL
     @State private var player: AVPlayer?
+    @State private var loadFailed = false
 
     var body: some View {
         ZStack {
@@ -751,15 +737,23 @@ private struct StoryVideoPlayer: View {
                 VideoPlayer(player: player)
                     .onAppear { player.play() }
                     .onDisappear { player.pause() }
+            } else if loadFailed {
+                Color.black
+                    .overlay(Image(systemName: "video.slash").foregroundStyle(.white.opacity(0.7)))
             } else {
                 Color.black
                     .overlay(ProgressView().tint(.white))
             }
         }
         .task(id: url) {
-            let newPlayer = AVPlayer(url: url)
-            player = newPlayer
-            newPlayer.play()
+            do {
+                let playableURL = url.isFileURL ? url : try await MediaFileCache.shared.localFileURL(for: url)
+                let newPlayer = AVPlayer(url: playableURL)
+                player = newPlayer
+                newPlayer.play()
+            } catch {
+                loadFailed = true
+            }
         }
     }
 }

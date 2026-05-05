@@ -791,19 +791,7 @@ private struct VenueStoryThumbnail: View {
                                 .background(.black.opacity(0.28), in: Circle())
                         )
                 } else {
-                    AsyncImage(url: APIClient.shared.mediaURL(from: story.mediaUrl)) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            Rectangle()
-                                .fill(Theme.Palette.blue50)
-                                .overlay(
-                                    Image(systemName: "photo.fill")
-                                        .foregroundStyle(Theme.Palette.blue500)
-                                )
-                        }
-                    }
+                    CachedImage(url: APIClient.shared.mediaURL(from: story.mediaUrl), options: .story)
                 }
             }
             .frame(width: 86, height: 116)

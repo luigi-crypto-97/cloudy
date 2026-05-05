@@ -23,28 +23,25 @@ public final class SignalRService: SignalRServiceProtocol {
     }
     
     public func connect(threadId: UUID) async throws {
-        // Appende il path esatto indicato dall'audit C# (ChatHub)
         let hubURL = baseURL.appendingPathComponent("chathub")
-        
-        hubConnection = HubConnectionBuilder(url: hubURL)
-            .withAutoReconnect()
+
+        let connection = HubConnectionBuilder()
+            .withUrl(url: hubURL.absoluteString)
+            .withAutomaticReconnect()
             .build()
-        
-        // Listener per i messaggi in ingresso inviati dal server
-        hubConnection?.on(method: "ReceiveMessage") { (args: [Any]) in
-            // Pubblica il messaggio a chiunque sia in ascolto (es. ChatRoomView)
-            NotificationCenter.default.post(name: .init("NewChatMessage"), object: nil, userInfo: ["args": args])
+
+        await connection.on("ReceiveMessage") { (threadId: String, body: String) in
+            NotificationCenter.default.post(
+                name: .init("NewChatMessage"),
+                object: nil,
+                userInfo: ["threadId": threadId, "body": body]
+            )
         }
-        
-        hubConnection?.delegate = ConnectionDelegate(service: self)
-        
-        // Avvia la connessione in background
-        hubConnection?.start()
-        
-        // Ci uniamo al gruppo del tavolo / thread
-        hubConnection?.invoke(method: "JoinThread", threadId.uuidString) { error in
-            if let error = error { print("Errore JoinThread: \(error)") }
-        }
+
+        hubConnection = connection
+        try await connection.start()
+        isConnected = true
+        try await connection.invoke(method: "JoinThread", arguments: threadId.uuidString)
     }
     
     public func sendMessage(threadId: UUID, body: String) async throws {
@@ -53,33 +50,15 @@ public final class SignalRService: SignalRServiceProtocol {
             throw NSError(domain: "SignalRService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Non connesso"])
         }
         
-        hubConnection?.invoke(method: "SendMessage", threadId.uuidString, body) { error in
-            if let error = error { print("Errore SendMessage: \(error)") }
-        }
+        try await hubConnection?.invoke(method: "SendMessage", arguments: threadId.uuidString, body)
     }
     
     public func disconnect() {
-        hubConnection?.stop()
+        let connection = hubConnection
+        Task {
+            await connection?.stop()
+        }
         isConnected = false
-    }
-}
-
-// MARK: - Delegate per lo stato della connessione
-private class ConnectionDelegate: HubConnectionDelegate {
-    weak var service: SignalRService?
-    
-    init(service: SignalRService) { self.service = service }
-    
-    func connectionDidOpen(hubConnection: HubConnection) {
-        Task { @MainActor in self.service?.isConnected = true }
-    }
-    
-    func connectionDidFailToOpen(error: Error) {
-        Task { @MainActor in self.service?.isConnected = false }
-    }
-    
-    func connectionDidClose(error: Error?) {
-        Task { @MainActor in self.service?.isConnected = false }
     }
 }
 #else

@@ -151,13 +151,17 @@ struct GroupChatRoomView: View {
         }
         do {
             if let venueId {
+                await DeviceCacheService.shared.retryQueuedVenueChatMessages(venueId: venueId)
                 let loaded = try await API.venueChatThread(venueId: venueId)
                 DeviceCacheService.shared.cacheVenueChatThread(loaded, venueId: venueId)
-                thread = loaded
+                let queued = DeviceCacheService.shared.queuedVenueChatMessages(venueId: venueId)
+                thread = GroupChatThread(chat: loaded.chat, messages: mergeMessages(loaded.messages + queued))
             } else if let chatId {
+                await DeviceCacheService.shared.retryQueuedGroupMessages(chatId: chatId)
                 let loaded = try await API.groupChatThread(chatId: chatId)
                 DeviceCacheService.shared.cacheGroupThread(loaded)
-                thread = loaded
+                let queued = DeviceCacheService.shared.queuedGroupMessages(chatId: chatId)
+                thread = GroupChatThread(chat: loaded.chat, messages: mergeMessages(loaded.messages + queued))
             }
             errorMessage = nil
             NotificationCenter.default.post(name: .cloudyBadgesShouldRefresh, object: nil)
@@ -173,9 +177,11 @@ struct GroupChatRoomView: View {
 
     private func cachedThread() -> GroupChatThread? {
         let cachedMessages: [GroupChatMessage]
+        let queuedMessages: [GroupChatMessage]
         let summary: GroupChatSummary
         if let venueId {
             cachedMessages = DeviceCacheService.shared.cachedVenueChatMessages(venueId: venueId)
+            queuedMessages = DeviceCacheService.shared.queuedVenueChatMessages(venueId: venueId)
             summary = GroupChatSummary(
                 chatId: venueId,
                 title: title,
@@ -189,6 +195,7 @@ struct GroupChatRoomView: View {
             )
         } else if let chatId {
             cachedMessages = DeviceCacheService.shared.cachedGroupMessages(chatId: chatId)
+            queuedMessages = DeviceCacheService.shared.queuedGroupMessages(chatId: chatId)
             summary = GroupChatSummary(
                 chatId: chatId,
                 title: title,
@@ -203,8 +210,9 @@ struct GroupChatRoomView: View {
         } else {
             return nil
         }
-        guard !cachedMessages.isEmpty else { return nil }
-        return GroupChatThread(chat: summary, messages: cachedMessages)
+        let messages = mergeMessages(cachedMessages + queuedMessages)
+        guard !messages.isEmpty else { return nil }
+        return GroupChatThread(chat: summary, messages: messages)
     }
 
     private func pollThread() async {
@@ -258,8 +266,33 @@ struct GroupChatRoomView: View {
             let marker = mimeType.hasPrefix("image/") ? "[image]" : "[file]"
             await sendBody("\(marker) \(fileName)\n\(url)")
         } catch {
+            do {
+                let queued: GroupChatMessage?
+                if let venueId {
+                    queued = try await DeviceCacheService.shared.queueVenueChatAttachment(
+                        venueId: venueId,
+                        data: data,
+                        fileName: fileName,
+                        mimeType: mimeType
+                    )
+                } else if let chatId {
+                    queued = try await DeviceCacheService.shared.queueGroupAttachment(
+                        chatId: chatId,
+                        data: data,
+                        fileName: fileName,
+                        mimeType: mimeType
+                    )
+                } else {
+                    queued = nil
+                }
+                if let queued {
+                    appendLocalMessage(queued)
+                    errorMessage = "Allegato salvato: lo carico appena torna la connessione."
+                }
+            } catch {
+                errorMessage = "Impossibile salvare l'allegato sul dispositivo."
+            }
             Haptics.error()
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -275,9 +308,33 @@ struct GroupChatRoomView: View {
             Haptics.tap()
             await load()
         } catch {
+            let queued: GroupChatMessage?
+            if let venueId {
+                queued = DeviceCacheService.shared.queueVenueChatMessage(venueId: venueId, body: body)
+            } else if let chatId {
+                queued = DeviceCacheService.shared.queueGroupMessage(chatId: chatId, body: body)
+            } else {
+                queued = nil
+            }
+            if let queued {
+                appendLocalMessage(queued)
+                errorMessage = "Messaggio salvato: lo invio appena torna la connessione."
+            } else {
+                errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
             Haptics.error()
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
+    }
+
+    private func appendLocalMessage(_ message: GroupChatMessage) {
+        guard let current = thread else { return }
+        thread = GroupChatThread(chat: current.chat, messages: mergeMessages(current.messages + [message]))
+    }
+
+    private func mergeMessages(_ values: [GroupChatMessage]) -> [GroupChatMessage] {
+        Dictionary(grouping: values, by: \.messageId)
+            .compactMap { $0.value.first }
+            .sorted { $0.sentAtUtc < $1.sentAtUtc }
     }
 
     private func timeOnly(_ date: Date) -> String {

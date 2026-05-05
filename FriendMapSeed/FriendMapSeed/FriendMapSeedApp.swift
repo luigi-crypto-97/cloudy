@@ -48,6 +48,7 @@ struct FriendMapSeedApp: App {
                             AnalyticsService.shared.userDidLogin(userId: user.userId)
                             CrashReportingService.shared.setUserId(user.userId.uuidString)
                             DeviceCacheService.shared.cleanup()
+                            await MediaFileCache.shared.cleanup()
                         }
                     } else {
                         liveLocation.configure(userId: nil)
@@ -70,9 +71,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) -> Bool {
         // Inizializza Firebase se configurato
         #if canImport(FirebaseCore)
+        #if DEBUG
         let isFirebaseEnabled = ProcessInfo.processInfo.environment["ENABLE_FIREBASE"] == "1"
+        #else
+        let isFirebaseEnabled = true
+        #endif
         if isFirebaseEnabled {
-            FirebaseApp.configure()
+            if FirebaseApp.app() == nil {
+                FirebaseApp.configure()
+            }
             print("[Firebase] Initialized ✅")
         } else {
             print("[Firebase] Disabled (development)")

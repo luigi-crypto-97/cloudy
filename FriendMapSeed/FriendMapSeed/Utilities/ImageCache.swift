@@ -12,6 +12,10 @@
 import Foundation
 import SwiftUI
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
 // import Nuke
 // import NukeUI
 
@@ -99,13 +103,7 @@ struct CachedImage: View {
         }
         
         do {
-            // URLSession ha caching automatico (NSURLCache)
-            let (data, response) = try await URLSession.shared.data(from: url)
-            
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-                throw URLError(.badServerResponse)
-            }
-            
+            let data = try await MediaFileCache.shared.data(for: url)
             guard let uiImage = UIImage(data: data) else {
                 throw URLError(.cannotDecodeContentData)
             }
@@ -138,11 +136,7 @@ final class ImagePrefetcher {
             guard prefetchTasks[url] == nil else { continue }
             
             prefetchTasks[url] = Task {
-                do {
-                    let _ = try await URLSession.shared.data(from: url)
-                } catch {
-                    // Ignore prefetch errors
-                }
+                await MediaFileCache.shared.cacheRemoteFile(from: url)
                 Task { @MainActor in
                     prefetchTasks.removeValue(forKey: url)
                 }
@@ -180,6 +174,9 @@ final class ImageCacheManager {
     func clearDiskCache() {
         // URLSession cache management
         URLSession.shared.configuration.urlCache?.removeAllCachedResponses()
+        Task {
+            await MediaFileCache.shared.cleanup(maxAge: 0)
+        }
     }
     
     func clearAll() {
@@ -203,8 +200,6 @@ extension View {
 // MARK: - UIImage Extension
 
 #if canImport(UIKit)
-import UIKit
-
 extension UIImage {
     func resized(to size: CGSize) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: size)

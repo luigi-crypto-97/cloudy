@@ -1,5 +1,5 @@
 {
-  "originHash" : "562aae60622d2f226fdfd1571bea7476a388515c77f666c7474dc20ca4378b3d",
+  "originHash" : "51e51f55efd05b429e0a102acbc2f32271681ae3d08b8bee6183c79407f03e10",
   "pins" : [
     {
       "identity" : "abseil-cpp-binary",
@@ -116,6 +116,15 @@
       "state" : {
         "revision" : "540318ecedd63d883069ae7f1ed811a2df00b6ac",
         "version" : "2.4.0"
+      }
+    },
+    {
+      "identity" : "signalr-client-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dotnet/signalr-client-swift",
+      "state" : {
+        "revision" : "1a27323e478ad75dc8383a11f0c5d5cce62afc6e",
+        "version" : "1.0.0"
       }
     }
   ],
