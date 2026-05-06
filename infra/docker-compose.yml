@@ -3,11 +3,11 @@ services:
     image: postgis/postgis:16-3.4
     container_name: friendmap-postgres
     environment:
-      POSTGRES_DB: friendmap
-      POSTGRES_USER: friendmap
-      POSTGRES_PASSWORD: friendmap_dev
+      POSTGRES_DB: ${POSTGRES_DB:-friendmap}
+      POSTGRES_USER: ${POSTGRES_USER:-friendmap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-friendmap_dev}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_BIND:-127.0.0.1}:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -15,7 +15,7 @@ services:
     image: redis:7
     container_name: friendmap-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_BIND:-127.0.0.1}:6379:6379"
 
   api:
     image: mcr.microsoft.com/dotnet/sdk:8.0
@@ -25,14 +25,28 @@ services:
       - ..:/workspace
     command: ["dotnet", "run", "--project", "src/FriendMap.Api/FriendMap.Api.csproj", "--urls", "http://0.0.0.0:8080"]
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=friendmap;Username=friendmap;Password=friendmap_dev
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-friendmap};Username=${POSTGRES_USER:-friendmap};Password=${POSTGRES_PASSWORD:-friendmap_dev}
       ConnectionStrings__Redis: redis:6379
+      MediaStorage__Provider: ${MediaStorage__Provider:-local}
+      MediaStorage__Bucket: ${MediaStorage__Bucket:-}
+      MediaStorage__Endpoint: ${MediaStorage__Endpoint:-}
+      MediaStorage__Region: ${MediaStorage__Region:-}
+      MediaStorage__AccessKeyId: ${MediaStorage__AccessKeyId:-}
+      MediaStorage__SecretAccessKey: ${MediaStorage__SecretAccessKey:-}
+      MediaStorage__PublicBaseUrl: ${MediaStorage__PublicBaseUrl:-}
+      MediaStorage__ForcePathStyle: ${MediaStorage__ForcePathStyle:-true}
+      MediaStorage__UsePrivateBucket: ${MediaStorage__UsePrivateBucket:-true}
+      MediaStorage__SignedUrlMinutes: ${MediaStorage__SignedUrlMinutes:-15}
+      Admin__ApiKey: ${Admin__ApiKey:-}
+      Cloudy__DemoSignals: ${Cloudy__DemoSignals:-false}
+      Cloudy__TestUsersEnabled: ${Cloudy__TestUsersEnabled:-false}
     depends_on:
       - postgres
       - redis
     ports:
-      - "8080:8080"
+      - "${API_BIND:-127.0.0.1}:8080:8080"
 
   admin:
     image: mcr.microsoft.com/dotnet/sdk:8.0
@@ -42,14 +56,15 @@ services:
       - ..:/workspace
     command: ["dotnet", "run", "--project", "src/FriendMap.Admin/FriendMap.Admin.csproj", "--urls", "http://0.0.0.0:8090"]
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       Api__BaseUrl: http://api:8080/
-      Admin__Username: admin
-      Admin__Password: admin_dev
+      Api__AdminApiKey: ${Api__AdminApiKey:-}
+      Admin__Username: ${Admin__Username:-admin}
+      Admin__Password: ${Admin__Password:-admin_dev}
     depends_on:
       - api
     ports:
-      - "8090:8090"
+      - "${ADMIN_BIND:-127.0.0.1}:8090:8090"
 
 volumes:
   postgres_data:

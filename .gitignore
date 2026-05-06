@@ -31,3 +31,4 @@ xcuserdata/
 
 # Local agent scratch
 scripts-tmp/
+.env.local.example

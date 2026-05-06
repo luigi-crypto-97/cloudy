@@ -1,3 +1,8 @@
 api.iron-quote.it {
     reverse_proxy 127.0.0.1:8080
 }
+
+# Se crei il record DNS admin.iron-quote.it, abilita anche questo blocco.
+# admin.iron-quote.it {
+#     reverse_proxy 127.0.0.1:8090
+# }
