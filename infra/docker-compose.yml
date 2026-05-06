@@ -60,6 +60,7 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       Api__BaseUrl: http://api:8080/
       Api__AdminApiKey: ${Api__AdminApiKey:-}
+      Admin__ApiKey: ${Admin__ApiKey:-}
       Admin__Username: ${Admin__Username:-admin}
       Admin__Password: ${Admin__Password:-admin_dev}
     depends_on:

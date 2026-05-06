@@ -1,15 +1,18 @@
 using Amazon.S3;
 using FriendMap.Api.Data;
 using Microsoft.Extensions.Options;
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FriendMap.Api.Services;
 
 public class MediaStorageService
 {
+    private static readonly ConcurrentDictionary<string, string> DiscoveredRegionsByEndpoint = new(StringComparer.OrdinalIgnoreCase);
     private readonly MediaStorageOptions _options;
     private readonly IWebHostEnvironment _env;
 
@@ -76,15 +79,45 @@ public class MediaStorageService
             bytes = memory.ToArray();
         }
 
-        var now = DateTimeOffset.UtcNow;
-        var amzDate = now.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
-        var dateStamp = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var payloadHash = ToHex(SHA256.HashData(bytes));
         var canonicalUri = BuildS3CanonicalUri(endpoint, key);
         var url = $"{endpoint.Scheme}://{endpoint.Authority}{canonicalUri}";
+
+        var result = await SendS3PutAsync(url, canonicalUri, contentType, payloadHash, bytes, GetEffectiveRegion(endpoint), ct);
+        if (!result.Success)
+        {
+            var advertisedRegion = ExtractS3Region(result.Detail);
+            if (!string.IsNullOrWhiteSpace(advertisedRegion) &&
+                !string.Equals(advertisedRegion, GetEffectiveRegion(endpoint), StringComparison.OrdinalIgnoreCase))
+            {
+                DiscoveredRegionsByEndpoint[endpoint.Authority] = advertisedRegion;
+                result = await SendS3PutAsync(url, canonicalUri, contentType, payloadHash, bytes, advertisedRegion, ct);
+            }
+        }
+
+        if (!result.Success)
+        {
+            throw new AmazonS3Exception($"S3 upload failed ({result.StatusCode} {result.ReasonPhrase}): {result.Detail}");
+        }
+
+        return _options.UsePrivateBucket ? key : BuildPublicUrl(key);
+    }
+
+    private async Task<S3PutResult> SendS3PutAsync(
+        string url,
+        string canonicalUri,
+        string contentType,
+        string payloadHash,
+        byte[] bytes,
+        string region,
+        CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var amzDate = now.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+        var dateStamp = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var canonicalHeaders =
             $"content-type:{contentType}\n" +
-            $"host:{endpoint.Authority}\n" +
+            $"host:{new Uri(url).Authority}\n" +
             $"x-amz-content-sha256:{payloadHash}\n" +
             $"x-amz-date:{amzDate}\n";
         const string signedHeaders = "content-type;host;x-amz-content-sha256;x-amz-date";
@@ -97,8 +130,8 @@ public class MediaStorageService
             signedHeaders,
             payloadHash
         });
-        var credentialScope = $"{dateStamp}/{_options.Region}/s3/aws4_request";
-        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest);
+        var credentialScope = $"{dateStamp}/{region}/s3/aws4_request";
+        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest, region);
 
         using var http = new HttpClient();
         using var content = new ByteArrayContent(bytes);
@@ -117,10 +150,10 @@ public class MediaStorageService
         if (!response.IsSuccessStatusCode)
         {
             var detail = await response.Content.ReadAsStringAsync(ct);
-            throw new AmazonS3Exception($"Supabase S3 upload failed ({(int)response.StatusCode} {response.ReasonPhrase}): {detail}");
+            return new S3PutResult(false, (int)response.StatusCode, response.ReasonPhrase ?? "", detail);
         }
 
-        return _options.UsePrivateBucket ? key : BuildPublicUrl(key);
+        return new S3PutResult(true, (int)response.StatusCode, response.ReasonPhrase ?? "", "");
     }
 
     public string? ResolveUrl(string? storedValue)
@@ -238,7 +271,8 @@ public class MediaStorageService
         var amzDate = now.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
         var dateStamp = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var expires = Math.Clamp(_options.SignedUrlMinutes, 1, 120) * 60;
-        var credentialScope = $"{dateStamp}/{_options.Region}/s3/aws4_request";
+        var region = GetEffectiveRegion(endpoint);
+        var credentialScope = $"{dateStamp}/{region}/s3/aws4_request";
         var canonicalUri = BuildS3CanonicalUri(endpoint, key);
         var query = new SortedDictionary<string, string>(StringComparer.Ordinal)
         {
@@ -259,11 +293,11 @@ public class MediaStorageService
             "host",
             "UNSIGNED-PAYLOAD"
         });
-        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest);
+        var signature = SignString(dateStamp, credentialScope, amzDate, canonicalRequest, region);
         return $"{endpoint.Scheme}://{endpoint.Authority}{canonicalUri}?{canonicalQuery}&X-Amz-Signature={signature}";
     }
 
-    private string SignString(string dateStamp, string credentialScope, string amzDate, string canonicalRequest)
+    private string SignString(string dateStamp, string credentialScope, string amzDate, string canonicalRequest, string region)
     {
         var stringToSign = string.Join('\n', new[]
         {
@@ -272,8 +306,26 @@ public class MediaStorageService
             credentialScope,
             ToHex(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalRequest)))
         });
-        var signingKey = GetSignatureKey(_options.SecretAccessKey, dateStamp, _options.Region, "s3");
+        var signingKey = GetSignatureKey(_options.SecretAccessKey, dateStamp, region, "s3");
         return ToHex(HmacSha256(signingKey, stringToSign));
+    }
+
+    private string GetEffectiveRegion(Uri endpoint)
+    {
+        return DiscoveredRegionsByEndpoint.TryGetValue(endpoint.Authority, out var discovered)
+            ? discovered
+            : _options.Region;
+    }
+
+    private static string? ExtractS3Region(string detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return null;
+        }
+
+        var match = Regex.Match(detail, @"<Region>(?<region>[^<]+)</Region>", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups["region"].Value.Trim() : null;
     }
 
     private string BuildS3CanonicalUri(Uri endpoint, string key)
@@ -347,4 +399,6 @@ public class MediaStorageService
         safeName = string.Concat(safeName.Where(ch => char.IsLetterOrDigit(ch) || ch == '-' || ch == '_'));
         return string.IsNullOrWhiteSpace(safeName) ? "file" : safeName;
     }
+
+    private readonly record struct S3PutResult(bool Success, int StatusCode, string ReasonPhrase, string Detail);
 }

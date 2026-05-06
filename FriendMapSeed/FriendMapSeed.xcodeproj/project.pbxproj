@@ -421,6 +421,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = FriendMapSeed/FriendMapSeed.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9YUM32FPQU;
@@ -428,6 +429,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cloudy;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudy usa la fotocamera per scattare foto da pubblicare nelle storie.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cloudy usa il microfono quando registri video per le storie.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cloudy usa la libreria foto per scegliere media da pubblicare nelle storie e nella chat.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -462,6 +465,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = FriendMapSeed/FriendMapSeed_Release.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9YUM32FPQU;
@@ -469,6 +473,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Cloudy;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Cloudy usa la fotocamera per scattare foto da pubblicare nelle storie.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Cloudy usa il microfono quando registri video per le storie.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cloudy usa la libreria foto per scegliere media da pubblicare nelle storie e nella chat.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Cloudy ti mostra i locali e gli amici vicini. La tua posizione resta tua: la usiamo solo mentre sei nell'app.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
