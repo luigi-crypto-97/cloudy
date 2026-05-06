@@ -81,8 +81,16 @@ struct StoryArchiveView: View {
             }
             .task { await load() }
             .refreshable { await load() }
+            .onReceive(NotificationCenter.default.publisher(for: .cloudyStoriesDidChange)) { _ in
+                Task { await load() }
+            }
             .fullScreenCover(item: $selectedStory) { story in
-                ArchivedStoryViewer(story: story)
+                ArchivedStoryViewer(story: story) { deletedId in
+                    stories.removeAll { $0.id == deletedId }
+                    selectedStory = nil
+                    DeviceCacheService.shared.cacheStories(stories)
+                    NotificationCenter.default.post(name: .cloudyStoriesDidChange, object: nil)
+                }
             }
         }
     }
@@ -183,7 +191,12 @@ struct StoryArchiveView: View {
 
 private struct ArchivedStoryViewer: View {
     let story: UserStory
+    var onDelete: (UUID) -> Void
+
     @Environment(\.dismiss) private var dismiss
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var errorMessage: String?
 
     var body: some View {
         ZStack {
@@ -214,6 +227,17 @@ private struct ArchivedStoryViewer: View {
                     }
                     Spacer()
                     Button {
+                        showDeleteConfirmation = true
+                        Haptics.tap()
+                    } label: {
+                        Image(systemName: isDeleting ? "hourglass" : "trash")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 38, height: 38)
+                            .background(.black.opacity(0.28), in: Circle())
+                    }
+                    .disabled(isDeleting)
+                    Button {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
@@ -237,6 +261,16 @@ private struct ArchivedStoryViewer: View {
                         .padding(.horizontal, 18)
                         .padding(.bottom, 30)
                 }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(Theme.Font.caption(12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Theme.Palette.coral500, in: Capsule())
+                        .padding(.bottom, 18)
+                }
             }
             .background(
                 LinearGradient(
@@ -247,7 +281,29 @@ private struct ArchivedStoryViewer: View {
                 .ignoresSafeArea()
             )
         }
+        .confirmationDialog("Eliminare questa storia?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("Elimina storia", role: .destructive) {
+                Task { await deleteStory() }
+            }
+            Button("Annulla", role: .cancel) {}
+        } message: {
+            Text("La storia sara rimossa dall'archivio e non sara piu visibile.")
+        }
         .statusBar(hidden: true)
+    }
+
+    private func deleteStory() async {
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            try await API.deleteStory(id: story.id)
+            Haptics.success()
+            onDelete(story.id)
+            dismiss()
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     private func archiveDate(_ date: Date) -> String {

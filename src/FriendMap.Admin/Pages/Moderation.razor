@@ -13,37 +13,59 @@ else if (_error is not null)
 }
 else if (_queue.Count == 0)
 {
-    <p class="muted">Nessun report aperto.</p>
+    <section class="ops-panel">
+        <p class="muted">Nessun report aperto. Recensioni, utenti e contenuti segnalati compariranno qui.</p>
+    </section>
 }
 else
 {
-<table class="grid">
-    <thead>
-        <tr>
-            <th>Report</th>
-            <th>Motivo</th>
-            <th>Stato</th>
-            <th>Creato</th>
-            <th>Target</th>
-            <th>Azioni</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in _queue)
-        {
-            <tr>
-                <td><code>@item.ReportId</code></td>
-                <td>@item.ReasonCode</td>
-                <td>@item.Status</td>
-                <td>@item.CreatedAtUtc.ToLocalTime().ToString("g")</td>
-                <td>@ResolveTarget(item)</td>
-                <td>
-                    <button disabled="@_isResolving" @onclick="() => ResolveAsync(item.ReportId)">Risolvi</button>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+    <section class="metric-grid">
+        <MetricCard Label="Report aperti" Value="@_queue.Count" Accent="coral" />
+        <MetricCard Label="Recensioni" Value="@RatingReportsCount" Accent="mint" />
+        <MetricCard Label="Utenti" Value="@_queue.Count(x => x.ReportedUserId is not null)" Accent="blue" />
+        <MetricCard Label="Locali" Value="@_queue.Count(x => x.ReportedVenueId is not null)" Accent="violet" />
+    </section>
+
+    <section class="ops-panel">
+        <div class="panel-title">
+            <div>
+                <p class="eyebrow">Safety queue</p>
+                <h2>Segnalazioni aperte</h2>
+            </div>
+            <button class="secondary" @onclick="LoadAsync" disabled="@_isLoading">Aggiorna</button>
+        </div>
+
+        <table class="grid ops-table">
+            <thead>
+                <tr>
+                    <th>Motivo</th>
+                    <th>Priorità</th>
+                    <th>Creato</th>
+                    <th>Target</th>
+                    <th>Report</th>
+                    <th>Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _queue.OrderByDescending(PriorityScore).ThenBy(x => x.CreatedAtUtc))
+                {
+                    <tr>
+                        <td>
+                            <strong>@ReasonLabel(item.ReasonCode)</strong><br />
+                            <span class="muted">@item.ReasonCode</span>
+                        </td>
+                        <td><span class="pill @PriorityClass(item)">@PriorityLabel(item)</span></td>
+                        <td>@item.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                        <td>@ResolveTarget(item)</td>
+                        <td><code>@ShortId(item.ReportId)</code></td>
+                        <td>
+                            <button disabled="@_isResolving" @onclick="() => ResolveAsync(item.ReportId)">Risolvi</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
 }
 
 @code {
@@ -51,6 +73,8 @@ else
     private bool _isLoading = true;
     private bool _isResolving;
     private string? _error;
+
+    private int RatingReportsCount => _queue.Count(x => x.ReasonCode.Contains("rating", StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,4 +132,25 @@ else
         if (item.ReportedSocialTableId is not null) return $"Tavolo {item.ReportedSocialTableId}";
         return "N/D";
     }
+
+    private static string ReasonLabel(string reasonCode) => reasonCode switch
+    {
+        "fake_venue_rating" => "Recensione non veritiera",
+        "spam" => "Spam",
+        "abuse" => "Comportamento abusivo",
+        "unsafe" => "Contenuto rischioso",
+        _ => "Segnalazione"
+    };
+
+    private static int PriorityScore(ModerationQueueItemDto item)
+    {
+        if (item.ReasonCode.Contains("fake", StringComparison.OrdinalIgnoreCase)) return 90;
+        if (item.ReasonCode.Contains("abuse", StringComparison.OrdinalIgnoreCase)) return 80;
+        if (item.ReportedUserId is not null) return 70;
+        return 50;
+    }
+
+    private static string PriorityLabel(ModerationQueueItemDto item) => PriorityScore(item) >= 80 ? "alta" : "normale";
+    private static string PriorityClass(ModerationQueueItemDto item) => PriorityScore(item) >= 80 ? "intention" : "";
+    private static string ShortId(Guid id) => id.ToString("N")[..8];
 }

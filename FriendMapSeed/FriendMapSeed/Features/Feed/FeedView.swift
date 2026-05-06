@@ -89,6 +89,7 @@ struct FeedView: View {
     @State private var privacyExplanation: FeedPrivacyEnvelope?
     @State private var impressed = Set<String>()
     @State private var unreadNotifications = 0
+    @State private var dismissedHotPromptIds = Set<String>()
 
     private let analytics = FeedAnalytics()
 
@@ -108,6 +109,19 @@ struct FeedView: View {
                         } else {
                             feedHeader
                                 .padding(.horizontal, 18)
+                        }
+
+                        if let hotPrompt = hotVenuePrompt, case .hotspotVenue(let payload) = hotPrompt.payload {
+                            HotVenuePromptCard(
+                                item: hotPrompt,
+                                payload: payload,
+                                onGo: { Task { await respondToHotVenue(hotPrompt, intent: .going) } },
+                                onMaybe: { Task { await respondToHotVenue(hotPrompt, intent: .maybe) } },
+                                onDismiss: { dismissHotPrompt(hotPrompt) },
+                                onNotInterested: { markHotVenueNotInterested(hotPrompt) }
+                            )
+                            .padding(.horizontal, 18)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
                         storiesRail
@@ -321,6 +335,17 @@ struct FeedView: View {
         case .arrivalForecast: return "Il gruppo sta convergendo."
         case .ghostPing: return "Segnali fuzzy, privacy al centro."
         case .emptyOnboarding: return "Accendi il tuo feed con mappa, amici e stories."
+        }
+    }
+
+    private var hotVenuePrompt: FeedItem? {
+        store.items.first { item in
+            guard !dismissedHotPromptIds.contains(item.id),
+                  case .hotspotVenue(let payload) = item.payload
+            else { return false }
+            return payload.energyScore >= 68 ||
+                payload.growthScore >= 60 ||
+                payload.friendsHere + payload.friendsArriving >= 2
         }
     }
 
@@ -574,6 +599,55 @@ struct FeedView: View {
         }
     }
 
+    private enum HotVenueIntent {
+        case going
+        case maybe
+    }
+
+    private func respondToHotVenue(_ item: FeedItem, intent: HotVenueIntent) async {
+        guard case .hotspotVenue(let payload) = item.payload,
+              let venueId = payload.venueId,
+              let currentUserId = API.currentUserId
+        else {
+            dismissHotPrompt(item)
+            return
+        }
+
+        do {
+            let now = Date()
+            let startsAt = intent == .going ? now.addingTimeInterval(20 * 60) : now.addingTimeInterval(55 * 60)
+            let endsAt = startsAt.addingTimeInterval(4 * 60 * 60)
+            try await API.createIntention(
+                venueId: venueId,
+                userId: currentUserId,
+                startsAtUtc: startsAt,
+                endsAtUtc: endsAt,
+                note: intent == .going ? "Vado" : "Forse"
+            )
+            Haptics.success()
+            dismissHotPrompt(item)
+            showStatus(intent == .going ? "Perfetto, l'ho segnato nei tuoi piani." : "Ok, lo tengo caldo per dopo.")
+            await store.load(location: liveLocation.currentLocation, showSpinner: false)
+        } catch {
+            Haptics.error()
+            showStatus((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func dismissHotPrompt(_ item: FeedItem) {
+        withAnimation(.cloudySnap) {
+            _ = dismissedHotPromptIds.insert(item.id)
+        }
+        Haptics.tap()
+    }
+
+    private func markHotVenueNotInterested(_ item: FeedItem) {
+        dismissedHotPromptIds.insert(item.id)
+        store.markSeen(item)
+        showStatus("Ok, ne tengo conto nel feed.")
+        Haptics.tap()
+    }
+
     private func tableId(from item: FeedItem) -> UUID? {
         if case .joinableTable(let payload) = item.payload {
             return payload.id
@@ -607,6 +681,109 @@ private struct FeedSurfaceBackground: View {
             RadialGradient(colors: [Theme.Palette.blue100.opacity(0.65), .clear], center: .topLeading, startRadius: 30, endRadius: 360)
             RadialGradient(colors: [Theme.Palette.mint400.opacity(0.14), .clear], center: .bottomTrailing, startRadius: 30, endRadius: 460)
         }
+    }
+}
+
+private struct HotVenuePromptCard: View {
+    let item: FeedItem
+    let payload: HotspotVenuePayload
+    var onGo: () -> Void
+    var onMaybe: () -> Void
+    var onDismiss: () -> Void
+    var onNotInterested: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Theme.Palette.blue500.opacity(0.13))
+                    Image(systemName: "sparkles")
+                        .font(Theme.Font.title(20, weight: .black))
+                        .foregroundStyle(Theme.Palette.blue600)
+                }
+                .frame(width: 46, height: 46)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sta succedendo qualcosa")
+                        .font(Theme.Font.caption(12, weight: .black))
+                        .foregroundStyle(Theme.Palette.blue600)
+                    Text(payload.name)
+                        .font(Theme.Font.title(20, weight: .heavy))
+                        .foregroundStyle(Theme.Palette.ink)
+                        .lineLimit(1)
+                    Text(promptCopy)
+                        .font(Theme.Font.body(14, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(Theme.Font.caption(12, weight: .black))
+                        .foregroundStyle(Theme.Palette.inkMuted)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.Palette.surfaceAlt, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 8) {
+                Button(action: onGo) {
+                    Label("Vado", systemImage: "location.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(HotPromptButtonStyle(isPrimary: true))
+
+                Button(action: onMaybe) {
+                    Text("Forse")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(HotPromptButtonStyle(isPrimary: false))
+
+                Button(action: onNotInterested) {
+                    Text("Non mi interessa")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(HotPromptButtonStyle(isPrimary: false))
+            }
+        }
+        .padding(16)
+        .background(Theme.Palette.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.Palette.blue100.opacity(0.8), lineWidth: 1)
+        )
+        .cardShadow()
+    }
+
+    private var promptCopy: String {
+        if payload.friendsHere + payload.friendsArriving > 0 {
+            return "\(payload.friendsHere + payload.friendsArriving) persone del tuo giro sono qui o stanno arrivando. Dato fuzzy."
+        }
+        if payload.growthScore >= 60 {
+            return "Si sta riempiendo adesso. Energia \(payload.energyScore)%."
+        }
+        return "Energia \(payload.energyScore)% · \(payload.pulseCopy)"
+    }
+}
+
+private struct HotPromptButtonStyle: ButtonStyle {
+    let isPrimary: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.Font.caption(12, weight: .black))
+            .foregroundStyle(isPrimary ? .white : Theme.Palette.blue700)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 11)
+            .background(isPrimary ? Theme.Palette.blue500 : Theme.Palette.blue50, in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.cloudySnap, value: configuration.isPressed)
     }
 }
 
