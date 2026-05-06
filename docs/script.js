@@ -337,7 +337,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 const closeNote = document.createElement('div');
                 closeNote.className = 'terminal-line';
-                closeNote.innerText = "\n(Press ESC to return to the grid)";
+                if (isMobile) {
+                    closeNote.innerText = "\n(Tap [X] to return to the grid)";
+                } else {
+                    closeNote.innerText = "\n(Press ESC or tap [X] to return to the grid)";
+                }
                 terminalOutput.appendChild(closeNote);
                 
                 playFlareSound();
@@ -350,6 +354,13 @@ document.addEventListener("DOMContentLoaded", () => {
             terminal.style.display = 'none';
         }
     });
+
+    const terminalCloseBtn = document.getElementById('terminal-close');
+    if (terminalCloseBtn) {
+        terminalCloseBtn.addEventListener('click', () => {
+            terminal.style.display = 'none';
+        });
+    }
 
     // --- 7. Three.js: Globe & Particles ---
     const canvasContainer = document.getElementById('canvas-container');

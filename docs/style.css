@@ -39,6 +39,8 @@ h1, h2, h3, h4, .giant-text { font-family: var(--font-heading); font-weight: 900
 
 /* --- Terminal Waitlist --- */
 #waitlist-terminal { position: fixed; inset: 0; background: rgba(0, 5, 10, 0.95); z-index: 200000; display: flex; flex-direction: column; padding: 4rem; backdrop-filter: blur(20px); font-family: var(--font-mono); color: var(--neon-blue); }
+#terminal-close { position: absolute; top: 2rem; right: 2rem; font-size: 2rem; font-weight: bold; cursor: pointer; z-index: 50; }
+#terminal-close:hover { color: white; text-shadow: 0 0 10px white; }
 .crt-overlay { position: absolute; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 6px 100%; pointer-events: none; z-index: 10; animation: crtFlicker 0.15s infinite; }
 @keyframes crtFlicker { 0% { opacity: 0.95; } 100% { opacity: 1; } }
 .terminal-content { position: relative; z-index: 20; max-width: 800px; margin: 0 auto; width: 100%; height: 100%; display: flex; flex-direction: column; text-shadow: 0 0 10px var(--neon-blue); }
