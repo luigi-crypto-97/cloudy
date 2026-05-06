@@ -32,6 +32,14 @@ struct DevLoginRequest: Codable {
     let displayName: String?
 }
 
+// MARK: - Apple Login Request
+
+struct AppleLoginRequest: Codable {
+    let identityToken: String
+    let authorizationCode: String?
+    let fullName: String?
+}
+
 // MARK: - Upload Media Result
 
 struct UploadMediaResult: Codable {

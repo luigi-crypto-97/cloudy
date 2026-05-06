@@ -26,6 +26,8 @@ struct CreateStoryView: View {
     @State private var selectedImageData: Data?
     @State private var selectedVideoData: Data?
     @State private var selectedVideoPreviewURL: URL?
+    @State private var selectedVideoFileExtension: String = "mp4"
+    @State private var selectedVideoMimeType: String = "video/mp4"
     @State private var activeCameraMode: StoryCameraMode?
     @State private var isSending: Bool = false
     @State private var isPreparingVideo: Bool = false
@@ -79,6 +81,7 @@ struct CreateStoryView: View {
                     selectedVideoPreviewURL = nil
                 case .video(let url):
                     selectedVideoPreviewURL = url
+                    setSelectedVideoType(from: url.pathExtension)
                     selectedVideoData = nil
                     selectedImageData = nil
                     Task { await prepareVideoData(from: url) }
@@ -172,7 +175,12 @@ struct CreateStoryView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        activeCameraMode = .video
+                        if CameraCaptureView.canCaptureVideo {
+                            activeCameraMode = .video
+                        } else {
+                            error = "Questo dispositivo non consente la registrazione video da Cloudy. Puoi comunque caricare un video dalla galleria."
+                            Haptics.error()
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "video.fill")
@@ -185,6 +193,7 @@ struct CreateStoryView: View {
                         .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
+                    .opacity(CameraCaptureView.canCaptureVideo ? 1 : 0.45)
                 }
 
                 PhotosPicker(selection: $photoItem, matching: .any(of: [.images, .videos])) {
@@ -369,8 +378,8 @@ struct CreateStoryView: View {
             } else if let selectedVideoData {
                 finalMediaUrl = try await API.uploadStoryMedia(
                     data: selectedVideoData,
-                    fileName: "story-\(UUID().uuidString).mp4",
-                    mimeType: "video/mp4"
+                    fileName: "story-\(UUID().uuidString).\(selectedVideoFileExtension)",
+                    mimeType: selectedVideoMimeType
                 )
             } else {
                 finalMediaUrl = typedUrl
@@ -394,6 +403,7 @@ struct CreateStoryView: View {
         do {
             if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) || $0.conforms(to: .video) }) {
                 if let data = try await item.loadTransferable(type: Data.self) {
+                    setSelectedVideoType(from: item.supportedContentTypes.first(where: { $0.conforms(to: .movie) || $0.conforms(to: .video) }))
                     selectedVideoData = data
                     selectedVideoPreviewURL = writeTemporaryVideo(data: data)
                     selectedImageData = nil
@@ -416,7 +426,7 @@ struct CreateStoryView: View {
     private func writeTemporaryVideo(data: Data) -> URL? {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("cloudy-story-\(UUID().uuidString)")
-            .appendingPathExtension("mp4")
+            .appendingPathExtension(selectedVideoFileExtension)
         do {
             try data.write(to: url, options: .atomic)
             return url
@@ -435,6 +445,37 @@ struct CreateStoryView: View {
             selectedVideoData = data
         } else {
             error = "Impossibile leggere il video registrato."
+        }
+    }
+
+    private func setSelectedVideoType(from pathExtension: String) {
+        switch pathExtension.lowercased() {
+        case "mov":
+            selectedVideoFileExtension = "mov"
+            selectedVideoMimeType = "video/quicktime"
+        case "m4v":
+            selectedVideoFileExtension = "m4v"
+            selectedVideoMimeType = "video/x-m4v"
+        case "webm":
+            selectedVideoFileExtension = "webm"
+            selectedVideoMimeType = "video/webm"
+        default:
+            selectedVideoFileExtension = "mp4"
+            selectedVideoMimeType = "video/mp4"
+        }
+    }
+
+    private func setSelectedVideoType(from type: UTType?) {
+        guard let type else {
+            setSelectedVideoType(from: "mp4")
+            return
+        }
+        if type.conforms(to: .quickTimeMovie) {
+            setSelectedVideoType(from: "mov")
+        } else if type.preferredFilenameExtension == "m4v" {
+            setSelectedVideoType(from: "m4v")
+        } else {
+            setSelectedVideoType(from: type.preferredFilenameExtension ?? "mp4")
         }
     }
 
@@ -518,6 +559,23 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
     var onCapture: (StoryCameraCaptureResult) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    static var canCaptureVideo: Bool {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera),
+              let mediaTypes = UIImagePickerController.availableMediaTypes(for: .camera),
+              mediaTypes.contains(UTType.movie.identifier)
+        else {
+            return false
+        }
+
+        let rearModes = UIImagePickerController.isCameraDeviceAvailable(.rear)
+            ? UIImagePickerController.availableCaptureModes(for: .rear) ?? []
+            : []
+        let frontModes = UIImagePickerController.isCameraDeviceAvailable(.front)
+            ? UIImagePickerController.availableCaptureModes(for: .front) ?? []
+            : []
+        return (rearModes + frontModes).contains { $0.intValue == UIImagePickerController.CameraCaptureMode.video.rawValue }
+    }
+
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         let sourceType: UIImagePickerController.SourceType = UIImagePickerController.isSourceTypeAvailable(.camera)
@@ -526,7 +584,7 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
         picker.sourceType = sourceType
 
         let availableMediaTypes = UIImagePickerController.availableMediaTypes(for: sourceType) ?? []
-        let requestedType = mode == .video ? UTType.movie.identifier : UTType.image.identifier
+        let requestedType = mode == .video && Self.canCaptureVideo ? UTType.movie.identifier : UTType.image.identifier
         let resolvedType = availableMediaTypes.contains(requestedType)
             ? requestedType
             : (availableMediaTypes.first ?? UTType.image.identifier)

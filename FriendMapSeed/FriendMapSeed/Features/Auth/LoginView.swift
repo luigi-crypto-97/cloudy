@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @Environment(AuthStore.self) private var auth
@@ -12,6 +13,7 @@ struct LoginView: View {
     @State private var displayName: String = ""
     @State private var backendString: String = ""
     @State private var isSubmitting: Bool = false
+    @State private var isAppleSubmitting: Bool = false
 
     var body: some View {
         ZStack {
@@ -77,6 +79,25 @@ struct LoginView: View {
                 .foregroundStyle(Theme.Palette.ink)
 
             CloudyTextField(title: "Backend URL", placeholder: "https://api.iron-quote.it", text: $backendString)
+
+            SignInWithAppleButton(.continue) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                Task { await handleAppleSignIn(result) }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .disabled(isSubmitting || isAppleSubmitting)
+
+            HStack {
+                Rectangle().fill(Theme.Palette.hairline).frame(height: 1)
+                Text("oppure beta")
+                    .font(Theme.Font.caption(12, weight: .medium))
+                    .foregroundStyle(Theme.Palette.inkMuted)
+                Rectangle().fill(Theme.Palette.hairline).frame(height: 1)
+            }
+
             CloudyTextField(title: "Nickname", placeholder: "giulia", text: $nickname)
             CloudyTextField(title: "Nome visualizzato", placeholder: "Giulia", text: $displayName)
 
@@ -117,6 +138,46 @@ struct LoginView: View {
         )
         if auth.lastError == nil {
             Haptics.success()
+        }
+    }
+
+    private func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
+        guard let url = URL(string: backendString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            auth.lastError = "URL backend non valido"
+            Haptics.error()
+            return
+        }
+
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let identityData = credential.identityToken,
+                  let identityToken = String(data: identityData, encoding: .utf8) else {
+                auth.lastError = "Apple non ha restituito un token valido."
+                Haptics.error()
+                return
+            }
+
+            let authorizationCode = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+            let fullName = PersonNameComponentsFormatter.localizedString(
+                from: credential.fullName ?? PersonNameComponents(),
+                style: .medium,
+                options: []
+            ).trimmingCharacters(in: .whitespacesAndNewlines)
+
+            auth.backendURL = url
+            isAppleSubmitting = true
+            let ok = await auth.loginWithApple(
+                identityToken: identityToken,
+                authorizationCode: authorizationCode,
+                fullName: fullName.isEmpty ? nil : fullName
+            )
+            isAppleSubmitting = false
+            ok ? Haptics.success() : Haptics.error()
+
+        case .failure(let error):
+            auth.lastError = error.localizedDescription
+            Haptics.error()
         }
     }
 }

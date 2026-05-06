@@ -117,45 +117,57 @@ Endpoint utili:
 - `http://localhost:8080/api/venues/map?minLat=45.40&minLng=9.10&maxLat=45.55&maxLng=9.30`
 - `http://localhost:8080/api/admin/dashboard`
 
-### Media storage: locale o Supabase S3
+### Media storage: locale o S3 compatibile
 
 Di default avatar, stories e allegati chat vengono salvati localmente in
-`wwwroot/uploads/...`. Per usare Supabase Storage via protocollo S3, crea un
-bucket privato su Supabase e genera una coppia di credenziali S3 da Storage
-settings. Poi avvia l'API con queste variabili:
+`wwwroot/uploads/...`. Per usare un bucket S3 compatibile sul server
+(MinIO, Supabase S3, R2, ecc.), crea un bucket privato e genera una coppia
+di credenziali S3. Poi aggiorna `.env.local` con queste variabili:
 
 ```bash
-export MediaStorage__Provider=s3
-export MediaStorage__Bucket=cloudy-media
-export MediaStorage__Endpoint=https://<project-ref>.storage.supabase.co/storage/v1/s3
-export MediaStorage__Region=<region-from-supabase>
-export MediaStorage__AccessKeyId=<supabase-s3-access-key>
-export MediaStorage__SecretAccessKey=<supabase-s3-secret-key>
-export MediaStorage__ForcePathStyle=true
-export MediaStorage__UsePrivateBucket=true
-export MediaStorage__SignedUrlMinutes=15
-
-./scripts/run-api.sh
+MediaStorage__Provider=s3
+MediaStorage__Bucket=<bucket-name>
+MediaStorage__Endpoint=https://<s3-endpoint>
+MediaStorage__Region=<s3-region>
+MediaStorage__AccessKeyId=<s3-access-key>
+MediaStorage__SecretAccessKey=<s3-secret-key>
+MediaStorage__ForcePathStyle=true
+MediaStorage__UsePrivateBucket=true
+MediaStorage__SignedUrlMinutes=15
 ```
 
-Le chiavi S3 Supabase sono server-side: non inserirle mai nell'app iOS. Il
+Le chiavi S3 sono server-side: non inserirle mai nell'app iOS. Il
 bucket puo restare privato: il backend salva la chiave interna del file e,
 quando l'app chiede profilo, stories o chat, restituisce un URL firmato
 temporaneo.
 
 Se durante l'upload vedi `SignatureDoesNotMatch`, ricontrolla questi punti:
 
-- `AccessKeyId` e `SecretAccessKey` devono essere quelli generati in
-  **Storage > S3 Configuration > Access keys**, non `anon key` e non
-  `service_role`.
-- `Region` deve essere copiata dalla stessa schermata Supabase S3.
-- `Endpoint` deve includere anche `/storage/v1/s3`.
-- `Bucket` deve essere esattamente il nome del bucket Supabase, ad esempio
-  `cloudy-media`.
+- `AccessKeyId` e `SecretAccessKey` devono essere credenziali S3 vere, non
+  chiavi pubbliche/anonime del provider.
+- `Region` deve combaciare con quella configurata dal bucket.
+- `Endpoint` deve essere l'endpoint S3 compatibile completo del provider.
+- `Bucket` deve essere esattamente il nome del bucket configurato.
 - il bucket deve esistere e puo avere `Public bucket` disattivato.
 - `UsePrivateBucket=true` richiede che gli URL vengano sempre letti tramite API,
-  non copiati direttamente dal pannello Supabase.
-- dopo aver cambiato gli `export`, devi fermare e riavviare l'API.
+  non copiati direttamente dal pannello del provider.
+- dopo aver cambiato `.env.local`, devi fermare e riavviare l'API.
+
+### Sign in with Apple
+
+L'app iOS usa il bottone nativo Apple e invia l'`identityToken` al backend.
+Il backend verifica il token con le chiavi pubbliche Apple e crea/ritrova
+l'utente Cloudy tramite `apple_subject`.
+
+In produzione imposta:
+
+```bash
+AppleAuth__Audience=it.luiginegri.FriendMapSeed
+```
+
+Il valore deve essere uguale al Bundle ID abilitato in Apple Developer. Devi
+abilitare anche la capability **Sign in with Apple** sull'App ID e nel target
+Xcode.
 
 Dev-login app:
 

@@ -5,6 +5,7 @@ public class AppUser : BaseEntity
     public string Nickname { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public string? AvatarUrl { get; set; }
+    public string? AppleSubject { get; set; }
     public string? DiscoverablePhoneNormalized { get; set; }
     public string? DiscoverableEmailNormalized { get; set; }
     public string? Bio { get; set; }

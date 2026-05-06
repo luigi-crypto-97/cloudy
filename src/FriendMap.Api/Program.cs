@@ -55,6 +55,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.Configure<AppleAuthOptions>(builder.Configuration.GetSection("AppleAuth"));
 builder.Services.Configure<ApnsOptions>(builder.Configuration.GetSection("Apns"));
 builder.Services.Configure<NotificationDispatchOptions>(builder.Configuration.GetSection("Notifications"));
 builder.Services.Configure<UniversalLinksOptions>(builder.Configuration.GetSection("UniversalLinks"));
@@ -110,6 +111,7 @@ builder.Services.AddHttpClient("nominatim", client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("FriendMap/1.0 (local development venue import; contact: api.iron-quote.it)");
 });
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddHttpClient<AppleAuthService>();
 builder.Services.AddScoped<SignedDeepLinkService>();
 builder.Services.AddScoped<NotificationOutboxService>();
 builder.Services.AddScoped<FeedReentryService>();

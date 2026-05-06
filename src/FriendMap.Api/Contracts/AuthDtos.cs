@@ -4,6 +4,11 @@ public record DevLoginRequest(
     string Nickname,
     string? DisplayName);
 
+public record AppleLoginRequest(
+    string IdentityToken,
+    string? AuthorizationCode,
+    string? FullName);
+
 public record AuthUserDto(
     Guid UserId,
     string Nickname,

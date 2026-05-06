@@ -43,6 +43,10 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<AppUser>().ToTable("app_users");
+        modelBuilder.Entity<AppUser>()
+            .HasIndex(x => x.AppleSubject)
+            .IsUnique()
+            .HasFilter("apple_subject IS NOT NULL");
         modelBuilder.Entity<UserInterest>().ToTable("user_interests");
         modelBuilder.Entity<Venue>().ToTable("venues");
         modelBuilder.Entity<FriendRelation>().ToTable("friend_relations");

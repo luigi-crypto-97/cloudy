@@ -112,6 +112,24 @@ final class AuthStore {
         }
     }
 
+    func loginWithApple(identityToken: String, authorizationCode: String?, fullName: String?) async -> Bool {
+        lastError = nil
+        do {
+            let resp = try await API.appleLogin(
+                identityToken: identityToken,
+                authorizationCode: authorizationCode,
+                fullName: fullName
+            )
+            token = resp.accessToken
+            refreshToken = nil
+            state = .loggedIn(resp.user)
+            return true
+        } catch {
+            lastError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+    }
+
     func logout() {
         token = nil
         refreshToken = nil

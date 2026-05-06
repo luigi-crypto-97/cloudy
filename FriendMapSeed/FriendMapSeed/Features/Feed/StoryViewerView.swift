@@ -165,7 +165,7 @@ struct StoryViewerView: View {
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
                 } else {
-                    CachedImage(url: mediaUrl, options: .story)
+                    StoryRemoteImage(url: mediaUrl)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .clipped()
                 }
@@ -751,6 +751,49 @@ private struct StoryVideoPlayer: View {
                 let newPlayer = AVPlayer(url: playableURL)
                 player = newPlayer
                 newPlayer.play()
+            } catch {
+                loadFailed = true
+            }
+        }
+    }
+}
+
+private struct StoryRemoteImage: View {
+    let url: URL
+    @State private var image: UIImage?
+    @State private var loadFailed = false
+
+    var body: some View {
+        ZStack {
+            Color.black
+
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(.opacity.animation(.easeInOut(duration: 0.18)))
+            } else if loadFailed {
+                VStack(spacing: 10) {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .font(.system(size: 30, weight: .semibold))
+                    Text("Media non disponibile")
+                        .font(Theme.Font.caption(12, weight: .semibold))
+                }
+                .foregroundStyle(.white.opacity(0.72))
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+        }
+        .task(id: url) {
+            loadFailed = false
+            image = nil
+            do {
+                let data = try await MediaFileCache.shared.data(for: url)
+                guard let decoded = UIImage(data: data) else {
+                    throw URLError(.cannotDecodeContentData)
+                }
+                image = decoded
             } catch {
                 loadFailed = true
             }

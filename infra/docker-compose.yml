@@ -39,6 +39,7 @@ services:
       MediaStorage__ForcePathStyle: ${MediaStorage__ForcePathStyle:-true}
       MediaStorage__UsePrivateBucket: ${MediaStorage__UsePrivateBucket:-true}
       MediaStorage__SignedUrlMinutes: ${MediaStorage__SignedUrlMinutes:-15}
+      AppleAuth__Audience: ${AppleAuth__Audience:-it.luiginegri.FriendMapSeed}
       Admin__ApiKey: ${Admin__ApiKey:-}
       Cloudy__DemoSignals: ${Cloudy__DemoSignals:-false}
       Cloudy__TestUsersEnabled: ${Cloudy__TestUsersEnabled:-false}
