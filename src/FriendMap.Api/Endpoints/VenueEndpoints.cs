@@ -182,8 +182,24 @@ public static class VenueEndpoints
             }
 
             var rating = await db.VenueRatings.FirstOrDefaultAsync(x => x.VenueId == venueId && x.UserId == userId, ct);
+            if (rating?.IsFlagged == true)
+            {
+                return Results.BadRequest("Questa valutazione e in revisione: non puoi modificarla finche la moderazione non la chiude.");
+            }
+
             if (rating is null)
             {
+                var recentNewRatings = await db.VenueRatings
+                    .AsNoTracking()
+                    .CountAsync(x => x.UserId == userId && x.CreatedAtUtc >= now.AddHours(-24), ct);
+                if (recentNewRatings >= 5)
+                {
+                    return Results.Problem(
+                        title: "Troppe recensioni in poco tempo",
+                        detail: "Per evitare recensioni non veritiere puoi valutare al massimo 5 nuovi locali ogni 24 ore.",
+                        statusCode: StatusCodes.Status429TooManyRequests);
+                }
+
                 rating = new VenueRating
                 {
                     VenueId = venueId,

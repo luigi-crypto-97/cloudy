@@ -35,7 +35,7 @@ else if (_snapshot is not null)
         </div>
         <div>
             <strong>Storage</strong>
-            <span class="muted">@_snapshot.Health.MediaStorageProvider &middot; @_snapshot.Health.MediaStorageVisibility</span>
+            <span class="muted">@_snapshot.Health.MediaStorageProvider &middot; @_snapshot.Health.MediaStorageVisibility &middot; @_snapshot.Health.StoryMediaUploads24h media 24h</span>
         </div>
         <div>
             <strong>Notifiche</strong>
@@ -58,6 +58,8 @@ else if (_snapshot is not null)
         <MetricCard Label="Msg ultima ora" Value="@_snapshot.Kpi.MessagesLastHour" Accent="blue" />
         <MetricCard Label="Commenti stories 24h" Value="@_snapshot.Engagement.StoryCommentsLast24h" Accent="violet" />
         <MetricCard Label="Recensioni 24h" Value="@_snapshot.Engagement.VenueRatingsLast24h" Accent="mint" />
+        <MetricCard Label="Media stories 24h" Value="@_snapshot.Health.StoryMediaUploads24h" Accent="blue" />
+        <MetricCard Label="Video stories 24h" Value="@_snapshot.Health.VideoStories24h" Accent="violet" />
         <MetricCard Label="Relay flare 24h" Value="@_snapshot.Engagement.FlareRelaysLast24h" Accent="coral" />
         <MetricCard Label="Avventure attive" Value="@_snapshot.Engagement.ActiveAdventures" Accent="blue" />
     </section>
@@ -172,6 +174,10 @@ else if (_snapshot is not null)
                 <div class="@RiskClass(_snapshot.Health.DatabaseLatencyMs > 250)">
                     <strong>@_snapshot.Health.DatabaseLatencyMs ms</strong>
                     <span>latenza database</span>
+                </div>
+                <div class="@RiskClass(!string.IsNullOrWhiteSpace(_snapshot.Health.LastNotificationError))">
+                    <strong>@(_snapshot.Health.PrivateMediaProxyEnabled ? "proxy" : "public")</strong>
+                    <span>@(string.IsNullOrWhiteSpace(_snapshot.Health.LastNotificationError) ? "media ok" : _snapshot.Health.LastNotificationError)</span>
                 </div>
             </div>
         </div>

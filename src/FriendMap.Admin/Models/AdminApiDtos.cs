@@ -57,6 +57,10 @@ public record AdminSystemHealthDto(
     string MediaStorageVisibility,
     int NotificationBacklog,
     int FailedNotificationBacklog,
+    int StoryMediaUploads24h,
+    int VideoStories24h,
+    bool PrivateMediaProxyEnabled,
+    string? LastNotificationError,
     DateTimeOffset CheckedAtUtc);
 
 public record AdminPrivacySnapshotDto(

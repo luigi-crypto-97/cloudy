@@ -220,6 +220,11 @@ struct FeedView: View {
             .onReceive(NotificationCenter.default.publisher(for: .cloudyBadgesShouldRefresh)) { _ in
                 Task { await refreshNotificationBadge() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .cloudyStoriesDidChange)) { _ in
+                Task {
+                    await store.load(location: liveLocation.currentLocation, showSpinner: false)
+                }
+            }
         }
     }
 

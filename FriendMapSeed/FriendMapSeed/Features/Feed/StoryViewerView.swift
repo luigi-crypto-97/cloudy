@@ -745,6 +745,7 @@ struct StoryViewerView: View {
                 localUserStories = storiesByUser[safe: userIndex] ?? []
             }
             localUserStories.removeAll { $0.id == deletedId }
+            NotificationCenter.default.post(name: .cloudyStoriesDidChange, object: nil)
             Haptics.success()
 
             if localUserStories.isEmpty {

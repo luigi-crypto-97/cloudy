@@ -135,4 +135,5 @@ struct MainTabs: View {
 
 extension Notification.Name {
     static let cloudyBadgesShouldRefresh = Notification.Name("cloudyBadgesShouldRefresh")
+    static let cloudyStoriesDidChange = Notification.Name("cloudyStoriesDidChange")
 }

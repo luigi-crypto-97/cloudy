@@ -70,6 +70,15 @@ public static class AdminEndpoints
             var failedNotifications = await db.NotificationOutboxItems
                 .AsNoTracking()
                 .CountAsync(x => x.DeletedAtUtc == null && x.Status == "failed", ct);
+            var lastNotificationError = await db.NotificationOutboxItems
+                .AsNoTracking()
+                .Where(x => x.DeletedAtUtc == null && x.Status == "failed" && x.LastError != null)
+                .OrderByDescending(x => x.UpdatedAtUtc ?? x.CreatedAtUtc)
+                .Select(x => x.LastError)
+                .FirstOrDefaultAsync(ct);
+            var mediaStorageVisibility = string.IsNullOrWhiteSpace(configuration["MediaStorage:PublicBaseUrl"] ?? configuration["MediaStorage__PublicBaseUrl"])
+                ? "private/signed"
+                : "public-url-configured";
 
             var kpi = new AdminKpiDto(
                 TotalUsers: await db.Users.AsNoTracking().CountAsync(ct),
@@ -96,11 +105,13 @@ public static class AdminEndpoints
                 ApiStatus: failedNotifications > 20 ? "degraded" : "operational",
                 DatabaseLatencyMs: sw.ElapsedMilliseconds,
                 MediaStorageProvider: configuration["MediaStorage:Provider"] ?? configuration["MediaStorage__Provider"] ?? "local",
-                MediaStorageVisibility: string.IsNullOrWhiteSpace(configuration["MediaStorage:PublicBaseUrl"] ?? configuration["MediaStorage__PublicBaseUrl"])
-                    ? "private/signed"
-                    : "public-url-configured",
+                MediaStorageVisibility: mediaStorageVisibility,
                 NotificationBacklog: pendingNotifications,
                 FailedNotificationBacklog: failedNotifications,
+                StoryMediaUploads24h: await db.UserStories.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h && x.MediaUrl != null && x.MediaUrl != "", ct),
+                VideoStories24h: await db.UserStories.AsNoTracking().CountAsync(x => x.CreatedAtUtc >= last24h && x.MediaUrl != null && (x.MediaUrl.ToLower().EndsWith(".mp4") || x.MediaUrl.ToLower().EndsWith(".mov") || x.MediaUrl.ToLower().EndsWith(".m4v") || x.MediaUrl.ToLower().EndsWith(".webm")), ct),
+                PrivateMediaProxyEnabled: mediaStorageVisibility == "private/signed",
+                LastNotificationError: lastNotificationError,
                 CheckedAtUtc: now);
 
             var activeAdventures = adminOps.GetAdventures().Where(x => x.IsActive).ToList();

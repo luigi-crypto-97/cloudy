@@ -5,6 +5,7 @@
 
 import SwiftUI
 import AVKit
+import UIKit
 
 struct StoryArchiveView: View {
     @Environment(\.dismiss) private var dismiss
@@ -190,8 +191,9 @@ private struct ArchivedStoryViewer: View {
 
             GeometryReader { geometry in
                 if let url = APIClient.shared.mediaURL(from: story.mediaUrl), url.isCloudyVideoURL {
-                    VideoPlayer(player: AVPlayer(url: url))
+                    ArchiveStoryVideoPlayer(url: url)
                         .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
                 } else {
                     CachedImage(url: APIClient.shared.mediaURL(from: story.mediaUrl), options: .story)
                         .frame(width: geometry.size.width, height: geometry.size.height)
@@ -254,5 +256,32 @@ private struct ArchivedStoryViewer: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+private struct ArchiveStoryVideoPlayer: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> ArchiveVideoContainerView {
+        let view = ArchiveVideoContainerView()
+        let player = AVPlayer(url: url)
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        player.play()
+        return view
+    }
+
+    func updateUIView(_ uiView: ArchiveVideoContainerView, context: Context) {
+        uiView.playerLayer.videoGravity = .resizeAspectFill
+    }
+}
+
+private final class ArchiveVideoContainerView: UIView {
+    override static var layerClass: AnyClass {
+        AVPlayerLayer.self
+    }
+
+    var playerLayer: AVPlayerLayer {
+        layer as! AVPlayerLayer
     }
 }

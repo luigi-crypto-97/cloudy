@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 import PhotosUI
 import UIKit
 import AVKit
@@ -390,6 +391,7 @@ struct CreateStoryView: View {
                 venueId: venue?.venueId
             )
             Haptics.tap()
+            NotificationCenter.default.post(name: .cloudyStoriesDidChange, object: nil)
             onCreated()
             dismiss()
         } catch {
@@ -404,10 +406,15 @@ struct CreateStoryView: View {
             if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) || $0.conforms(to: .video) }) {
                 if let data = try await item.loadTransferable(type: Data.self) {
                     setSelectedVideoType(from: item.supportedContentTypes.first(where: { $0.conforms(to: .movie) || $0.conforms(to: .video) }))
-                    selectedVideoData = data
+                    selectedVideoData = nil
                     selectedVideoPreviewURL = writeTemporaryVideo(data: data)
                     selectedImageData = nil
                     mediaUrl = ""
+                    if let selectedVideoPreviewURL {
+                        Task { await prepareVideoData(from: selectedVideoPreviewURL) }
+                    } else {
+                        selectedVideoData = data
+                    }
                     return
                 }
             }
@@ -438,13 +445,24 @@ struct CreateStoryView: View {
     private func prepareVideoData(from url: URL) async {
         isPreparingVideo = true
         defer { isPreparingVideo = false }
-        let data = await Task.detached(priority: .userInitiated) {
-            try? Data(contentsOf: url)
-        }.value
-        if let data {
+        do {
+            let compressedURL = try await StoryVideoCompressor.compressForStory(sourceURL: url)
+            let data = try await Task.detached(priority: .userInitiated) {
+                try Data(contentsOf: compressedURL)
+            }.value
+            selectedVideoPreviewURL = compressedURL
             selectedVideoData = data
-        } else {
-            error = "Impossibile leggere il video registrato."
+            selectedVideoFileExtension = "mp4"
+            selectedVideoMimeType = "video/mp4"
+        } catch {
+            let fallbackData = await Task.detached(priority: .userInitiated) {
+                try? Data(contentsOf: url)
+            }.value
+            if let fallbackData {
+                selectedVideoData = fallbackData
+            } else {
+                self.error = "Impossibile preparare il video."
+            }
         }
     }
 
@@ -537,6 +555,40 @@ private extension UIImage {
             )
             draw(in: drawRect, blendMode: .normal, alpha: 1)
         }
+    }
+}
+
+private enum StoryVideoCompressor {
+    static func compressForStory(sourceURL: URL) async throws -> URL {
+        let asset = AVURLAsset(url: sourceURL)
+        let durationLimit = CMTime(seconds: 15, preferredTimescale: 600)
+        let exportURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloudy-story-compressed-\(UUID().uuidString)")
+            .appendingPathExtension("mp4")
+
+        if FileManager.default.fileExists(atPath: exportURL.path) {
+            try FileManager.default.removeItem(at: exportURL)
+        }
+
+        guard let exportSession = AVAssetExportSession(
+            asset: asset,
+            presetName: AVAssetExportPreset1280x720
+        ) ?? AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetMediumQuality)
+        else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+
+        exportSession.outputURL = exportURL
+        exportSession.outputFileType = .mp4
+        exportSession.shouldOptimizeForNetworkUse = true
+        let assetDuration = try await asset.load(.duration)
+        exportSession.timeRange = CMTimeRange(
+            start: .zero,
+            duration: min(assetDuration, durationLimit)
+        )
+
+        try await exportSession.export(to: exportURL, as: .mp4)
+        return exportURL
     }
 }
 
