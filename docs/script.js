@@ -80,6 +80,20 @@ document.addEventListener("DOMContentLoaded", () => {
         osc.stop(audioCtx.currentTime + 0.5);
     }
 
+    function playTypeSound() {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(2000 + Math.random()*500, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    }
+
     btnEnter.addEventListener('click', () => {
         initAudio();
         gsap.to(enterGate, {
@@ -111,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
         lastMouseX = mouseX; lastMouseY = mouseY;
     });
 
-    document.querySelectorAll('a, button, .magnetic').forEach(el => {
+    document.querySelectorAll('a, button, .magnetic, input').forEach(el => {
         el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
         el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
     });
@@ -157,13 +171,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         playFlareSound();
 
-        // Increment stats
         flaresCount++;
         statFlares.innerText = flaresCount.toString().padStart(3, '0');
         statFlares.style.color = '#fff';
         setTimeout(() => statFlares.style.color = 'var(--neon-blue)', 200);
 
-        setTimeout(() => flare.remove(), 2000); // cleanup
+        setTimeout(() => flare.remove(), 2000);
     });
 
     // --- 5. Live Stats Engine ---
@@ -189,7 +202,126 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 2000);
     }
 
-    // --- 6. Three.js: Globe & Particles ---
+    // --- 6. Terminal Waitlist Logic ---
+    const terminal = document.getElementById('waitlist-terminal');
+    const terminalOutput = document.getElementById('terminal-output');
+    const terminalInputWrapper = document.getElementById('terminal-input-wrapper');
+    const terminalInput = document.getElementById('terminal-input');
+    let isB2B = false;
+
+    document.querySelectorAll('.cta-waitlist').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            isB2B = btn.getAttribute('data-terminal') === 'b2b';
+            
+            // Glitch effect on body before showing terminal
+            document.body.style.animation = 'glitch-anim-1 0.2s 3';
+            setTimeout(() => {
+                document.body.style.animation = '';
+                openTerminal();
+            }, 600);
+        });
+    });
+
+    function openTerminal() {
+        terminal.style.display = 'flex';
+        terminalOutput.innerHTML = '';
+        terminalInputWrapper.style.display = 'none';
+        terminalInput.value = '';
+        
+        if (isB2B) {
+            terminal.style.color = 'var(--neon-red)';
+            document.querySelector('.terminal-header').innerText = "CLOUDY BUSINESS // VENUE CLAIM PROTOCOL";
+            document.querySelector('.cursor-block').style.background = 'var(--neon-red)';
+            document.getElementById('terminal-input').style.textShadow = '0 0 10px var(--neon-red)';
+        } else {
+            terminal.style.color = 'var(--neon-blue)';
+            document.querySelector('.terminal-header').innerText = "GHOST PROTOCOL // SECURE CONNECTION ESTABLISHED";
+            document.querySelector('.cursor-block').style.background = 'var(--neon-blue)';
+            document.getElementById('terminal-input').style.textShadow = '0 0 10px var(--neon-blue)';
+        }
+
+        const lines = [
+            "Initiating secure handshake...",
+            "Bypassing algorithm filters...",
+            "Accessing Cloudy mainframe...",
+            "Warning: Night is approaching.",
+            "Please authenticate to secure your position."
+        ];
+
+        let delay = 0;
+        lines.forEach((line, index) => {
+            setTimeout(() => {
+                const p = document.createElement('div');
+                p.className = 'terminal-line';
+                p.innerText = line;
+                terminalOutput.appendChild(p);
+                playTypeSound();
+                if(index === lines.length - 1) {
+                    setTimeout(() => {
+                        terminalInputWrapper.style.display = 'flex';
+                        terminalInput.focus();
+                    }, 500);
+                }
+            }, delay);
+            delay += 600;
+        });
+    }
+
+    terminalInput.addEventListener('keydown', (e) => {
+        playTypeSound();
+        if(e.key === 'Enter') {
+            const handle = terminalInput.value.trim().toUpperCase();
+            if(handle.length < 2) return;
+            
+            terminalInputWrapper.style.display = 'none';
+            const p = document.createElement('div');
+            p.className = 'terminal-line';
+            p.innerText = `> ${handle}`;
+            terminalOutput.appendChild(p);
+
+            // Simulate hacking/processing
+            setTimeout(() => {
+                const processLine = document.createElement('div');
+                processLine.className = 'terminal-line';
+                processLine.innerText = `Encrypting handle [${handle}]...`;
+                terminalOutput.appendChild(processLine);
+                playTypeSound();
+            }, 500);
+
+            setTimeout(() => {
+                const queuePos = Math.floor(Math.random() * 1000) + 8000;
+                const resultLine = document.createElement('div');
+                resultLine.className = 'terminal-line';
+                resultLine.style.color = '#fff';
+                resultLine.style.marginTop = '2rem';
+                resultLine.style.fontWeight = 'bold';
+                
+                if(isB2B) {
+                    resultLine.innerText = `ACCESS GRANTED. VENUE ${handle} REGISTERED. PRIORITY QUEUE #${queuePos}. WE WILL CONTACT YOU SOON.`;
+                } else {
+                    resultLine.innerText = `ACCESS GRANTED. YOU ARE #${queuePos.toLocaleString()} IN THE GHOST PROTOCOL QUEUE.`;
+                }
+                
+                terminalOutput.appendChild(resultLine);
+                
+                const closeNote = document.createElement('div');
+                closeNote.className = 'terminal-line';
+                closeNote.innerText = "\n(Press ESC to return to the grid)";
+                terminalOutput.appendChild(closeNote);
+                
+                playFlareSound();
+            }, 2000);
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape' && terminal.style.display === 'flex') {
+            terminal.style.display = 'none';
+        }
+    });
+
+    // --- 7. Three.js: Globe & Particles ---
     const canvasContainer = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000000, 0.0015);
@@ -203,13 +335,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const group = new THREE.Group();
     scene.add(group);
 
-    // Wireframe Globe
     const globeGeo = new THREE.SphereGeometry(80, 32, 32);
     const globeMat = new THREE.MeshBasicMaterial({ color: 0x8a2be2, wireframe: true, transparent: true, opacity: 0.15 });
     const globe = new THREE.Mesh(globeGeo, globeMat);
     group.add(globe);
 
-    // Particles Cloud
     const pGeo = new THREE.BufferGeometry();
     const pCount = 10000;
     const pPos = new Float32Array(pCount * 3);
@@ -238,7 +368,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const pMesh = new THREE.Points(pGeo, pMat);
     group.add(pMesh);
 
-    // Post Processing
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 2.0, 0.4, 0.85);
@@ -279,18 +408,16 @@ document.addEventListener("DOMContentLoaded", () => {
         composer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // --- 7. GSAP ScrollTriggers ---
+    // --- 8. GSAP ScrollTriggers ---
     function initGSAP() {
         gsap.registerPlugin(ScrollTrigger);
 
-        // Flight
         gsap.to(camera.position, {
             z: -600,
             ease: "none",
             scrollTrigger: { trigger: "#main-content", start: "top top", end: "bottom bottom", scrub: 1 }
         });
 
-        // Manifesto Blocks
         gsap.utils.toArray('.gs-manifesto').forEach((block, i) => {
             gsap.from(block, {
                 scrollTrigger: { trigger: block, start: "top 80%", toggleActions: "play none none reverse" },
@@ -298,7 +425,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // Horizontal Scroll
         const horizontalContainer = document.querySelector('.horizontal-scroll-container');
         const panels = gsap.utils.toArray('.horizontal-panel');
         gsap.to(panels, {
@@ -307,7 +433,6 @@ document.addEventListener("DOMContentLoaded", () => {
             scrollTrigger: { trigger: ".horizontal-scroll-section", pin: true, scrub: 1, snap: 1 / (panels.length - 1), end: () => "+=" + horizontalContainer.offsetWidth }
         });
 
-        // Standard Reveal
         gsap.utils.toArray('.gs-reveal').forEach(elem => {
             gsap.from(elem, { scrollTrigger: { trigger: elem, start: "top 85%", toggleActions: "play none none reverse" }, y: 100, opacity: 0, duration: 1, ease: "power3.out" });
         });
