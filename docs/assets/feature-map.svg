@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="mapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5CB5C"/>
+      <stop offset="50%" style="stop-color:#F09433"/>
+      <stop offset="100%" style="stop-color:#DC2743"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" fill="#111" rx="16"/>
+
+  <!-- Map grid -->
+  <line x1="40" y1="40" x2="160" y2="40" stroke="#333" stroke-width="1"/>
+  <line x1="40" y1="100" x2="160" y2="100" stroke="#333" stroke-width="1"/>
+  <line x1="40" y1="160" x2="160" y2="160" stroke="#333" stroke-width="1"/>
+  <line x1="40" y1="40" x2="40" y2="160" stroke="#333" stroke-width="1"/>
+  <line x1="100" y1="40" x2="100" y2="160" stroke="#333" stroke-width="1"/>
+  <line x1="160" y1="40" x2="160" y2="160" stroke="#333" stroke-width="1"/>
+
+  <!-- Heat zones -->
+  <circle cx="80" cy="80" r="30" fill="url(#mapGrad)" opacity="0.2"/>
+  <circle cx="120" cy="120" r="25" fill="url(#mapGrad)" opacity="0.25"/>
+  <circle cx="90" cy="140" r="20" fill="url(#mapGrad)" opacity="0.15"/>
+
+  <!-- Location pins -->
+  <circle cx="80" cy="80" r="8" fill="#F5CB5C"/>
+  <circle cx="120" cy="120" r="6" fill="#F09433"/>
+  <circle cx="90" cy="140" r="5" fill="#DC2743"/>
+
+  <!-- Pulse rings -->
+  <circle cx="80" cy="80" r="15" stroke="#F5CB5C" stroke-width="1" fill="none" opacity="0.5">
+    <animate attributeName="r" from="8" to="20" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" from="0.8" to="0" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

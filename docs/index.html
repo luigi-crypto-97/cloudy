@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudy | Enter the Grid</title>
+    <meta name="description" content="Cloudy is the ultimate social app for nightlife.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@700&display=swap"
+        rel="stylesheet">
+
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="./style.css">
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- Enter Gate -->
+    <div id="enter-gate">
+        <div class="enter-content">
+            <div class="logo-icon glitch-text" data-text="⚡">⚡</div>
+            <h1 class="giant-text glitch-text" data-text="CLOUDY">CLOUDY</h1>
+            <p>EPILEPSY WARNING: Contains flashing lights and intense visual effects.</p>
+            <button id="btn-enter" class="btn-massive">INITIALIZE SEQUENCE</button>
+        </div>
+    </div>
+
+    <!-- Custom Cursor -->
+    <div class="cursor-glow"></div>
+    <div class="cursor-dot"></div>
+
+    <!-- Live Stats HUD -->
+    <div id="live-stats-hud" style="display: none;">
+        <div class="stat-item">
+            <span class="stat-label">ACTIVE FLARES</span>
+            <span class="stat-value" id="stat-flares">042</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">GRID USERS</span>
+            <span class="stat-value" id="stat-users">8,409</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">VENUES ONLINE</span>
+            <span class="stat-value" id="stat-venues">115</span>
+        </div>
+    </div>
+
+    <!-- WebGL Background Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Main Content -->
+    <div id="main-content" style="display: none; opacity: 0;">
+        <nav class="glass-nav">
+            <div class="nav-content">
+                <a href="#" class="logo magnetic audio-hover" data-strength="20">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">CLOUDY</span>
+                </a>
+                <div class="nav-links">
+                    <a href="#philosophy" class="magnetic audio-hover" data-strength="15">Manifesto</a>
+                    <a href="#features" class="magnetic audio-hover" data-strength="15">Arsenal</a>
+                    <a href="#b2b" class="magnetic audio-hover" data-strength="15" style="color: #ff003c;">Creators</a>
+                    <a href="#download" class="btn-neon magnetic audio-hover" data-strength="30">Get the App</a>
+                </div>
+            </div>
+        </nav>
+
+        <div id="smooth-wrapper">
+            <div id="smooth-content">
+
+                <!-- Hero Section -->
+                <section class="hero" id="home">
+                    <div class="hero-content">
+                        <div class="badge-glow hero-element">
+                            <span class="pulse-dot"></span>
+                            SYSTEM ONLINE
+                        </div>
+                        <h1 class="hero-title hero-element split-text glitch-hover">
+                            OWN THE<br>
+                            <span class="text-gradient">NIGHT</span>
+                        </h1>
+                        <p class="hero-subtitle hero-element">
+                            Stop scrolling. Start living. Cloudy connects you to the electric pulse of the city in
+                            real-time. Join the revolution.
+                        </p>
+                        <div class="hero-cta hero-element">
+                            <a href="#download" class="btn-primary magnetic audio-hover" data-strength="50">
+                                <span class="btn-content">Enter the Storm</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="hero-visual hero-element">
+                        <div class="mockup-container magnetic" data-strength="40">
+                            <div class="glass-orb orb-1"></div>
+                            <div class="glass-orb orb-2"></div>
+                            <img src="./assets/cloudy_hero_mockup_1778082532904.png" alt="Cloudy App Interface"
+                                class="app-mockup float-anim">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Expanded Manifesto Section -->
+                <section class="manifesto-section" id="philosophy">
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text outline glitch-text" data-text="SCREENS ARE ISOLATING">SCREENS ARE
+                            ISOLATING</h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text solid text-gradient glitch-text" data-text="THE CITY IS WAITING">THE
+                            CITY IS WAITING</h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text outline glitch-text" data-text="BREAK THE ALGORITHM">BREAK THE ALGORITHM
+                        </h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text solid glitch-text" data-text="BECOME THE PARTY">BECOME THE PARTY</h2>
+                    </div>
+                    <p class="philosophy-sub gs-reveal">We built Cloudy because the best moments of your life won't
+                        happen on a timeline. They happen out there. Real people. Real time. Pure energy.</p>
+                </section>
+
+                <!-- Horizontal Scroll Features & Simulator -->
+                <section class="horizontal-scroll-section" id="features">
+                    <div class="horizontal-scroll-container">
+
+                        <div class="horizontal-panel intro-panel">
+                            <h2 class="giant-text glitch-text" data-text="THE ARSENAL">THE<br><span
+                                    class="text-gradient">ARSENAL</span></h2>
+                            <p>Scroll to unlock the city.</p>
+                        </div>
+
+                        <!-- Simulator Panel -->
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">The Radar Simulator</h3>
+                                    <p>Watch the city breathe. <br><strong style="color:var(--neon-blue);">Click
+                                            anywhere on the map below to launch a Live Flare.</strong> Experience the
+                                        shockwave.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <!-- Interactive Simulator Area -->
+                                    <div id="simulator-map" class="simulator-map magnetic audio-hover"
+                                        data-strength="10">
+                                        <div class="simulator-overlay-text">CLICK TO LAUNCH FLARE</div>
+                                        <img src="./assets/cloudy_hero_mockup_1778082532904.png" alt="Map Simulator"
+                                            class="simulator-img">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">Social Tables</h3>
+                                    <p>Break the ice instantly. Join ongoing tables at your venue.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <img src="./assets/cloudy_bento_mockup_1778082550221.png" alt="Social Tables"
+                                        class="bento-img magnetic audio-hover" data-strength="30">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">Neon Stories</h3>
+                                    <p>Capture the raw energy. Fleeting moments that disappear in 24 hours.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <img src="./assets/cloudy_stories_mockup_1778082566140.png" alt="Stories"
+                                        class="bento-img magnetic audio-hover" data-strength="30">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- Cinematic Testimonials -->
+                <section class="cinematic-cult">
+                    <h2 class="giant-text text-center glitch-text gs-reveal" data-text="THE CULT">THE CULT</h2>
+                    <div class="cult-grid">
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-1"></div>
+                            <div class="cult-content">
+                                <h3>"INSANE ENERGY."</h3>
+                                <p>Alex M. - Milano</p>
+                            </div>
+                        </div>
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-2"></div>
+                            <div class="cult-content">
+                                <h3>"NO MORE FOMO."</h3>
+                                <p>Sarah T. - Roma</p>
+                            </div>
+                        </div>
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-3"></div>
+                            <div class="cult-content">
+                                <h3>"THE CITY IS ALIVE."</h3>
+                                <p>Jordan K. - Torino</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- B2B Dark Portal (Venues & Creators) -->
+                <section class="b2b-portal" id="b2b">
+                    <div class="b2b-content gs-reveal">
+                        <h2 class="giant-text red-glitch" data-text="OWNERS & CREATORS">OWNERS & CREATORS</h2>
+                        <h3 class="b2b-subtitle">DOMINATE YOUR ZONE.</h3>
+                        <p class="b2b-desc">Claim your venue on Cloudy. Send targeted flares, manage your social tables,
+                            and watch the crowds surge to your door in real-time. This is the ultimate weapon for
+                            nightlife dominance.</p>
+                        <a href="#" class="btn-massive b2b-btn magnetic audio-hover" data-strength="40">
+                            CLAIM VENUE
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Download Section -->
+                <section class="download" id="download">
+                    <div class="download-content gs-reveal">
+                        <h2 class="giant-text text-gradient split-text">READY?</h2>
+                        <p class="download-sub">The night is waiting. Download Cloudy now.</p>
+                        <a href="#" class="btn-massive magnetic audio-hover" data-strength="60">
+                            DOWNLOAD iOS
+                        </a>
+                    </div>
+                </section>
+
+                <footer>
+                    <div class="footer-content">
+                        <div class="brand">
+                            <span class="logo-icon">⚡</span> CLOUDY
+                        </div>
+                        <div class="links">
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Privacy</a>
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Terms</a>
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Contact</a>
+                        </div>
+                    </div>
+                    <div class="footer-bottom">
+                        &copy; 2026 Cloudy Inc. The Night Is Ours.
+                    </div>
+                </footer>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- GSAP Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+    <!-- Custom Module Script -->
+    <script type="module" src="./script.js"></script>
+</body>
+
+</html>
