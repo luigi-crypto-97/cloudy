@@ -18,17 +18,5 @@
     <array>
         <string>Default</string>
     </array>
-    
-    <!-- Location Services -->
-    <key>com.apple.developer.location.usage</key>
-    <true/>
-    
-    <!-- Background Modes -->
-    <key>com.apple.developer.background-modes</key>
-    <array>
-        <string>location</string>
-        <string>remote-notification</string>
-        <string>fetch</string>
-    </array>
 </dict>
 </plist>

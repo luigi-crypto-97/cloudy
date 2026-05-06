@@ -271,6 +271,17 @@ app.MapGet("/health/db", async (AppDbContext db, CancellationToken ct) =>
         : Results.Problem("Database connection failed", statusCode: StatusCodes.Status503ServiceUnavailable);
 });
 
+app.MapGet("/api/media/{**key}", async (
+    string key,
+    MediaStorageService mediaStorage,
+    CancellationToken ct) =>
+{
+    var media = await mediaStorage.DownloadAsync(key, ct);
+    return media is null
+        ? Results.NotFound()
+        : Results.File(media.Bytes, media.ContentType);
+});
+
 app.MapGet("/.well-known/apple-app-site-association", (Microsoft.Extensions.Options.IOptions<UniversalLinksOptions> options) =>
 {
     var appIds = options.Value.IosAppIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();

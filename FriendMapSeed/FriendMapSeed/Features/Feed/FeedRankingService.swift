@@ -447,9 +447,19 @@ struct FeedRankingService {
 
     private func groupStoriesByVenue(_ stories: [UserStory], venueStories: [VenueStory]) -> [UUID: [FeedStoryPreview]] {
         var result: [UUID: [FeedStoryPreview]] = [:]
+        var seenStoryIdsByVenue: [UUID: Set<UUID>] = [:]
+
+        func append(_ preview: FeedStoryPreview, to venueId: UUID) {
+            if seenStoryIdsByVenue[venueId, default: []].contains(preview.id) {
+                return
+            }
+            seenStoryIdsByVenue[venueId, default: []].insert(preview.id)
+            result[venueId, default: []].append(preview)
+        }
+
         for story in stories {
             guard let venueId = story.venueId else { continue }
-            result[venueId, default: []].append(FeedStoryPreview(
+            append(FeedStoryPreview(
                 id: story.id,
                 userId: story.userId,
                 displayName: story.displayName ?? story.nickname,
@@ -459,10 +469,10 @@ struct FeedRankingService {
                 venueId: story.venueId,
                 venueName: story.venueName,
                 createdAt: story.createdAtUtc
-            ))
+            ), to: venueId)
         }
         for story in venueStories {
-            result[story.venueId, default: []].append(FeedStoryPreview(
+            append(FeedStoryPreview(
                 id: story.id,
                 userId: story.userId,
                 displayName: story.displayName ?? story.nickname,
@@ -472,9 +482,9 @@ struct FeedRankingService {
                 venueId: story.venueId,
                 venueName: story.venueName,
                 createdAt: story.createdAtUtc
-            ))
+            ), to: story.venueId)
         }
-        return result
+        return result.mapValues { $0.sorted { $0.createdAt > $1.createdAt } }
     }
 
     private func groupFriendsByVenueName(_ friends: [SocialConnection], privacy: FeedPrivacyPolicy) -> [String: [FriendActivity]] {

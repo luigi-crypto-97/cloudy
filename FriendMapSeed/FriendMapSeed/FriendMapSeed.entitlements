@@ -2,33 +2,5 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Associated Domains per Universal Links -->
-    <key>com.apple.developer.associated-domains</key>
-    <array>
-        <string>applinks:api.iron-quote.it</string>
-        <string>applinks:cloudy.iron-quote.it</string>
-    </array>
-    
-    <!-- Push Notifications -->
-    <key>aps-environment</key>
-    <string>development</string>
-
-    <!-- Sign in with Apple -->
-    <key>com.apple.developer.applesignin</key>
-    <array>
-        <string>Default</string>
-    </array>
-    
-    <!-- Location Services -->
-    <key>com.apple.developer.location.usage</key>
-    <true/>
-    
-    <!-- Background Modes -->
-    <key>com.apple.developer.background-modes</key>
-    <array>
-        <string>location</string>
-        <string>remote-notification</string>
-        <string>fetch</string>
-    </array>
 </dict>
 </plist>

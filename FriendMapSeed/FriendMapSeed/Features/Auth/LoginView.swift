@@ -80,15 +80,7 @@ struct LoginView: View {
 
             CloudyTextField(title: "Backend URL", placeholder: "https://api.iron-quote.it", text: $backendString)
 
-            SignInWithAppleButton(.continue) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                Task { await handleAppleSignIn(result) }
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 52)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .disabled(isSubmitting || isAppleSubmitting)
+            appleAuthSection
 
             HStack {
                 Rectangle().fill(Theme.Palette.hairline).frame(height: 1)
@@ -121,6 +113,26 @@ struct LoginView: View {
             .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
             .padding(.top, Theme.Spacing.sm)
         }
+    }
+
+    @ViewBuilder
+    private var appleAuthSection: some View {
+        #if DEBUG
+        Text("Apple Login sara attivo nella build TestFlight/App Store. In Debug con Personal Team usa il login beta.")
+            .font(Theme.Font.caption(12, weight: .medium))
+            .foregroundStyle(Theme.Palette.inkMuted)
+            .fixedSize(horizontal: false, vertical: true)
+        #else
+        SignInWithAppleButton(.continue) { request in
+            request.requestedScopes = [.fullName, .email]
+        } onCompletion: { result in
+            Task { await handleAppleSignIn(result) }
+        }
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 52)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .disabled(isSubmitting || isAppleSubmitting)
+        #endif
     }
 
     private func submit() async {

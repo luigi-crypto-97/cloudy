@@ -189,7 +189,7 @@ struct StoryViewerView: View {
 
     private var progressBars: some View {
         HStack(spacing: 4) {
-            ForEach(Array(currentUserStories.enumerated()), id: \.element.id) { index, _ in
+            ForEach(Array(currentUserStories.enumerated()), id: \.offset) { index, _ in
                 GeometryReader { barGeo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 1)

@@ -492,7 +492,15 @@ struct FeedView: View {
         default:
             previews = []
         }
-        let stories = previews.map { preview in
+        var seenStoryIds = Set<UUID>()
+        let stories = previews
+            .filter { preview in
+                if seenStoryIds.contains(preview.id) { return false }
+                seenStoryIds.insert(preview.id)
+                return true
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+            .map { preview in
             UserStory(
                 id: preview.id,
                 userId: preview.userId,

@@ -345,6 +345,7 @@ struct EditProfileView: View {
         isSaving = true
         defer { isSaving = false }
         do {
+            var avatarUrlForProfileUpdate = avatarUrl.isEmpty ? nil : avatarUrl
             if let selectedAvatarData {
                 let updated = try await API.uploadAvatar(
                     data: selectedAvatarData,
@@ -352,10 +353,11 @@ struct EditProfileView: View {
                     mimeType: "image/jpeg"
                 )
                 avatarUrl = updated.avatarUrl ?? avatarUrl
+                avatarUrlForProfileUpdate = nil
             }
             let req = UpdateMyProfileRequest(
                 displayName: displayName.isEmpty ? nil : displayName,
-                avatarUrl: avatarUrl.isEmpty ? nil : avatarUrl,
+                avatarUrl: avatarUrlForProfileUpdate,
                 bio: bio.isEmpty ? nil : bio,
                 birthYear: Int(birthYearText),
                 gender: gender,

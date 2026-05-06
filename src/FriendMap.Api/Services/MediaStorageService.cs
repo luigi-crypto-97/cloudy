@@ -188,7 +188,60 @@ public class MediaStorageService
         }
 
         EnsureS3Configured();
-        return BuildPreSignedGetUrl(key);
+        return $"/api/media/{EncodePath(key)}";
+    }
+
+    public async Task<MediaDownloadResult?> DownloadAsync(string key, CancellationToken ct)
+    {
+        key = key.TrimStart('/');
+        if (!LooksLikeStorageKey(key))
+        {
+            return null;
+        }
+
+        if (!IsS3Provider())
+        {
+            var rootPath = Path.IsPathRooted(_options.LocalRootPath)
+                ? _options.LocalRootPath
+                : Path.Combine(_env.ContentRootPath, _options.LocalRootPath);
+            var physicalPath = Path.Combine(rootPath, key.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(physicalPath))
+            {
+                return null;
+            }
+
+            var bytes = await File.ReadAllBytesAsync(physicalPath, ct);
+            return new MediaDownloadResult(bytes, GuessContentType(key));
+        }
+
+        EnsureS3Configured();
+        var endpoint = BuildEndpointUri();
+        var result = await DownloadFromSignedUrlAsync(BuildPreSignedGetUrl(key), ct);
+        if (!result.Success)
+        {
+            var advertisedRegion = ExtractS3Region(result.Detail);
+            if (!string.IsNullOrWhiteSpace(advertisedRegion) &&
+                !string.Equals(advertisedRegion, GetEffectiveRegion(endpoint), StringComparison.OrdinalIgnoreCase))
+            {
+                DiscoveredRegionsByEndpoint[endpoint.Authority] = advertisedRegion;
+                result = await DownloadFromSignedUrlAsync(BuildPreSignedGetUrl(key), ct);
+            }
+        }
+
+        return result.Success ? new MediaDownloadResult(result.Bytes, result.ContentType) : null;
+    }
+
+    private static async Task<S3GetResult> DownloadFromSignedUrlAsync(string url, CancellationToken ct)
+    {
+        using var http = new HttpClient();
+        using var response = await http.GetAsync(url, ct);
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            return new S3GetResult(false, Array.Empty<byte>(), response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream", Encoding.UTF8.GetString(bytes));
+        }
+
+        return new S3GetResult(true, bytes, response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream", "");
     }
 
     private Uri BuildEndpointUri()
@@ -328,6 +381,24 @@ public class MediaStorageService
         return match.Success ? match.Groups["region"].Value.Trim() : null;
     }
 
+    private static string GuessContentType(string key)
+    {
+        return Path.GetExtension(key).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".heic" => "image/heic",
+            ".mp4" => "video/mp4",
+            ".mov" => "video/quicktime",
+            ".m4v" => "video/x-m4v",
+            ".webm" => "video/webm",
+            ".pdf" => "application/pdf",
+            ".txt" => "text/plain",
+            _ => "application/octet-stream"
+        };
+    }
+
     private string BuildS3CanonicalUri(Uri endpoint, string key)
     {
         var basePath = endpoint.AbsolutePath.TrimEnd('/');
@@ -401,4 +472,7 @@ public class MediaStorageService
     }
 
     private readonly record struct S3PutResult(bool Success, int StatusCode, string ReasonPhrase, string Detail);
+    private readonly record struct S3GetResult(bool Success, byte[] Bytes, string ContentType, string Detail);
 }
+
+public sealed record MediaDownloadResult(byte[] Bytes, string ContentType);

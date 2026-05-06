@@ -85,10 +85,13 @@ public static class UserEndpoints
             }
 
             user.DisplayName = NormalizeOptionalText(request.DisplayName, 60);
-            var requestedAvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
-            if (request.AvatarUrl is not null && !IsTemporarySignedStorageUrl(requestedAvatarUrl))
+            if (request.AvatarUrl is not null && !IsTemporarySignedStorageUrl(request.AvatarUrl))
             {
-                user.AvatarUrl = requestedAvatarUrl;
+                var requestedAvatarUrl = NormalizeOptionalUrl(request.AvatarUrl);
+                if (requestedAvatarUrl is not null || string.IsNullOrWhiteSpace(request.AvatarUrl))
+                {
+                    user.AvatarUrl = requestedAvatarUrl;
+                }
             }
             user.Bio = NormalizeOptionalText(request.Bio, 280);
             user.BirthYear = request.BirthYear is >= 1940 and <= 2012 ? request.BirthYear : null;
@@ -869,6 +872,7 @@ public static class UserEndpoints
 
         return value.Contains("X-Amz-Signature=", StringComparison.OrdinalIgnoreCase) ||
                value.Contains("X-Amz-Credential=", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("/api/media/", StringComparison.OrdinalIgnoreCase) ||
                value.Contains("/storage/v1/s3/", StringComparison.OrdinalIgnoreCase);
     }
 
