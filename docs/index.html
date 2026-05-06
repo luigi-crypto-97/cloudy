@@ -1,116 +1,272 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FriendMap - Scopri il mondo intorno a te, con i tuoi amici.</title>
+    <title>Cloudy | Enter the Grid</title>
+    <meta name="description" content="Cloudy is the ultimate social app for nightlife.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    
+    <!-- Core CSS -->
     <link rel="stylesheet" href="./style.css">
-    <link rel="icon" href="./favicon.ico" type="image/x-icon">
-    <!-- Preload hero image/video for faster loading -->
-    <link rel="preload" href="./assets/hero-mockup.webp" as="image">
+
+    <!-- Three.js Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
-    <header class="hero-section">
-        <div class="glow-blob"></div>
-        <div class="container">
-            <h1 class="animate-fade-in">Vivi la tua città.<br><span class="text-gradient">Insieme.</span></h1>
-            <p class="subtitle animate-slide-up">Più tempo nel mondo reale, meno tempo sullo schermo. Scopri dove sono i tuoi amici, unisciti ai tavoli sociali e non perderti mai la serata perfetta. Esclusiva iOS.</p>
-            <div class="cta-buttons animate-slide-up-delay">
-                <a href="https://apps.apple.com/app/idXXXXXXXXX" target="_blank" class="btn glass-btn">
-                    <img src="./assets/app-store-badge.svg" alt="Download on the App Store">
-                </a>
-            </div>
-            <div class="hero-image-container animate-scale-in">
-                <img src="./assets/hero-mockup.webp" alt="FriendMap App Screenshot" class="hero-mockup">
+    <!-- Enter Gate -->
+    <div id="enter-gate">
+        <div class="enter-content">
+            <div class="logo-icon glitch-text" data-text="⚡">⚡</div>
+            <h1 class="giant-text glitch-text" data-text="CLOUDY">CLOUDY</h1>
+            <p>EPILEPSY WARNING: Contains flashing lights and intense visual effects.</p>
+            <button id="btn-enter" class="btn-massive">INITIALIZE SEQUENCE</button>
+        </div>
+    </div>
+
+    <!-- Waitlist Terminal -->
+    <div id="waitlist-terminal" style="display: none;">
+        <div class="crt-overlay"></div>
+        <div class="terminal-content">
+            <div class="terminal-header">GHOST PROTOCOL // SECURE CONNECTION ESTABLISHED</div>
+            <div id="terminal-output"></div>
+            <div class="terminal-input-line" id="terminal-input-wrapper" style="display: none;">
+                <span class="prompt">&gt; ENTER HANDLE:</span>
+                <input type="text" id="terminal-input" autocomplete="off" spellcheck="false" maxlength="20">
+                <span class="cursor-block"></span>
             </div>
         </div>
-    </header>
+    </div>
 
-    <main>
-        <section id="philosophy" class="philosophy-section">
-            <div class="container">
-                <div class="philosophy-content animate-on-scroll fade-up">
-                    <h2 class="section-subtitle">La nostra filosofia</h2>
-                    <h3 class="section-title">Riportiamo i social<br>nel mondo fisico.</h3>
-                    <p>Siamo nati per eliminare la frizione del "Cosa facciamo stasera?". FriendMap non è fatta per farti scorrere un feed all'infinito dal divano. È progettata per farti uscire, scoprire i locali più frequentati in tempo reale, incontrare persone con le tue stesse passioni e vivere momenti veri. La tecnologia al servizio della tua vita sociale reale.</p>
-                </div>
-            </div>
-        </section>
+    <!-- Custom Cursor -->
+    <div class="cursor-glow"></div>
+    <div class="cursor-dot"></div>
 
-        <section id="features" class="features-section">
-            <div class="container">
-                <h2 class="section-title text-center animate-on-scroll fade-up">Tutto ciò che ti serve per la serata</h2>
-                
-                <!-- Bento Box Layout for Features -->
-                <div class="bento-grid">
-                    <div class="bento-card large animate-on-scroll fade-up">
-                        <div class="bento-content">
-                            <div class="bento-icon">📍</div>
-                            <h3>Il Radar del Divertimento</h3>
-                            <p>Una mappa dinamica che prende vita. Guarda le zone più calde della città con indicatori visivi di affluenza. Lancia un <strong>Flare</strong> per creare un bagliore animato e far sapere a tutti che la festa è lì.</p>
-                        </div>
-                        <img src="./assets/feature-map.webp" alt="Mappa Live" class="bento-image right-align">
-                    </div>
-
-                    <div class="bento-card animate-on-scroll fade-up delay-1">
-                        <div class="bento-content">
-                            <div class="bento-icon">🍻</div>
-                            <h3>Tavoli Sociali & Affinità</h3>
-                            <p>Crea o unisciti a tavoli nei locali. Scopri nuovi interessi con un'interfaccia a <strong>scorrimento (swipe)</strong> per trovare subito sintonia con chi ti circonda.</p>
-                        </div>
-                    </div>
-
-                    <div class="bento-card animate-on-scroll fade-up delay-2">
-                        <div class="bento-content">
-                            <div class="bento-icon">👋</div>
-                            <h3>Check-in & Intenzioni</h3>
-                            <p>"Stasera sushi o drink?" Dichiara le tue intenzioni per la serata e fai sapere ai tuoi amici dove fare check-in. Incontrarsi non è mai stato così facile.</p>
-                        </div>
-                    </div>
-
-                    <div class="bento-card animate-on-scroll fade-up">
-                        <div class="bento-content">
-                            <div class="bento-icon">📸</div>
-                            <h3>Storie 24h Integrate</h3>
-                            <p>Cattura l'atmosfera del locale. Condividi foto e video della tua serata: spariscono dopo 24 ore, perfette per raccontare il momento in tempo reale.</p>
-                        </div>
-                    </div>
-
-                    <div class="bento-card animate-on-scroll fade-up delay-1 dark-accent">
-                        <div class="bento-content">
-                            <div class="bento-icon">🛡️</div>
-                            <h3>Privacy-First Tracker</h3>
-                            <p>La tua sicurezza viene prima. La <strong>Posizione Live</strong> aggiorna la tua posizione associandoti solo al locale commerciale più vicino, senza mai diffondere le tue coordinate esatte sulla mappa pubblica.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="download" class="download-section">
-            <div class="glow-blob bottom"></div>
-            <div class="container">
-                <h2 class="section-title animate-on-scroll fade-up">Pronto per uscire?</h2>
-                <p class="animate-on-scroll fade-up delay-1">Unisciti a chi sta già vivendo la città in un modo completamente nuovo.</p>
-                <a href="https://apps.apple.com/app/idXXXXXXXXX" target="_blank" class="btn glass-btn animate-on-scroll fade-up delay-2">
-                    <img src="./assets/app-store-badge.svg" alt="Download on the App Store">
-                </a>
-                <p class="ios-only animate-on-scroll fade-up delay-3">Disponibile esclusivamente su iPhone.</p>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 FriendMap. Tutti i diritti riservati.</p>
-            <nav>
-                <a href="#">Privacy Policy</a>
-                <a href="#">Termini di Servizio</a>
-                <a href="#">Contatti</a>
-            </nav>
+    <!-- Live Stats HUD -->
+    <div id="live-stats-hud" style="display: none;">
+        <div class="stat-item">
+            <span class="stat-label">ACTIVE FLARES</span>
+            <span class="stat-value" id="stat-flares">042</span>
         </div>
-    </footer>
+        <div class="stat-item">
+            <span class="stat-label">GRID USERS</span>
+            <span class="stat-value" id="stat-users">8,409</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">VENUES ONLINE</span>
+            <span class="stat-value" id="stat-venues">115</span>
+        </div>
+    </div>
 
-    <script src="./script.js"></script>
+    <!-- WebGL Background Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Main Content -->
+    <div id="main-content" style="display: none; opacity: 0;">
+        <nav class="glass-nav">
+            <div class="nav-content">
+                <a href="#" class="logo magnetic audio-hover" data-strength="20">
+                    <span class="logo-icon">⚡</span>
+                    <span class="logo-text">CLOUDY</span>
+                </a>
+                <div class="nav-links">
+                    <a href="#philosophy" class="magnetic audio-hover" data-strength="15">Manifesto</a>
+                    <a href="#features" class="magnetic audio-hover" data-strength="15">Arsenal</a>
+                    <a href="#b2b" class="magnetic audio-hover" data-strength="15" style="color: #ff003c;">Creators</a>
+                    <a href="#download" class="btn-neon magnetic audio-hover cta-waitlist" data-strength="30">Get the App</a>
+                </div>
+            </div>
+        </nav>
+
+        <div id="smooth-wrapper">
+            <div id="smooth-content">
+
+                <!-- Hero Section -->
+                <section class="hero" id="home">
+                    <div class="hero-content">
+                        <div class="badge-glow hero-element">
+                            <span class="pulse-dot"></span>
+                            SYSTEM ONLINE
+                        </div>
+                        <h1 class="hero-title hero-element split-text glitch-hover">
+                            OWN THE<br>
+                            <span class="text-gradient">NIGHT</span>
+                        </h1>
+                        <p class="hero-subtitle hero-element">
+                            Stop scrolling. Start living. Cloudy connects you to the electric pulse of the city in real-time. Join the revolution.
+                        </p>
+                        <div class="hero-cta hero-element">
+                            <a href="#download" class="btn-primary magnetic audio-hover cta-waitlist" data-strength="50">
+                                <span class="btn-content">Enter the Storm</span>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="hero-visual hero-element">
+                        <div class="mockup-container magnetic" data-strength="40">
+                            <div class="glass-orb orb-1"></div>
+                            <div class="glass-orb orb-2"></div>
+                            <img src="./assets/cloudy_hero_mockup_1778082532904.png" alt="Cloudy App Interface" class="app-mockup float-anim">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Expanded Manifesto Section -->
+                <section class="manifesto-section" id="philosophy">
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text outline glitch-text" data-text="SCREENS ARE ISOLATING">SCREENS ARE ISOLATING</h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text solid text-gradient glitch-text" data-text="THE CITY IS WAITING">THE CITY IS WAITING</h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text outline glitch-text" data-text="BREAK THE ALGORITHM">BREAK THE ALGORITHM</h2>
+                    </div>
+                    <div class="manifesto-block gs-manifesto">
+                        <h2 class="kinetic-text solid glitch-text" data-text="BECOME THE PARTY">BECOME THE PARTY</h2>
+                    </div>
+                    <p class="philosophy-sub gs-reveal">We built Cloudy because the best moments of your life won't happen on a timeline. They happen out there. Real people. Real time. Pure energy.</p>
+                </section>
+
+                <!-- Horizontal Scroll Features & Simulator -->
+                <section class="horizontal-scroll-section" id="features">
+                    <div class="horizontal-scroll-container">
+                        
+                        <div class="horizontal-panel intro-panel">
+                            <h2 class="giant-text glitch-text" data-text="THE ARSENAL">THE<br><span class="text-gradient">ARSENAL</span></h2>
+                            <p>Scroll to unlock the city.</p>
+                        </div>
+
+                        <!-- Simulator Panel -->
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">The Radar Simulator</h3>
+                                    <p>Watch the city breathe. <br><strong style="color:var(--neon-blue);">Click anywhere on the map below to launch a Live Flare.</strong> Experience the shockwave.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <div id="simulator-map" class="simulator-map magnetic audio-hover" data-strength="10">
+                                        <div class="simulator-overlay-text">CLICK TO LAUNCH FLARE</div>
+                                        <img src="./assets/cloudy_hero_mockup_1778082532904.png" alt="Map Simulator" class="simulator-img">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">Social Tables</h3>
+                                    <p>Break the ice instantly. Join ongoing tables at your venue.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <img src="./assets/cloudy_bento_mockup_1778082550221.png" alt="Social Tables" class="bento-img magnetic audio-hover" data-strength="30">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="horizontal-panel">
+                            <div class="panel-content">
+                                <div class="panel-text">
+                                    <h3 class="split-text">Neon Stories</h3>
+                                    <p>Capture the raw energy. Fleeting moments that disappear in 24 hours.</p>
+                                </div>
+                                <div class="panel-visual">
+                                    <img src="./assets/cloudy_stories_mockup_1778082566140.png" alt="Stories" class="bento-img magnetic audio-hover" data-strength="30">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- Cinematic Testimonials -->
+                <section class="cinematic-cult">
+                    <h2 class="giant-text text-center glitch-text gs-reveal" data-text="THE CULT">THE CULT</h2>
+                    <div class="cult-grid">
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-1"></div>
+                            <div class="cult-content">
+                                <h3>"INSANE ENERGY."</h3>
+                                <p>Alex M. - Milano</p>
+                            </div>
+                        </div>
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-2"></div>
+                            <div class="cult-content">
+                                <h3>"NO MORE FOMO."</h3>
+                                <p>Sarah T. - Roma</p>
+                            </div>
+                        </div>
+                        <div class="cult-card gs-reveal">
+                            <div class="cult-bg cult-bg-3"></div>
+                            <div class="cult-content">
+                                <h3>"THE CITY IS ALIVE."</h3>
+                                <p>Jordan K. - Torino</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- B2B Dark Portal -->
+                <section class="b2b-portal" id="b2b">
+                    <div class="b2b-content gs-reveal">
+                        <h2 class="giant-text red-glitch" data-text="OWNERS & CREATORS">OWNERS & CREATORS</h2>
+                        <h3 class="b2b-subtitle">DOMINATE YOUR ZONE.</h3>
+                        <p class="b2b-desc">Claim your venue on Cloudy. Send targeted flares, manage your social tables, and watch the crowds surge to your door in real-time. This is the ultimate weapon for nightlife dominance.</p>
+                        <a href="#" class="btn-massive b2b-btn magnetic audio-hover cta-waitlist" data-strength="40" data-terminal="b2b">
+                            CLAIM VENUE
+                        </a>
+                    </div>
+                </section>
+
+                <!-- Download Section -->
+                <section class="download" id="download">
+                    <div class="download-content gs-reveal">
+                        <h2 class="giant-text text-gradient split-text">READY?</h2>
+                        <p class="download-sub">The night is waiting. Join the waitlist now.</p>
+                        <a href="#" class="btn-massive magnetic audio-hover cta-waitlist" data-strength="60">
+                            DOWNLOAD iOS
+                        </a>
+                    </div>
+                </section>
+
+                <footer>
+                    <div class="footer-content">
+                        <div class="brand">
+                            <span class="logo-icon">⚡</span> CLOUDY
+                        </div>
+                        <div class="links">
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Privacy</a>
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Terms</a>
+                            <a href="#" class="magnetic audio-hover" data-strength="15">Contact</a>
+                        </div>
+                    </div>
+                    <div class="footer-bottom">
+                        &copy; 2026 Cloudy Inc. The Night Is Ours.
+                    </div>
+                </footer>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- GSAP Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    
+    <!-- Custom Module Script -->
+    <script type="module" src="./script.js"></script>
 </body>
 </html>
