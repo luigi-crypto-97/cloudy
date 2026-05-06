@@ -10,6 +10,7 @@
 
 import SwiftUI
 import AVKit
+import UIKit
 
 struct StoryViewerView: View {
     let storiesByUser: [[UserStory]]
@@ -38,6 +39,8 @@ struct StoryViewerView: View {
     @State private var showsPrivateReply = false
     @State private var isSendingPrivateReply = false
     @State private var showLikeBurst: Bool = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeletingStory = false
 
     private let storyDuration: Double = 15
 
@@ -148,6 +151,14 @@ struct StoryViewerView: View {
         .sheet(isPresented: $showsShare) {
             shareSheet
         }
+        .confirmationDialog("Eliminare questa storia?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("Elimina storia", role: .destructive) {
+                Task { await deleteCurrentStory() }
+            }
+            Button("Annulla", role: .cancel) {}
+        } message: {
+            Text("La storia verra rimossa per tutti e non sara piu visibile.")
+        }
         .onLongPressGesture(minimumDuration: 0.08, maximumDistance: 38, pressing: { pressing in
             isPaused = pressing
         }, perform: {})
@@ -229,6 +240,21 @@ struct StoryViewerView: View {
                     .foregroundStyle(.white.opacity(0.7))
             }
             Spacer()
+            if canDeleteCurrentStory {
+                Button {
+                    isPaused = true
+                    showDeleteConfirmation = true
+                    Haptics.tap()
+                } label: {
+                    Image(systemName: isDeletingStory ? "hourglass" : "trash")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .disabled(isDeletingStory)
+            }
             Button {
                 close()
             } label: {
@@ -704,10 +730,44 @@ struct StoryViewerView: View {
         }
     }
 
+    private func deleteCurrentStory() async {
+        guard canDeleteCurrentStory else { return }
+        isDeletingStory = true
+        defer {
+            isDeletingStory = false
+            isPaused = false
+        }
+
+        do {
+            let deletedId = currentStory.id
+            try await API.deleteStory(id: deletedId)
+            if localUserStories.isEmpty {
+                localUserStories = storiesByUser[safe: userIndex] ?? []
+            }
+            localUserStories.removeAll { $0.id == deletedId }
+            Haptics.success()
+
+            if localUserStories.isEmpty {
+                close()
+            } else {
+                storyIndex = min(storyIndex, localUserStories.count - 1)
+                resetPerStoryState()
+                startProgress()
+            }
+        } catch {
+            Haptics.error()
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
     // MARK: - Helpers
 
     private var canPrivateReply: Bool {
         API.currentUserId != currentStory.userId
+    }
+
+    private var canDeleteCurrentStory: Bool {
+        API.currentUserId == currentStory.userId
     }
 
     private func updateCurrentStory(_ update: (inout UserStory) -> Void) {
@@ -734,7 +794,7 @@ private struct StoryVideoPlayer: View {
     var body: some View {
         ZStack {
             if let player {
-                VideoPlayer(player: player)
+                StoryFillVideoPlayer(player: player)
                     .onAppear { player.play() }
                     .onDisappear { player.pause() }
             } else if loadFailed {
@@ -755,6 +815,32 @@ private struct StoryVideoPlayer: View {
                 loadFailed = true
             }
         }
+    }
+}
+
+private struct StoryFillVideoPlayer: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> PlayerContainerView {
+        let view = PlayerContainerView()
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.playerLayer.player = player
+        return view
+    }
+
+    func updateUIView(_ uiView: PlayerContainerView, context: Context) {
+        uiView.playerLayer.videoGravity = .resizeAspectFill
+        uiView.playerLayer.player = player
+    }
+}
+
+private final class PlayerContainerView: UIView {
+    override static var layerClass: AnyClass {
+        AVPlayerLayer.self
+    }
+
+    var playerLayer: AVPlayerLayer {
+        layer as! AVPlayerLayer
     }
 }
 
