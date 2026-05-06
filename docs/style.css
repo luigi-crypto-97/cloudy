@@ -165,3 +165,59 @@ footer { padding: 5rem 3rem 2rem; border-top: 1px solid rgba(255,255,255,0.1); b
 .footer-content .brand { font-size: 2.5rem; font-family: var(--font-heading); font-weight: 900; }
 .footer-content .links a { margin-left: 3rem; color: var(--text-muted); text-decoration: none; font-size: 1.2rem; }
 .footer-bottom { text-align: center; color: var(--text-muted); }
+
+/* ========================================
+   MOBILE RESPONSIVE OVERHAUL 
+   ======================================== */
+@media (max-width: 768px) {
+    * { cursor: auto !important; }
+    .cursor-dot, .cursor-glow { display: none !important; }
+
+    .nav-content { padding: 0 1.5rem; }
+    .nav-links a:not(.cta-waitlist) { display: none; }
+    .btn-neon { padding: 0.6rem 1.2rem; font-size: 0.9rem; }
+
+    .hero { padding: 8rem 1.5rem 2rem; flex-direction: column; text-align: center; justify-content: center; }
+    .hero-content { margin-bottom: 3rem; }
+    .hero-title { font-size: 4rem; }
+    .hero-subtitle { font-size: 1.1rem; margin: 0 auto 3rem; }
+    .btn-primary { width: 160px; height: 160px; font-size: 1rem; }
+    .mockup-container { width: 300px; }
+    
+    .manifesto-section { padding: 8rem 1rem; }
+    .kinetic-text { font-size: 3rem; white-space: normal; line-height: 1.1; }
+    .manifesto-block { margin-bottom: 3rem; }
+    .philosophy-sub { margin-top: 5rem; font-size: 1.5rem; }
+
+    .horizontal-scroll-container { width: auto; flex-direction: column; height: auto; display: block; }
+    .horizontal-scroll-section { height: auto; overflow: visible; }
+    .horizontal-panel { width: 100vw; height: auto; padding: 4rem 1.5rem; text-align: center; }
+    .panel-content { flex-direction: column; gap: 3rem; }
+    .panel-text h3 { font-size: 3rem; }
+    .panel-text p { font-size: 1.2rem; }
+    .intro-panel { align-items: center; text-align: center; min-height: 50vh; }
+    .intro-panel .giant-text { font-size: 4rem; }
+
+    .cinematic-cult { padding: 5rem 1.5rem; }
+    .cult-card { height: 250px; }
+    .cult-content h3 { font-size: 2.5rem; }
+    
+    .b2b-portal { padding: 6rem 1.5rem; }
+    .b2b-subtitle { font-size: 2rem; }
+    .b2b-desc { font-size: 1.2rem; }
+    .btn-massive { padding: 1.5rem 2.5rem; font-size: 1.5rem; }
+
+    .download { padding: 0 1.5rem; }
+    .download .giant-text { font-size: 5rem; }
+
+    .footer-content { flex-direction: column; gap: 2rem; }
+    .footer-content .links a { margin: 0 1rem; }
+
+    #live-stats-hud { bottom: 15px; left: 15px; transform: scale(0.8); transform-origin: bottom left; }
+
+    #waitlist-terminal { padding: 2rem 1rem; }
+    .terminal-header { font-size: 0.9rem; }
+    #terminal-output { font-size: 1rem; }
+    .terminal-input-line { font-size: 1.2rem; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .terminal-input-line input { font-size: 1.2rem; width: 100%; }
+}

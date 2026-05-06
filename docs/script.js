@@ -12,6 +12,9 @@ const RGBShiftShader = {
 
 document.addEventListener("DOMContentLoaded", () => {
     
+    // Check if mobile
+    const isMobile = window.innerWidth <= 768;
+
     // --- 0. Enter Gate & Web Audio API ---
     const enterGate = document.getElementById('enter-gate');
     const btnEnter = document.getElementById('btn-enter');
@@ -108,9 +111,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    document.querySelectorAll('.audio-hover').forEach(el => el.addEventListener('mouseenter', playHoverSound));
+    if (!isMobile) {
+        document.querySelectorAll('.audio-hover').forEach(el => el.addEventListener('mouseenter', playHoverSound));
+    }
 
-    // --- 1. Custom Cursor ---
+    // --- 1. Custom Cursor & Touch Tracker ---
     const cursorDot = document.querySelector('.cursor-dot');
     const cursorGlow = document.querySelector('.cursor-glow');
     let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
@@ -118,27 +123,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.addEventListener('mousemove', (e) => {
         mouseX = e.clientX; mouseY = e.clientY;
-        cursorDot.style.left = `${mouseX}px`; cursorDot.style.top = `${mouseY}px`;
-        cursorGlow.animate({ left: `${mouseX}px`, top: `${mouseY}px` }, { duration: 200, fill: "forwards" });
-        
+        if (!isMobile) {
+            cursorDot.style.left = `${mouseX}px`; cursorDot.style.top = `${mouseY}px`;
+            cursorGlow.animate({ left: `${mouseX}px`, top: `${mouseY}px` }, { duration: 200, fill: "forwards" });
+        }
         mouseSpeed = Math.sqrt((mouseX-lastMouseX)**2 + (mouseY-lastMouseY)**2);
         lastMouseX = mouseX; lastMouseY = mouseY;
     });
 
-    document.querySelectorAll('a, button, .magnetic, input').forEach(el => {
-        el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
-        el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+    window.addEventListener('touchmove', (e) => {
+        if(e.touches.length > 0) {
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+            mouseSpeed = Math.sqrt((mouseX-lastMouseX)**2 + (mouseY-lastMouseY)**2);
+            lastMouseX = mouseX; lastMouseY = mouseY;
+        }
     });
 
-    // --- 2. Magnetic UX ---
-    document.querySelectorAll('.magnetic').forEach(el => {
-        el.addEventListener('mousemove', (e) => {
-            const rect = el.getBoundingClientRect();
-            const strength = el.getAttribute('data-strength') || 20;
-            gsap.to(el, { x: (e.clientX - (rect.left + rect.width/2)) * (strength/100), y: (e.clientY - (rect.top + rect.height/2)) * (strength/100), duration: 0.3, ease: "power2.out" });
+    if (!isMobile) {
+        document.querySelectorAll('a, button, .magnetic, input').forEach(el => {
+            el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+            el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
         });
-        el.addEventListener('mouseleave', () => gsap.to(el, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1, 0.3)" }));
-    });
+    }
+
+    // --- 2. Magnetic UX ---
+    if (!isMobile) {
+        document.querySelectorAll('.magnetic').forEach(el => {
+            el.addEventListener('mousemove', (e) => {
+                const rect = el.getBoundingClientRect();
+                const strength = el.getAttribute('data-strength') || 20;
+                gsap.to(el, { x: (e.clientX - (rect.left + rect.width/2)) * (strength/100), y: (e.clientY - (rect.top + rect.height/2)) * (strength/100), duration: 0.3, ease: "power2.out" });
+            });
+            el.addEventListener('mouseleave', () => gsap.to(el, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1, 0.3)" }));
+        });
+    }
 
     // --- 3. Text Splitter ---
     document.querySelectorAll('.split-text').forEach(el => {
@@ -158,10 +177,20 @@ document.addEventListener("DOMContentLoaded", () => {
     let flaresCount = 42;
     const statFlares = document.getElementById('stat-flares');
 
-    simMap.addEventListener('click', (e) => {
+    function triggerFlare(e) {
+        e.preventDefault();
         const rect = simMap.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        
+        if(e.type === 'touchstart') {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
 
         const flare = document.createElement('div');
         flare.className = 'sim-flare';
@@ -177,7 +206,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => statFlares.style.color = 'var(--neon-blue)', 200);
 
         setTimeout(() => flare.remove(), 2000);
-    });
+    }
+
+    simMap.addEventListener('click', triggerFlare);
+    simMap.addEventListener('touchstart', triggerFlare, {passive: false});
 
     // --- 5. Live Stats Engine ---
     function startStatsEngine() {
@@ -214,7 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             isB2B = btn.getAttribute('data-terminal') === 'b2b';
             
-            // Glitch effect on body before showing terminal
             document.body.style.animation = 'glitch-anim-1 0.2s 3';
             setTimeout(() => {
                 document.body.style.animation = '';
@@ -270,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     terminalInput.addEventListener('keydown', (e) => {
         playTypeSound();
-        if(e.key === 'Enter') {
+        if(e.key === 'Enter' || e.keyCode === 13) {
             const handle = terminalInput.value.trim().toUpperCase();
             if(handle.length < 2) return;
             
@@ -280,7 +311,6 @@ document.addEventListener("DOMContentLoaded", () => {
             p.innerText = `> ${handle}`;
             terminalOutput.appendChild(p);
 
-            // Simulate hacking/processing
             setTimeout(() => {
                 const processLine = document.createElement('div');
                 processLine.className = 'terminal-line';
@@ -406,6 +436,11 @@ document.addEventListener("DOMContentLoaded", () => {
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         composer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Reset horizontal scroll pinning on resize
+        if (window.innerWidth <= 768) {
+            ScrollTrigger.refresh();
+        }
     });
 
     // --- 8. GSAP ScrollTriggers ---
@@ -421,20 +456,23 @@ document.addEventListener("DOMContentLoaded", () => {
         gsap.utils.toArray('.gs-manifesto').forEach((block, i) => {
             gsap.from(block, {
                 scrollTrigger: { trigger: block, start: "top 80%", toggleActions: "play none none reverse" },
-                x: i % 2 === 0 ? -200 : 200, opacity: 0, duration: 1.5, ease: "power3.out"
+                x: i % 2 === 0 ? -100 : 100, opacity: 0, duration: 1.5, ease: "power3.out"
             });
         });
 
-        const horizontalContainer = document.querySelector('.horizontal-scroll-container');
-        const panels = gsap.utils.toArray('.horizontal-panel');
-        gsap.to(panels, {
-            xPercent: -100 * (panels.length - 1),
-            ease: "none",
-            scrollTrigger: { trigger: ".horizontal-scroll-section", pin: true, scrub: 1, snap: 1 / (panels.length - 1), end: () => "+=" + horizontalContainer.offsetWidth }
-        });
+        // Only apply horizontal pinning on desktop
+        if (!isMobile) {
+            const horizontalContainer = document.querySelector('.horizontal-scroll-container');
+            const panels = gsap.utils.toArray('.horizontal-panel');
+            gsap.to(panels, {
+                xPercent: -100 * (panels.length - 1),
+                ease: "none",
+                scrollTrigger: { trigger: ".horizontal-scroll-section", pin: true, scrub: 1, snap: 1 / (panels.length - 1), end: () => "+=" + horizontalContainer.offsetWidth }
+            });
+        }
 
         gsap.utils.toArray('.gs-reveal').forEach(elem => {
-            gsap.from(elem, { scrollTrigger: { trigger: elem, start: "top 85%", toggleActions: "play none none reverse" }, y: 100, opacity: 0, duration: 1, ease: "power3.out" });
+            gsap.from(elem, { scrollTrigger: { trigger: elem, start: "top 85%", toggleActions: "play none none reverse" }, y: 50, opacity: 0, duration: 1, ease: "power3.out" });
         });
     }
 });
