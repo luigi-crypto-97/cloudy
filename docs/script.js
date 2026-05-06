@@ -241,17 +241,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const terminalInput = document.getElementById('terminal-input');
     let isB2B = false;
 
+    function handleCTA(e) {
+        if(e.cancelable) e.preventDefault();
+        const btn = e.currentTarget;
+        isB2B = btn.getAttribute('data-terminal') === 'b2b';
+        
+        document.body.style.animation = 'glitch-anim-1 0.2s 3';
+        setTimeout(() => {
+            document.body.style.animation = '';
+            openTerminal();
+        }, 600);
+    }
+
     document.querySelectorAll('.cta-waitlist').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            isB2B = btn.getAttribute('data-terminal') === 'b2b';
-            
-            document.body.style.animation = 'glitch-anim-1 0.2s 3';
-            setTimeout(() => {
-                document.body.style.animation = '';
-                openTerminal();
-            }, 600);
-        });
+        btn.addEventListener('click', handleCTA);
+        btn.addEventListener('touchstart', handleCTA, {passive: false});
     });
 
     function openTerminal() {
@@ -357,9 +361,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const terminalCloseBtn = document.getElementById('terminal-close');
     if (terminalCloseBtn) {
-        terminalCloseBtn.addEventListener('click', () => {
+        function closeTerminal(e) {
+            if(e.cancelable) e.preventDefault();
             terminal.style.display = 'none';
-        });
+        }
+        terminalCloseBtn.addEventListener('click', closeTerminal);
+        terminalCloseBtn.addEventListener('touchstart', closeTerminal, {passive: false});
     }
 
     // --- 7. Three.js: Globe & Particles ---

@@ -173,6 +173,7 @@ footer { padding: 5rem 3rem 2rem; border-top: 1px solid rgba(255,255,255,0.1); b
    ======================================== */
 @media (max-width: 768px) {
     * { cursor: auto !important; }
+    a, button, .cta-waitlist, .simulator-map, #terminal-close { cursor: pointer !important; }
     .cursor-dot, .cursor-glow { display: none !important; }
 
     .nav-content { padding: 0 1.5rem; }
